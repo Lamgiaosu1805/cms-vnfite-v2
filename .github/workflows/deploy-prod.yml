@@ -1,13 +1,8 @@
 name: Deploy → Live (cms.vnfite.com.vn)
 
 on:
-  # Chỉ chạy khi trigger thủ công — không tự động
-  workflow_dispatch:
-    inputs:
-      reason:
-        description: 'Lý do deploy live (vd: release v1.2, hotfix login)'
-        required: true
-        type: string
+  push:
+    branches: [release]  # Chỉ chạy khi có code được merge vào release
 
 env:
   SERVER: root@42.113.122.155
@@ -18,10 +13,6 @@ jobs:
   deploy:
     name: Build & Deploy to Live
     runs-on: ubuntu-latest
-
-    # 🔒 Dừng tại đây, chờ reviewer approve trên GitHub
-    # Cấu hình reviewer tại: Settings → Environments → production
-    environment: production
 
     steps:
       - name: Checkout
