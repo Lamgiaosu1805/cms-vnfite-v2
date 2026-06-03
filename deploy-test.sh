@@ -1,27 +1,31 @@
 #!/bin/bash
-# Deploy CMS Web lên test server
-# URL sau deploy: http://cms-test.vnfite.com.vn  (sau khi DNS trỏ về 42.113.122.119)
-# SSH key: ~/.ssh/jenkins_test (hoặc set SSH_KEY_PATH env var)
+# Deploy CMS Web lên TEST environment
+# URL: https://cms-test.vnfite.com.vn
+#
+# Static files đặt tại reverse proxy 42.113.122.155 (/var/www/cms-web-test)
+# /cms API proxy qua docker test backend 42.113.122.119:7080
+#
+# SSH key: ~/.ssh/jenkins_test hoặc set SSH_KEY_PATH
 
 set -e
 
-SERVER="root@42.113.122.119"
-REMOTE_DIR="/opt/cms-web-test"
+SERVER="root@42.113.122.155"
+SSH_PORT="2222"
+REMOTE_DIR="/var/www/cms-web-test"
 SSH_KEY="${SSH_KEY_PATH:-$HOME/.ssh/jenkins_test}"
-SSH_OPTS="-i $SSH_KEY -o StrictHostKeyChecking=no"
+SSH_OPTS="-i $SSH_KEY -p $SSH_PORT -o StrictHostKeyChecking=no"
 
 echo "=== Build CMS Web (test mode) ==="
 npm run build:test
 
 echo ""
-echo "=== Upload lên test server: $SERVER ==="
+echo "=== Upload lên reverse proxy: $SERVER ==="
 ssh $SSH_OPTS "$SERVER" "mkdir -p $REMOTE_DIR"
 rsync -avz --delete -e "ssh $SSH_OPTS" dist/ "$SERVER:$REMOTE_DIR/"
 
 echo ""
-echo "=== Reload Apache ==="
-ssh $SSH_OPTS "$SERVER" "systemctl reload apache2"
+echo "=== Reload nginx ==="
+ssh $SSH_OPTS "$SERVER" "nginx -t && systemctl reload nginx"
 
 echo ""
-echo "✅ Done! CMS Web Test: http://cms-test.vnfite.com.vn"
-echo "   (Cần DNS A record: cms-test.vnfite.com.vn → 42.113.122.119)"
+echo "✅ Done! https://cms-test.vnfite.com.vn"
