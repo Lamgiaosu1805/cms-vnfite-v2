@@ -1,0 +1,65 @@
+name: Deploy → Live (cms.vnfite.com.vn)
+
+on:
+  # Chỉ chạy khi trigger thủ công — không tự động
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Lý do deploy live (vd: release v1.2, hotfix login)'
+        required: true
+        type: string
+
+env:
+  SERVER: root@42.113.122.155
+  SSH_PORT: 2222
+  REMOTE_DIR: /var/www/cms-web-prod
+
+jobs:
+  deploy:
+    name: Build & Deploy to Live
+    runs-on: ubuntu-latest
+
+    # 🔒 Dừng tại đây, chờ reviewer approve trên GitHub
+    # Cấu hình reviewer tại: Settings → Environments → production
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (production mode)
+        run: npm run build:prod
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY_TEST }}" | base64 -d > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p ${{ env.SSH_PORT }} -H 42.113.122.155 >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy to server
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ env.SSH_PORT }} ${{ env.SERVER }} \
+            "mkdir -p ${{ env.REMOTE_DIR }}"
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ env.SSH_PORT }}" \
+            dist/ ${{ env.SERVER }}:${{ env.REMOTE_DIR }}/
+
+      - name: Reload nginx
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ env.SSH_PORT }} ${{ env.SERVER }} \
+            "nginx -t && systemctl reload nginx"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
