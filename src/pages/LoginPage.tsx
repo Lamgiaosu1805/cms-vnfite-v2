@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Lock, RefreshCw } from 'lucide-react';
+import { BarChart3, CircleDollarSign, Lock, RefreshCw, Users } from 'lucide-react';
 import { login, type AdminInfo } from '../api/client';
 
 interface LoginPageProps {
@@ -38,20 +38,23 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
         <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-10"
           style={{ background: 'radial-gradient(circle, #E8A030, transparent)', transform: 'translate(-30%, 30%)' }} />
 
-        <img src="/logo.png" alt="VnFite" className="w-32 h-32 object-contain mb-8 drop-shadow-2xl" />
+        {/* Logo trong khung trắng để nổi trên nền đỏ */}
+        <div className="w-28 h-28 rounded-3xl bg-white flex items-center justify-center mb-8 shadow-2xl">
+          <img src="/logo.png" alt="VnFite" className="w-20 h-20 object-contain" />
+        </div>
         <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">VnFite CMS</h1>
         <p className="text-red-200 text-lg text-center max-w-xs">
           Cổng quản trị nền tảng cho vay ngang hàng
         </p>
 
-        <div className="mt-12 grid grid-cols-3 gap-6 w-full max-w-xs">
+        <div className="mt-12 grid grid-cols-3 gap-4 w-full max-w-xs">
           {[
-            { label: 'Khách hàng', icon: '👥' },
-            { label: 'Khoản vay', icon: '💰' },
-            { label: 'Thống kê', icon: '📊' },
+            { label: 'Khách hàng', icon: <Users size={22} className="text-white" /> },
+            { label: 'Khoản vay', icon: <CircleDollarSign size={22} className="text-white" /> },
+            { label: 'Thống kê', icon: <BarChart3 size={22} className="text-white" /> },
           ].map((item) => (
-            <div key={item.label} className="flex flex-col items-center gap-2 bg-white/10 rounded-xl p-3">
-              <span className="text-2xl">{item.icon}</span>
+            <div key={item.label} className="flex flex-col items-center gap-2 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.12)' }}>
+              {item.icon}
               <span className="text-white text-xs font-medium">{item.label}</span>
             </div>
           ))}
@@ -63,7 +66,9 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="flex lg:hidden flex-col items-center mb-8">
-            <img src="/logo.png" alt="VnFite" className="w-20 h-20 object-contain mb-3" />
+            <div className="w-16 h-16 rounded-2xl bg-white shadow-md border border-red-100 flex items-center justify-center mb-3">
+              <img src="/logo.png" alt="VnFite" className="w-12 h-12 object-contain" />
+            </div>
             <h1 className="text-2xl font-bold" style={{ color: '#C82020' }}>VnFite CMS</h1>
           </div>
 
