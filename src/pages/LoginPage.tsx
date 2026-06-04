@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { BarChart3, CircleDollarSign, Lock, RefreshCw, Users } from 'lucide-react';
-import { login, type AdminInfo } from '../api/client';
+import { login, saveLastUsername, getLastUsername } from '../api/client';
 
 interface LoginPageProps {
-  onLoggedIn: (admin: AdminInfo, mustChangePassword: boolean) => void;
+  onPasswordVerified: (pendingToken: string, totpEnabled: boolean) => void;
 }
 
-export function LoginPage({ onLoggedIn }: LoginPageProps) {
-  const [username, setUsername] = useState('admin');
+export function LoginPage({ onPasswordVerified }: LoginPageProps) {
+  const [username, setUsername] = useState(getLastUsername);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,8 +17,9 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
     setError('');
     setLoading(true);
     try {
-      const { admin, mustChangePassword } = await login(username, password);
-      onLoggedIn(admin, mustChangePassword);
+      saveLastUsername(username);
+      const { pendingToken, totpEnabled } = await login(username, password);
+      onPasswordVerified(pendingToken, totpEnabled);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
       setLoading(false);
@@ -32,13 +33,11 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
         className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #8B0A0A 0%, #C82020 60%, #E84A20 100%)' }}
       >
-        {/* Background decorations */}
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10"
           style={{ background: 'radial-gradient(circle, #ffffff, transparent)', transform: 'translate(30%, -30%)' }} />
         <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-10"
           style={{ background: 'radial-gradient(circle, #E8A030, transparent)', transform: 'translate(-30%, 30%)' }} />
 
-        {/* Logo trong khung trắng để nổi trên nền đỏ */}
         <div className="w-28 h-28 rounded-3xl bg-white flex items-center justify-center mb-8 shadow-2xl">
           <img src="/logo.png" alt="VNFITE" className="w-20 h-20 object-contain" />
         </div>
@@ -85,8 +84,7 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="username"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition"
-                  style={{ '--tw-ring-color': '#C82020' } as React.CSSProperties}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none transition"
                   onFocus={e => e.target.style.boxShadow = '0 0 0 2px rgba(200,32,32,0.25)'}
                   onBlur={e => e.target.style.boxShadow = ''}
                   required
@@ -122,7 +120,7 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
                 style={{ background: 'linear-gradient(135deg, #C82020, #8B0A0A)' }}
               >
                 {loading ? <RefreshCw size={18} className="animate-spin" /> : <Lock size={18} />}
-                Đăng nhập
+                Tiếp theo
               </button>
             </form>
           </div>

@@ -1,10 +1,31 @@
+import axios from 'axios';
+
 // Dùng relative URL để Vite proxy forward /cms → http://42.113.122.119:7080 (tránh CORS khi dev)
 // Khi build production, deploy cùng domain hoặc set VITE_API_BASE qua env
 const BASE_URL = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/cms';
 
-function getToken(): string | null {
-  return localStorage.getItem('cms_token');
-}
+const axiosClient = axios.create({ baseURL: BASE_URL });
+
+axiosClient.interceptors.request.use((config) => {
+  // Chỉ set token nếu chưa có (TOTP endpoints tự set pendingToken)
+  if (!config.headers.Authorization) {
+    const token = localStorage.getItem('cms_token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+axiosClient.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    const status = err.response?.status ?? 0;
+    const body = err.response?.data;
+    const message =
+      (body && typeof body === 'object' && (body.message || body.error)) ||
+      `Lỗi ${status}`;
+    return Promise.reject(new Error(message));
+  },
+);
 
 export function getStoredAdmin(): AdminInfo | null {
   const raw = localStorage.getItem('cms_admin');
@@ -29,25 +50,17 @@ export interface AdminInfo {
   role: string;
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
-  if (!res.ok) {
-    let message = `Lỗi ${res.status}`;
-    try {
-      const body = await res.json();
-      message = body.message || body.error || message;
-    } catch { /* ignore */ }
-    throw new Error(message);
-  }
-  if (res.status === 204) return undefined as T;
-  return res.json();
+async function request<T>(
+  path: string,
+  options: { method?: string; data?: unknown; authToken?: string } = {},
+): Promise<T> {
+  const res = await axiosClient.request<T>({
+    url: path,
+    method: options.method ?? 'GET',
+    data: options.data,
+    headers: options.authToken ? { Authorization: `Bearer ${options.authToken}` } : {},
+  });
+  return res.data;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -55,6 +68,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export interface LoginResult {
   admin: AdminInfo;
   mustChangePassword: boolean;
+}
+
+/** Kết quả sau bước nhập mật khẩu — cần tiếp tục với TOTP */
+export interface LoginInitResult {
+  pendingToken: string;
+  totpEnabled: boolean;
+}
+
+export interface TotpSetupData {
+  secret: string;
+  otpAuthUrl: string;
 }
 
 export async function checkSetupRequired(): Promise<boolean> {
@@ -65,16 +89,40 @@ export async function checkSetupRequired(): Promise<boolean> {
 export async function setupSuperAdmin(payload: {
   username: string; email: string; fullName: string; password: string;
 }): Promise<void> {
-  return request('/auth/setup', { method: 'POST', body: JSON.stringify(payload) });
+  return request('/auth/setup', { method: 'POST', data: payload });
 }
 
-export async function login(username: string, password: string): Promise<LoginResult> {
-  const data = await request<{
-    accessToken: string; admin: AdminInfo; mustChangePassword: boolean;
-  }>('/auth/login', {
+/** Bước 1: xác thực mật khẩu → nhận pendingToken */
+export async function login(username: string, password: string): Promise<LoginInitResult> {
+  return request<LoginInitResult>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    data: { username, password },
   });
+}
+
+/** Bước 2a: lấy QR code để thiết lập TOTP lần đầu */
+export async function initTotpSetup(pendingToken: string): Promise<TotpSetupData> {
+  return request<TotpSetupData>('/auth/totp/setup-init', { authToken: pendingToken });
+}
+
+/** Bước 2b: xác nhận mã OTP → kích hoạt 2FA + nhận session đầy đủ */
+export async function confirmTotpSetup(
+  pendingToken: string, secret: string, code: string,
+): Promise<LoginResult> {
+  const data = await request<{ accessToken: string; admin: AdminInfo; mustChangePassword: boolean }>(
+    '/auth/totp/setup-confirm',
+    { method: 'POST', data: { secret, code }, authToken: pendingToken },
+  );
+  saveSession(data.accessToken, data.admin);
+  return { admin: data.admin, mustChangePassword: data.mustChangePassword };
+}
+
+/** Bước 2c: nhập mã OTP khi đăng nhập (đã thiết lập 2FA trước đó) */
+export async function verifyTotp(pendingToken: string, code: string): Promise<LoginResult> {
+  const data = await request<{ accessToken: string; admin: AdminInfo; mustChangePassword: boolean }>(
+    '/auth/totp/verify',
+    { method: 'POST', data: { code }, authToken: pendingToken },
+  );
   saveSession(data.accessToken, data.admin);
   return { admin: data.admin, mustChangePassword: data.mustChangePassword };
 }
@@ -82,8 +130,16 @@ export async function login(username: string, password: string): Promise<LoginRe
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   return request('/auth/change-password', {
     method: 'POST',
-    body: JSON.stringify({ currentPassword, newPassword }),
+    data: { currentPassword, newPassword },
   });
+}
+
+// Ghi nhớ username để pre-fill khi phiên hết hạn
+export function saveLastUsername(username: string) {
+  localStorage.setItem('cms_last_username', username);
+}
+export function getLastUsername(): string {
+  return localStorage.getItem('cms_last_username') ?? '';
 }
 
 // ─── Admin Management (SUPER_ADMIN only) ──────────────────────────────────────
@@ -115,7 +171,7 @@ export async function listAdmins(): Promise<AdminItem[]> {
 export async function createAdmin(payload: {
   fullName: string; email: string; role: string;
 }): Promise<CreateAdminResult> {
-  return request('/admins', { method: 'POST', body: JSON.stringify(payload) });
+  return request('/admins', { method: 'POST', data: payload });
 }
 
 export async function toggleAdminActive(id: string): Promise<void> {
@@ -188,14 +244,14 @@ export async function fetchUsers(params: {
 export async function decideKyc(userId: string, decision: 'APPROVED' | 'REJECTED', reason?: string): Promise<void> {
   return request(`/users/${userId}/kyc-decision`, {
     method: 'POST',
-    body: JSON.stringify({ decision, reason }),
+    data: { decision, reason },
   });
 }
 
 export async function updateUserStatus(userId: string, status: string): Promise<void> {
   return request(`/users/${userId}/status`, {
     method: 'PUT',
-    body: JSON.stringify({ status }),
+    data: { status },
   });
 }
 
@@ -235,13 +291,13 @@ export async function fetchLoans(params: {
 export async function approveLoan(loanId: string, proposedInterestRate: number, notes?: string): Promise<void> {
   return request(`/loans/${loanId}/approve`, {
     method: 'POST',
-    body: JSON.stringify({ proposedInterestRate, notes }),
+    data: { proposedInterestRate, notes },
   });
 }
 
 export async function rejectLoan(loanId: string, reason: string): Promise<void> {
   return request(`/loans/${loanId}/reject`, {
     method: 'POST',
-    body: JSON.stringify({ reason }),
+    data: { reason },
   });
 }

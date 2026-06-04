@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { checkSetupRequired, clearSession, getStoredAdmin, type AdminInfo } from './api/client';
+import { checkSetupRequired, clearSession, getStoredAdmin, type AdminInfo, type LoginResult } from './api/client';
 import { LoginPage } from './pages/LoginPage';
 import { SetupPage } from './pages/SetupPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
+import { TotpSetupPage } from './pages/TotpSetupPage';
+import { TotpVerifyPage } from './pages/TotpVerifyPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { UsersPage } from './pages/UsersPage';
 import { LoansPage } from './pages/LoansPage';
@@ -21,6 +23,8 @@ type AppState =
   | { screen: 'loading' }
   | { screen: 'setup' }
   | { screen: 'login' }
+  | { screen: 'totp-setup'; pendingToken: string }
+  | { screen: 'totp-verify'; pendingToken: string }
   | { screen: 'change-password'; admin: AdminInfo }
   | { screen: 'main'; admin: AdminInfo };
 
@@ -28,7 +32,6 @@ export default function App() {
   const [state, setState] = useState<AppState>({ screen: 'loading' });
   const [tab, setTab] = useState<TabKey>('dashboard');
 
-  // Kiểm tra setup required khi load lần đầu
   useEffect(() => {
     const storedAdmin = getStoredAdmin();
     if (storedAdmin) {
@@ -40,7 +43,16 @@ export default function App() {
       .catch(() => setState({ screen: 'login' }));
   }, []);
 
-  function handleLoggedIn(admin: AdminInfo, mustChangePassword: boolean) {
+  /** Gọi sau bước xác thực mật khẩu — chuyển sang TOTP */
+  function handlePasswordVerified(pendingToken: string, totpEnabled: boolean) {
+    setState(totpEnabled
+      ? { screen: 'totp-verify', pendingToken }
+      : { screen: 'totp-setup', pendingToken }
+    );
+  }
+
+  /** Gọi sau khi TOTP xong và có accessToken đầy đủ */
+  function handleLoggedIn({ admin, mustChangePassword }: LoginResult) {
     if (mustChangePassword) {
       setState({ screen: 'change-password', admin });
     } else {
@@ -68,7 +80,27 @@ export default function App() {
   }
 
   if (state.screen === 'login') {
-    return <LoginPage onLoggedIn={handleLoggedIn} />;
+    return <LoginPage onPasswordVerified={handlePasswordVerified} />;
+  }
+
+  if (state.screen === 'totp-setup') {
+    return (
+      <TotpSetupPage
+        pendingToken={state.pendingToken}
+        onLoggedIn={handleLoggedIn}
+        onBack={() => setState({ screen: 'login' })}
+      />
+    );
+  }
+
+  if (state.screen === 'totp-verify') {
+    return (
+      <TotpVerifyPage
+        pendingToken={state.pendingToken}
+        onLoggedIn={handleLoggedIn}
+        onBack={() => setState({ screen: 'login' })}
+      />
+    );
   }
 
   if (state.screen === 'change-password') {
