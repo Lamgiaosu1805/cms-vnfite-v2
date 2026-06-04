@@ -19,6 +19,16 @@ axiosClient.interceptors.response.use(
   (res: AxiosResponse) => res,
   (err: AxiosError<{ message?: string; error?: string }>) => {
     const status = err.response?.status ?? 0;
+    // Token hết hạn hoặc không hợp lệ → xóa session, reload về trang login
+    if (status === 401 || status === 403) {
+      const hadSession = !!localStorage.getItem('cms_token');
+      localStorage.removeItem('cms_token');
+      localStorage.removeItem('cms_admin');
+      if (hadSession) {
+        window.location.reload();
+        return new Promise(() => {}); // giữ promise pending trong khi reload
+      }
+    }
     const body = err.response?.data;
     const message = body?.message || body?.error || `Lỗi ${status}`;
     return Promise.reject(new Error(message));
