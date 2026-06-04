@@ -281,6 +281,7 @@ export interface CmsLoan {
   loanId: string;
   loanCode: string | null;
   borrowerId: string;
+  productName: string | null;
   amount: number;
   /** Null khi mới tạo — CMS admin set khi approve */
   interestRate: number | null;

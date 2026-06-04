@@ -15,7 +15,7 @@ import { RefreshCw } from 'lucide-react';
 const PAGE_TITLES: Record<TabKey, string> = {
   dashboard: 'Dashboard',
   users: 'Khách hàng',
-  loans: 'Khoản vay',
+  loans: 'Gọi vốn',
   admins: 'Quản lý Admin',
 };
 

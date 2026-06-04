@@ -14,7 +14,7 @@ export function Sidebar({ admin, activeTab, onTabChange, onLogout }: SidebarProp
   const allItems: { key: TabKey; label: string; icon: React.ReactNode; roles?: string[] }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { key: 'users', label: 'Khách hàng', icon: <Users size={18} /> },
-    { key: 'loans', label: 'Khoản vay', icon: <CircleDollarSign size={18} /> },
+    { key: 'loans', label: 'Gọi vốn với NĐT', icon: <CircleDollarSign size={18} /> },
     { key: 'admins', label: 'Quản lý Admin', icon: <ShieldCheck size={18} />, roles: ['SUPER_ADMIN'] },
   ];
   const navItems = allItems.filter(item => !item.roles || item.roles.includes(admin.role));
