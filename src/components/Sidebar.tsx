@@ -25,10 +25,10 @@ export function Sidebar({ admin, activeTab, onTabChange, onLogout }: SidebarProp
       <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-md">
-            <img src="/logo.png" alt="VnFite" className="w-7 h-7 object-contain" />
+            <img src="/logo.png" alt="VNFITE" className="w-7 h-7 object-contain" />
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-sm leading-tight text-white">VnFite CMS</p>
+            <p className="font-bold text-sm leading-tight text-white">VNFITE CMS</p>
             <p className="text-xs text-red-200 truncate">{admin.fullName || admin.username}</p>
           </div>
         </div>

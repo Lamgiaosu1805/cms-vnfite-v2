@@ -40,9 +40,9 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
 
         {/* Logo trong khung trắng để nổi trên nền đỏ */}
         <div className="w-28 h-28 rounded-3xl bg-white flex items-center justify-center mb-8 shadow-2xl">
-          <img src="/logo.png" alt="VnFite" className="w-20 h-20 object-contain" />
+          <img src="/logo.png" alt="VNFITE" className="w-20 h-20 object-contain" />
         </div>
-        <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">VnFite CMS</h1>
+        <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">VNFITE CMS</h1>
         <p className="text-red-200 text-lg text-center max-w-xs">
           Cổng quản trị nền tảng cho vay ngang hàng
         </p>
@@ -67,9 +67,9 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
           {/* Mobile logo */}
           <div className="flex lg:hidden flex-col items-center mb-8">
             <div className="w-16 h-16 rounded-2xl bg-white shadow-md border border-red-100 flex items-center justify-center mb-3">
-              <img src="/logo.png" alt="VnFite" className="w-12 h-12 object-contain" />
+              <img src="/logo.png" alt="VNFITE" className="w-12 h-12 object-contain" />
             </div>
-            <h1 className="text-2xl font-bold" style={{ color: '#C82020' }}>VnFite CMS</h1>
+            <h1 className="text-2xl font-bold" style={{ color: '#C82020' }}>VNFITE CMS</h1>
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg border border-red-50 p-8">
@@ -128,7 +128,7 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
           </div>
 
           <p className="text-center text-xs text-gray-400 mt-6">
-            © 2025 VnFite. All rights reserved.
+            © 2025 VNFITE. All rights reserved.
           </p>
         </div>
       </div>
