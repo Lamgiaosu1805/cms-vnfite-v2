@@ -282,6 +282,7 @@ export interface CmsLoan {
   loanId: string;
   loanCode: string | null;
   borrowerId: string;
+  borrowerName: string | null;
   productName: string | null;
   amount: number;
   /** Null khi mới tạo — CMS admin set khi approve */
@@ -312,14 +313,14 @@ export async function fetchLoans(params: {
 
 export async function approveLoan(loanId: string, proposedInterestRate: number, notes?: string): Promise<void> {
   return request(`/loans/${loanId}/approve`, {
-    method: 'POST',
-    data: { proposedInterestRate, notes },
+    method: 'PUT',
+    data: { interestRate: proposedInterestRate, reason: notes },
   });
 }
 
 export async function rejectLoan(loanId: string, reason: string): Promise<void> {
   return request(`/loans/${loanId}/reject`, {
-    method: 'POST',
+    method: 'PUT',
     data: { reason },
   });
 }

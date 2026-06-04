@@ -21,6 +21,10 @@ function shortId(id: string | null | undefined) {
   return id.length > 8 ? id.slice(0, 8) + '…' : id;
 }
 
+function borrowerDisplayName(loan: CmsLoan) {
+  return loan.borrowerName || shortId(loan.borrowerId);
+}
+
 // ─── Modals ───────────────────────────────────────────────────────────────────
 
 function ApproveModal({ loan, onConfirm, onCancel }: {
@@ -158,7 +162,9 @@ export function LoansPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="text-left px-5 py-3.5">Khoản gọi vốn</th>
+                <th className="text-left px-5 py-3.5">Mã khoản</th>
+                <th className="text-left px-4 py-3.5">Người vay</th>
+                <th className="text-left px-4 py-3.5">Sản phẩm</th>
                 <th className="text-center px-4 py-3.5">Số tiền</th>
                 <th className="text-center px-4 py-3.5">Lãi suất</th>
                 <th className="text-center px-4 py-3.5">Kỳ hạn</th>
@@ -169,44 +175,47 @@ export function LoansPage() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading && !data && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">
+                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400">
                   <RefreshCw size={18} className="animate-spin inline mr-2" />Đang tải...
                 </td></tr>
               )}
               {data?.content.map(loan => (
                 <tr key={loan.loanId} className="hover:bg-gray-50/70 transition-colors">
-                  {/* Cột trái: mã + người vay + sản phẩm */}
-                  <td className="px-5 py-3.5">
+                  <td className="px-5 py-3.5 align-middle">
                     <p className="font-semibold text-gray-900 text-xs font-mono tracking-wide">
                       {loan.loanCode ?? shortId(loan.loanId)}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
-                      <span className="text-gray-400">Người vay:</span>
-                      <span className="font-mono">{shortId(loan.borrowerId)}</span>
+                  </td>
+                  <td className="px-4 py-3.5 align-middle">
+                    <p className="font-medium text-gray-800 whitespace-nowrap">
+                      {borrowerDisplayName(loan)}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[220px]">
+                    <p className="text-[11px] text-gray-400 font-mono mt-0.5">{shortId(loan.borrowerId)}</p>
+                  </td>
+                  <td className="px-4 py-3.5 align-middle">
+                    <p className="text-gray-700 truncate max-w-[180px]">
                       {loan.productName ?? loan.purpose ?? '—'}
                     </p>
                   </td>
 
-                  <td className="px-4 py-3.5 text-center font-semibold text-gray-800">
+                  <td className="px-4 py-3.5 text-center font-semibold text-gray-800 align-middle">
                     {formatMoney(loan.amount)}
                   </td>
-                  <td className="px-4 py-3.5 text-center text-gray-600">
+                  <td className="px-4 py-3.5 text-center text-gray-600 align-middle">
                     {loan.interestRate != null
                       ? <span className="font-medium">{loan.interestRate}%</span>
                       : <span className="text-gray-300 text-xs">—</span>}
                   </td>
-                  <td className="px-4 py-3.5 text-center text-gray-600">
+                  <td className="px-4 py-3.5 text-center text-gray-600 align-middle">
                     {loan.termMonths} tháng
                   </td>
-                  <td className="px-4 py-3.5 text-center">
+                  <td className="px-4 py-3.5 text-center align-middle">
                     <Badge value={loan.status} />
                   </td>
-                  <td className="px-4 py-3.5 text-center text-gray-400 text-xs">
+                  <td className="px-4 py-3.5 text-center text-gray-400 text-xs align-middle">
                     {formatDate(loan.createdAt)}
                   </td>
-                  <td className="px-4 py-3.5 text-center">
+                  <td className="px-4 py-3.5 text-center align-middle">
                     {loan.status === 'PENDING_REVIEW' && (
                       <div className="flex items-center justify-center gap-1.5">
                         <button onClick={() => setApproveModal(loan)} title="Phê duyệt"
@@ -223,7 +232,7 @@ export function LoansPage() {
                 </tr>
               ))}
               {data?.content.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400">
+                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400">
                   Không có khoản gọi vốn nào
                 </td></tr>
               )}
