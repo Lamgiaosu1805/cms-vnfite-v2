@@ -193,11 +193,16 @@ export async function toggleAdminActive(id: string): Promise<void> {
 
 export interface DashboardStats {
   totalUsers: number;
+  activeUsers: number;
   pendingKycCount: number;
+  todayNewUsers: number;
   totalLoans: number;
-  totalFundedVolume: number;
+  pendingLoans: number;
   activeLoans: number;
-  newUsersToday: number;
+  fundedLoans: number;
+  totalFundedVolume: number;
+  todayNewLoans: number;
+  todayLoanVolume: number;
 }
 
 export interface ChartPoint {
