@@ -17,20 +17,23 @@ axiosClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 axiosClient.interceptors.response.use(
   (res: AxiosResponse) => res,
-  (err: AxiosError<{ message?: string; error?: string }>) => {
+  (err: AxiosError<{ message?: string; error?: string; detail?: string }>) => {
     const status = err.response?.status ?? 0;
-    // Token hết hạn hoặc không hợp lệ → xóa session, reload về trang login
-    if (status === 401 || status === 403) {
+    const url = err.config?.url ?? '';
+    // Auth endpoints: 401/403 là lỗi nghiệp vụ (sai mật khẩu, sai OTP) — KHÔNG redirect
+    // Các endpoint khác: 401/403 nghĩa là session hết hạn → xóa session + reload về login
+    const isAuthEndpoint = url.includes('/auth/');
+    if ((status === 401 || status === 403) && !isAuthEndpoint) {
       const hadSession = !!localStorage.getItem('cms_token');
       localStorage.removeItem('cms_token');
       localStorage.removeItem('cms_admin');
       if (hadSession) {
         window.location.reload();
-        return new Promise(() => {}); // giữ promise pending trong khi reload
+        return new Promise(() => {});
       }
     }
     const body = err.response?.data;
-    const message = body?.message || body?.error || `Lỗi ${status}`;
+    const message = body?.message || body?.error || body?.detail || `Lỗi ${status}`;
     return Promise.reject(new Error(message));
   },
 );
