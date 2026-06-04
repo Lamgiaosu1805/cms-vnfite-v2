@@ -231,6 +231,7 @@ export interface CmsUser {
   phone: string;
   email: string | null;
   fullName: string | null;
+  cccdNumber: string | null;
   role: string;
   kycStatus: string;
   accountStatus: string;

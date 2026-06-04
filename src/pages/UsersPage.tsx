@@ -167,7 +167,7 @@ export function UsersPage() {
               <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 <th className="text-left px-5 py-3.5">Tên khách hàng</th>
                 <th className="text-center px-4 py-3.5">SĐT</th>
-                <th className="text-center px-4 py-3.5">Vai trò</th>
+                <th className="text-center px-4 py-3.5">Số CCCD</th>
                 <th className="text-center px-4 py-3.5">KYC</th>
                 <th className="text-center px-4 py-3.5">Trạng thái</th>
                 <th className="text-center px-4 py-3.5">Ngày tạo</th>
@@ -187,7 +187,9 @@ export function UsersPage() {
                     {user.email && <p className="text-xs text-gray-400 mt-0.5">{user.email}</p>}
                   </td>
                   <td className="px-4 py-3.5 text-center text-gray-700">{user.phone || '-'}</td>
-                  <td className="px-4 py-3.5 text-center text-gray-500 text-xs font-medium">{user.role}</td>
+                  <td className="px-4 py-3.5 text-center text-gray-600 font-mono text-xs tracking-wide">
+                    {user.cccdNumber || <span className="text-gray-300">—</span>}
+                  </td>
                   <td className="px-4 py-3.5 text-center"><Badge value={user.kycStatus} /></td>
                   <td className="px-4 py-3.5 text-center"><Badge value={user.accountStatus} /></td>
                   <td className="px-4 py-3.5 text-center text-gray-400 text-xs">{formatDate(user.createdAt)}</td>
