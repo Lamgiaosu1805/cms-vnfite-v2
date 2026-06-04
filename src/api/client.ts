@@ -202,17 +202,20 @@ export interface DashboardStats {
 
 export interface ChartPoint {
   date: string;
+  label: string;
   newUsers: number;
   newLoans: number;
   loanVolume: number;
 }
 
+export type ChartPeriod = 'day' | 'week' | 'month';
+
 export async function fetchStats(): Promise<DashboardStats> {
   return request('/dashboard/stats');
 }
 
-export async function fetchChart(): Promise<{ points: ChartPoint[] }> {
-  return request('/dashboard/chart');
+export async function fetchChart(period: ChartPeriod = 'day'): Promise<{ points: ChartPoint[] }> {
+  return request(`/dashboard/chart?period=${period}`);
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
