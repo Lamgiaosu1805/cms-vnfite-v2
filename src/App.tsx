@@ -1,39 +1,94 @@
-import { useState } from 'react';
-import { clearSession, getStoredAdmin, type AdminInfo } from './api/client';
+import { useEffect, useState } from 'react';
+import { checkSetupRequired, clearSession, getStoredAdmin, type AdminInfo } from './api/client';
 import { LoginPage } from './pages/LoginPage';
+import { SetupPage } from './pages/SetupPage';
+import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { UsersPage } from './pages/UsersPage';
 import { LoansPage } from './pages/LoansPage';
+import { AdminsPage } from './pages/AdminsPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
+import { RefreshCw } from 'lucide-react';
 
 const PAGE_TITLES: Record<TabKey, string> = {
   dashboard: 'Dashboard',
   users: 'Khách hàng',
   loans: 'Khoản vay',
+  admins: 'Quản lý Admin',
 };
 
+type AppState =
+  | { screen: 'loading' }
+  | { screen: 'setup' }
+  | { screen: 'login' }
+  | { screen: 'change-password'; admin: AdminInfo }
+  | { screen: 'main'; admin: AdminInfo };
+
 export default function App() {
-  const [admin, setAdmin] = useState<AdminInfo | null>(getStoredAdmin);
+  const [state, setState] = useState<AppState>({ screen: 'loading' });
   const [tab, setTab] = useState<TabKey>('dashboard');
 
-  if (!admin) {
-    return <LoginPage onLoggedIn={setAdmin} />;
+  // Kiểm tra setup required khi load lần đầu
+  useEffect(() => {
+    const storedAdmin = getStoredAdmin();
+    if (storedAdmin) {
+      setState({ screen: 'main', admin: storedAdmin });
+      return;
+    }
+    checkSetupRequired()
+      .then(required => setState({ screen: required ? 'setup' : 'login' }))
+      .catch(() => setState({ screen: 'login' }));
+  }, []);
+
+  function handleLoggedIn(admin: AdminInfo, mustChangePassword: boolean) {
+    if (mustChangePassword) {
+      setState({ screen: 'change-password', admin });
+    } else {
+      setState({ screen: 'main', admin });
+    }
   }
 
   function handleLogout() {
     clearSession();
-    setAdmin(null);
+    setState({ screen: 'login' });
   }
 
+  // ─── Screens ─────────────────────────────────────────────────────────────────
+
+  if (state.screen === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FFF8F7]">
+        <RefreshCw size={24} className="animate-spin" style={{ color: '#C82020' }} />
+      </div>
+    );
+  }
+
+  if (state.screen === 'setup') {
+    return <SetupPage onDone={() => setState({ screen: 'login' })} />;
+  }
+
+  if (state.screen === 'login') {
+    return <LoginPage onLoggedIn={handleLoggedIn} />;
+  }
+
+  if (state.screen === 'change-password') {
+    return (
+      <ChangePasswordPage
+        admin={state.admin}
+        onDone={() => setState({ screen: 'main', admin: state.admin })}
+      />
+    );
+  }
+
+  // Main app
+  const { admin } = state;
   return (
     <div className="flex min-h-screen bg-[#FFF8F7]">
       <Sidebar admin={admin} activeTab={tab} onTabChange={setTab} onLogout={handleLogout} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
         <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
-            {/* Red accent bar */}
             <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #C82020, #8B0A0A)' }} />
             <h1 className="text-lg font-bold text-gray-800">{PAGE_TITLES[tab]}</h1>
           </div>
@@ -46,11 +101,11 @@ export default function App() {
           </div>
         </header>
 
-        {/* Content */}
         <main className="flex-1 p-6 overflow-auto">
           {tab === 'dashboard' && <DashboardPage />}
           {tab === 'users' && <UsersPage />}
           {tab === 'loans' && <LoansPage />}
+          {tab === 'admins' && <AdminsPage />}
         </main>
       </div>
     </div>

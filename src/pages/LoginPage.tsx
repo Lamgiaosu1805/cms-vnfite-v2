@@ -3,7 +3,7 @@ import { BarChart3, CircleDollarSign, Lock, RefreshCw, Users } from 'lucide-reac
 import { login, type AdminInfo } from '../api/client';
 
 interface LoginPageProps {
-  onLoggedIn: (admin: AdminInfo) => void;
+  onLoggedIn: (admin: AdminInfo, mustChangePassword: boolean) => void;
 }
 
 export function LoginPage({ onLoggedIn }: LoginPageProps) {
@@ -17,8 +17,8 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
     setError('');
     setLoading(true);
     try {
-      const admin = await login(username, password);
-      onLoggedIn(admin);
+      const { admin, mustChangePassword } = await login(username, password);
+      onLoggedIn(admin, mustChangePassword);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
       setLoading(false);

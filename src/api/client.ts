@@ -52,13 +52,74 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-export async function login(username: string, password: string): Promise<AdminInfo> {
-  const data = await request<{ accessToken: string; admin: AdminInfo }>('/auth/login', {
+export interface LoginResult {
+  admin: AdminInfo;
+  mustChangePassword: boolean;
+}
+
+export async function checkSetupRequired(): Promise<boolean> {
+  const data = await request<{ setupRequired: boolean }>('/auth/setup/status');
+  return data.setupRequired;
+}
+
+export async function setupSuperAdmin(payload: {
+  username: string; email: string; fullName: string; password: string;
+}): Promise<void> {
+  return request('/auth/setup', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function login(username: string, password: string): Promise<LoginResult> {
+  const data = await request<{
+    accessToken: string; admin: AdminInfo; mustChangePassword: boolean;
+  }>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ username, password }),
   });
   saveSession(data.accessToken, data.admin);
-  return data.admin;
+  return { admin: data.admin, mustChangePassword: data.mustChangePassword };
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  return request('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+// ─── Admin Management (SUPER_ADMIN only) ──────────────────────────────────────
+
+export interface AdminItem {
+  id: string;
+  username: string;
+  email: string;
+  fullName: string;
+  role: string;
+  active: boolean;
+  mustChangePassword: boolean;
+  createdAt: string;
+}
+
+export interface CreateAdminResult {
+  id: string;
+  username: string;
+  email: string;
+  fullName: string;
+  role: string;
+  generatedPassword: string;
+}
+
+export async function listAdmins(): Promise<AdminItem[]> {
+  return request('/admins');
+}
+
+export async function createAdmin(payload: {
+  fullName: string; email: string; role: string;
+}): Promise<CreateAdminResult> {
+  return request('/admins', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+export async function toggleAdminActive(id: string): Promise<void> {
+  return request(`/admins/${id}/toggle-active`, { method: 'PUT' });
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
