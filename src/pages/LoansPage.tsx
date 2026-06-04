@@ -159,12 +159,12 @@ export function LoansPage() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {error && <p className="text-red-600 text-sm px-6 py-4 bg-red-50">{error}</p>}
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[1080px] table-fixed text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                <th className="text-left px-5 py-3.5">Mã khoản</th>
-                <th className="text-left px-4 py-3.5">Người vay</th>
-                <th className="text-left px-4 py-3.5">Sản phẩm</th>
+                <th className="text-center px-5 py-3.5">Mã khoản</th>
+                <th className="text-center px-4 py-3.5">Người vay</th>
+                <th className="text-center px-4 py-3.5">Sản phẩm</th>
                 <th className="text-center px-4 py-3.5">Số tiền</th>
                 <th className="text-center px-4 py-3.5">Lãi suất</th>
                 <th className="text-center px-4 py-3.5">Kỳ hạn</th>
@@ -181,19 +181,18 @@ export function LoansPage() {
               )}
               {data?.content.map(loan => (
                 <tr key={loan.loanId} className="hover:bg-gray-50/70 transition-colors">
-                  <td className="px-5 py-3.5 align-middle">
+                  <td className="px-5 py-3.5 text-center align-middle">
                     <p className="font-semibold text-gray-900 text-xs font-mono tracking-wide">
                       {loan.loanCode ?? shortId(loan.loanId)}
                     </p>
                   </td>
-                  <td className="px-4 py-3.5 align-middle">
+                  <td className="px-4 py-3.5 text-center align-middle">
                     <p className="font-medium text-gray-800 whitespace-nowrap">
                       {borrowerDisplayName(loan)}
                     </p>
-                    <p className="text-[11px] text-gray-400 font-mono mt-0.5">{shortId(loan.borrowerId)}</p>
                   </td>
-                  <td className="px-4 py-3.5 align-middle">
-                    <p className="text-gray-700 truncate max-w-[180px]">
+                  <td className="px-4 py-3.5 text-center align-middle">
+                    <p className="mx-auto max-w-[180px] truncate text-gray-700">
                       {loan.productName ?? loan.purpose ?? '—'}
                     </p>
                   </td>
