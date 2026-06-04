@@ -1,26 +1,22 @@
 interface BadgeProps {
   value: string | null | undefined;
-  type?: 'status' | 'kyc' | 'loan';
 }
 
 const colorMap: Record<string, string> = {
-  // KYC
   none: 'bg-gray-100 text-gray-500',
-  pending: 'bg-yellow-100 text-yellow-700',
-  approved: 'bg-green-100 text-green-700',
-  rejected: 'bg-red-100 text-red-700',
-  // Account status
-  active: 'bg-green-100 text-green-700',
-  suspended: 'bg-orange-100 text-orange-700',
-  locked: 'bg-red-100 text-red-700',
-  // Loan status
+  pending: 'bg-amber-50 text-amber-700 border border-amber-200',
+  approved: 'bg-green-50 text-green-700 border border-green-200',
+  rejected: 'bg-red-50 text-red-700 border border-red-200',
+  active: 'bg-green-50 text-green-700 border border-green-200',
+  suspended: 'bg-orange-50 text-orange-700 border border-orange-200',
+  locked: 'bg-red-50 text-red-700 border border-red-200',
   pending_review: 'bg-gray-100 text-gray-600',
-  awaiting_borrower_approval: 'bg-blue-100 text-blue-700',
-  funded: 'bg-indigo-100 text-indigo-700',
-  repaying: 'bg-teal-100 text-teal-700',
-  completed: 'bg-green-100 text-green-700',
-  defaulted: 'bg-red-100 text-red-700',
-  cancelled: 'bg-gray-200 text-gray-500',
+  awaiting_borrower_approval: 'bg-blue-50 text-blue-700 border border-blue-200',
+  funded: 'bg-purple-50 text-purple-700 border border-purple-200',
+  repaying: 'bg-teal-50 text-teal-700 border border-teal-200',
+  completed: 'bg-green-50 text-green-700 border border-green-200',
+  defaulted: 'bg-red-50 text-red-700 border border-red-200',
+  cancelled: 'bg-gray-100 text-gray-500',
 };
 
 const labelMap: Record<string, string> = {
@@ -32,7 +28,7 @@ const labelMap: Record<string, string> = {
   suspended: 'Tạm khoá',
   locked: 'Khoá',
   pending_review: 'Chờ thẩm định',
-  awaiting_borrower_approval: 'Chờ người vay xác nhận',
+  awaiting_borrower_approval: 'Chờ xác nhận',
   funded: 'Đã fund',
   repaying: 'Đang trả',
   completed: 'Hoàn thành',

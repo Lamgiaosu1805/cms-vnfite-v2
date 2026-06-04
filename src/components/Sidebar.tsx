@@ -1,4 +1,4 @@
-import { BarChart3, CircleDollarSign, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react';
+import { BarChart3, CircleDollarSign, LayoutDashboard, LogOut, Users } from 'lucide-react';
 import type { AdminInfo } from '../api/client';
 
 export type TabKey = 'dashboard' | 'users' | 'loans';
@@ -18,21 +18,29 @@ const navItems: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 
 export function Sidebar({ admin, activeTab, onTabChange, onLogout }: SidebarProps) {
   return (
-    <aside className="w-60 min-h-screen bg-slate-900 text-white flex flex-col shrink-0">
+    <aside className="w-60 min-h-screen flex flex-col shrink-0 text-white"
+      style={{ background: 'linear-gradient(180deg, #8B0A0A 0%, #A01515 100%)' }}>
+
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-slate-700">
+      <div className="px-5 py-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
-            <ShieldCheck size={20} />
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-md">
+            <img src="/logo.png" alt="VnFite" className="w-7 h-7 object-contain" />
           </div>
           <div className="min-w-0">
-            <p className="font-semibold text-sm leading-tight">P2P Lending CMS</p>
-            <p className="text-xs text-slate-400 truncate">{admin.fullName || admin.username}</p>
+            <p className="font-bold text-sm leading-tight text-white">VnFite CMS</p>
+            <p className="text-xs text-red-200 truncate">{admin.fullName || admin.username}</p>
           </div>
         </div>
-        <div className="mt-2.5 flex items-center gap-2">
-          <BarChart3 size={12} className="text-slate-400" />
-          <span className="text-xs text-slate-400">{admin.role}</span>
+        {/* Role badge */}
+        <div className="mt-3">
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+            style={{ background: 'rgba(232,160,48,0.2)', color: '#E8A030', border: '1px solid rgba(232,160,48,0.4)' }}
+          >
+            <BarChart3 size={11} />
+            {admin.role}
+          </span>
         </div>
       </div>
 
@@ -42,11 +50,20 @@ export function Sidebar({ admin, activeTab, onTabChange, onLogout }: SidebarProp
           <button
             key={key}
             onClick={() => onTabChange(key)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === key
-                ? 'bg-indigo-600 text-white'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={activeTab === key ? {
+              background: 'rgba(255,255,255,0.15)',
+              color: '#ffffff',
+              boxShadow: 'inset 2px 0 0 #E8A030',
+            } : {
+              color: 'rgba(255,255,255,0.7)',
+            }}
+            onMouseEnter={e => {
+              if (activeTab !== key) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)';
+            }}
+            onMouseLeave={e => {
+              if (activeTab !== key) (e.currentTarget as HTMLElement).style.background = '';
+            }}
           >
             {icon}
             {label}
@@ -55,10 +72,13 @@ export function Sidebar({ admin, activeTab, onTabChange, onLogout }: SidebarProp
       </nav>
 
       {/* Logout */}
-      <div className="px-3 py-4 border-t border-slate-700">
+      <div className="px-3 py-4 border-t border-white/10">
         <button
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all"
+          style={{ color: 'rgba(255,255,255,0.6)' }}
+          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'}
+          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = ''}
         >
           <LogOut size={18} />
           Đăng xuất

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Lock, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Lock, RefreshCw } from 'lucide-react';
 import { login, type AdminInfo } from '../api/client';
 
 interface LoginPageProps {
@@ -26,62 +26,106 @@ export function LoginPage({ onLoggedIn }: LoginPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-indigo-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600 mb-4">
-            <ShieldCheck size={32} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">P2P Lending CMS</h1>
-          <p className="text-slate-400 text-sm mt-1">Cổng quản trị viên</p>
+    <div className="min-h-screen flex">
+      {/* Left panel — brand */}
+      <div
+        className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #8B0A0A 0%, #C82020 60%, #E84A20 100%)' }}
+      >
+        {/* Background decorations */}
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #ffffff, transparent)', transform: 'translate(30%, -30%)' }} />
+        <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #E8A030, transparent)', transform: 'translate(-30%, 30%)' }} />
+
+        <img src="/logo.png" alt="VnFite" className="w-32 h-32 object-contain mb-8 drop-shadow-2xl" />
+        <h1 className="text-4xl font-bold text-white mb-3 tracking-tight">VnFite CMS</h1>
+        <p className="text-red-200 text-lg text-center max-w-xs">
+          Cổng quản trị nền tảng cho vay ngang hàng
+        </p>
+
+        <div className="mt-12 grid grid-cols-3 gap-6 w-full max-w-xs">
+          {[
+            { label: 'Khách hàng', icon: '👥' },
+            { label: 'Khoản vay', icon: '💰' },
+            { label: 'Thống kê', icon: '📊' },
+          ].map((item) => (
+            <div key={item.label} className="flex flex-col items-center gap-2 bg-white/10 rounded-xl p-3">
+              <span className="text-2xl">{item.icon}</span>
+              <span className="text-white text-xs font-medium">{item.label}</span>
+            </div>
+          ))}
         </div>
+      </div>
 
-        {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-2xl p-8 space-y-5"
-        >
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Tên đăng nhập
-            </label>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-              required
-            />
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center p-8 bg-[#FFF8F7]">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="flex lg:hidden flex-col items-center mb-8">
+            <img src="/logo.png" alt="VnFite" className="w-20 h-20 object-contain mb-3" />
+            <h1 className="text-2xl font-bold" style={{ color: '#C82020' }}>VnFite CMS</h1>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Mật khẩu
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-              required
-            />
+          <div className="bg-white rounded-2xl shadow-lg border border-red-50 p-8">
+            <h2 className="text-xl font-bold text-gray-800 mb-1">Đăng nhập</h2>
+            <p className="text-sm text-gray-400 mb-6">Nhập thông tin tài khoản quản trị</p>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Tên đăng nhập
+                </label>
+                <input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition"
+                  style={{ '--tw-ring-color': '#C82020' } as React.CSSProperties}
+                  onFocus={e => e.target.style.boxShadow = '0 0 0 2px rgba(200,32,32,0.25)'}
+                  onBlur={e => e.target.style.boxShadow = ''}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Mật khẩu
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none transition"
+                  onFocus={e => e.target.style.boxShadow = '0 0 0 2px rgba(200,32,32,0.25)'}
+                  onBlur={e => e.target.style.boxShadow = ''}
+                  required
+                />
+              </div>
+
+              {error && (
+                <p className="text-sm text-red-600 bg-red-50 px-3 py-2.5 rounded-xl border border-red-100">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 text-white font-semibold py-3 rounded-xl transition-opacity disabled:opacity-60 mt-2"
+                style={{ background: 'linear-gradient(135deg, #C82020, #8B0A0A)' }}
+              >
+                {loading ? <RefreshCw size={18} className="animate-spin" /> : <Lock size={18} />}
+                Đăng nhập
+              </button>
+            </form>
           </div>
 
-          {error && (
-            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition-colors"
-          >
-            {loading ? <RefreshCw size={18} className="animate-spin" /> : <Lock size={18} />}
-            Đăng nhập
-          </button>
-        </form>
+          <p className="text-center text-xs text-gray-400 mt-6">
+            © 2025 VnFite. All rights reserved.
+          </p>
+        </div>
       </div>
     </div>
   );
