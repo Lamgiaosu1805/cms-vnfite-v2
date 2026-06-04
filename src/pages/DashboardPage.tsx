@@ -60,9 +60,7 @@ function BarChart({ points, period }: { points: ChartPoint[]; period: ChartPerio
     vol: maxVol * r,
   }));
 
-  // Bar width based on count
-  const barW  = period === 'month' ? 'w-5' : period === 'year' ? 'w-8' : 'w-10';
-  const gapX  = period === 'month' ? 'gap-1' : 'gap-2';
+  const gapX = period === 'month' ? 'gap-1' : 'gap-2';
 
   const active = tooltip ? points[tooltip.idx] : null;
 
@@ -95,62 +93,53 @@ function BarChart({ points, period }: { points: ChartPoint[]; period: ChartPerio
 
         {/* Chart area */}
         <div className="flex-1 overflow-x-auto">
-          <div className={`flex ${gapX} items-end pb-1`} style={{ minWidth: 'max-content', height: 160 }}>
+          <div className={`flex ${gapX} items-end`} style={{ minWidth: 'max-content' }}>
             {points.map((p, i) => {
-              const volH   = Math.max(2, (Number(p.loanVolume || 0) / maxVol)   * 140);
-              const userH  = Math.max(2, (Number(p.newUsers   || 0) / maxUsers) * 140);
-              const dim    = p.future;
+              const volH  = Math.max(2, (Number(p.loanVolume || 0) / maxVol)   * 140);
+              const userH = Math.max(2, (Number(p.newUsers   || 0) / maxUsers) * 140);
+              const dim   = p.future;
+              const colW  = period === 'month' ? 20 : period === 'year' ? 32 : 40;
+              const blueW = period === 'month' ? 6 : 8;
 
               return (
                 <div key={`${p.date}-${i}`}
-                  className="flex flex-col items-center justify-end cursor-pointer group"
-                  style={{ height: 160 }}
+                  className="flex flex-col items-center cursor-pointer group shrink-0"
+                  style={{ width: colW }}
                   onMouseEnter={e => {
                     const rect = containerRef.current?.getBoundingClientRect();
                     const el   = e.currentTarget.getBoundingClientRect();
                     if (rect) setTooltip({
                       idx: i,
-                      x: el.left + el.width / 2 - rect.left + 64, // +64 = y-axis width
+                      x: el.left + el.width / 2 - rect.left + 56,
                       y: el.top - rect.top,
                     });
                   }}
                   onMouseLeave={() => setTooltip(null)}>
-                  {/* Dual bars */}
-                  <div className="flex gap-0.5 items-end">
-                    {/* Volume bar (red) */}
-                    <div
-                      className={`rounded-t-md transition-all duration-200 group-hover:opacity-90 ${barW}`}
+
+                  {/* Bars — bottom-aligned inside fixed-height container */}
+                  <div className="flex gap-0.5 items-end w-full justify-center" style={{ height: 140 }}>
+                    <div className="rounded-t-md transition-all duration-200 group-hover:brightness-90"
                       style={{
                         height: volH,
-                        background: dim
-                          ? '#F3F4F6'
-                          : 'linear-gradient(180deg,#E84A20,#C82020)',
+                        width: colW - blueW - 2,
+                        background: dim ? '#F3F4F6' : 'linear-gradient(180deg,#E84A20,#C82020)',
                       }} />
-                    {/* Users bar (blue) */}
-                    <div
-                      className={`rounded-t-md transition-all duration-200 group-hover:opacity-90`}
+                    <div className="rounded-t-md transition-all duration-200 group-hover:brightness-90"
                       style={{
                         height: userH,
-                        width: period === 'month' ? 6 : 8,
-                        background: dim
-                          ? '#F3F4F6'
-                          : 'linear-gradient(180deg,#60A5FA,#2563EB)',
+                        width: blueW,
+                        background: dim ? '#F3F4F6' : 'linear-gradient(180deg,#60A5FA,#2563EB)',
                       }} />
+                  </div>
+
+                  {/* Label — directly below bar, same column width */}
+                  <div className={`mt-1 text-center font-medium w-full ${dim ? 'text-gray-200' : 'text-gray-400'}`}
+                    style={{ fontSize: period === 'month' ? 9 : 11 }}>
+                    {p.label}
                   </div>
                 </div>
               );
             })}
-          </div>
-
-          {/* X-axis labels */}
-          <div className={`flex ${gapX} mt-1`} style={{ minWidth: 'max-content' }}>
-            {points.map((p, i) => (
-              <div key={i}
-                className={`text-center text-gray-400 font-medium shrink-0 ${barW} ${p.future ? 'opacity-30' : ''}`}
-                style={{ fontSize: period === 'month' ? 9 : 11 }}>
-                {p.label}
-              </div>
-            ))}
           </div>
         </div>
       </div>
