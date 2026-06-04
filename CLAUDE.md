@@ -28,6 +28,16 @@ Vite dev proxy: `/cms` → `http://42.113.122.119:7080` (tránh CORS khi dev loc
 
 **Bắt buộc dùng axios** để call API — không dùng `fetch` hay `XMLHttpRequest` trực tiếp. Cấu hình interceptor (Bearer token, error handling, base URL) tập trung ở `src/api/client.ts`.
 
+## Dark Mode
+
+CMS đã có dark mode. Toggle bằng nút mặt trăng/mặt trời ở header, lưu vào `localStorage` key `cms_theme`. Cơ chế: toggle class `dark` trên `document.documentElement` → Tailwind `dark:` variant.
+
+**Bắt buộc:** Khi thiết kế hoặc sửa bất kỳ component nào, phải thêm `dark:` classes cho mọi màu nền, chữ, border, input, modal — không chỉ làm một chế độ.
+
+## Thuật ngữ
+
+Dùng **"người gọi vốn"** và **"nhà đầu tư"** — không dùng "người vay" hay "cho vay" ở bất kỳ đâu trong UI, label, tiêu đề.
+
 ## Brand Colors
 
 - **Đỏ chính:** `#C82020` → `#8B0A0A` (gradient)
