@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosError } from 'axios';
 
 // Dùng relative URL để Vite proxy forward /cms → http://42.113.122.119:7080 (tránh CORS khi dev)
 // Khi build production, deploy cùng domain hoặc set VITE_API_BASE qua env
@@ -6,7 +6,7 @@ const BASE_URL = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/cms'
 
 const axiosClient = axios.create({ baseURL: BASE_URL });
 
-axiosClient.interceptors.request.use((config) => {
+axiosClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   // Chỉ set token nếu chưa có (TOTP endpoints tự set pendingToken)
   if (!config.headers.Authorization) {
     const token = localStorage.getItem('cms_token');
@@ -16,13 +16,11 @@ axiosClient.interceptors.request.use((config) => {
 });
 
 axiosClient.interceptors.response.use(
-  (res) => res,
-  (err) => {
+  (res: AxiosResponse) => res,
+  (err: AxiosError<{ message?: string; error?: string }>) => {
     const status = err.response?.status ?? 0;
     const body = err.response?.data;
-    const message =
-      (body && typeof body === 'object' && (body.message || body.error)) ||
-      `Lỗi ${status}`;
+    const message = body?.message || body?.error || `Lỗi ${status}`;
     return Promise.reject(new Error(message));
   },
 );
