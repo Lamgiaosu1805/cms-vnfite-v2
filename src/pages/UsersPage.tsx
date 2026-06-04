@@ -164,14 +164,14 @@ export function UsersPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="text-left px-5 py-3.5 font-medium text-gray-600">Khách hàng</th>
-                <th className="text-left px-4 py-3.5 font-medium text-gray-600">SĐT</th>
-                <th className="text-left px-4 py-3.5 font-medium text-gray-600">Vai trò</th>
-                <th className="text-left px-4 py-3.5 font-medium text-gray-600">KYC</th>
-                <th className="text-left px-4 py-3.5 font-medium text-gray-600">Trạng thái</th>
-                <th className="text-left px-4 py-3.5 font-medium text-gray-600">Ngày tạo</th>
-                <th className="px-4 py-3.5"></th>
+              <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <th className="text-left px-5 py-3.5">Tên khách hàng</th>
+                <th className="text-center px-4 py-3.5">SĐT</th>
+                <th className="text-center px-4 py-3.5">Vai trò</th>
+                <th className="text-center px-4 py-3.5">KYC</th>
+                <th className="text-center px-4 py-3.5">Trạng thái</th>
+                <th className="text-center px-4 py-3.5">Ngày tạo</th>
+                <th className="text-center px-4 py-3.5">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -183,16 +183,16 @@ export function UsersPage() {
               {data?.content.map((user) => (
                 <tr key={user.userId} className="hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3.5">
-                    <p className="font-medium text-gray-900">{user.fullName || <span className="text-gray-400 italic">Chưa cập nhật</span>}</p>
-                    <p className="text-xs text-gray-400">{user.email || user.userId}</p>
+                    <p className="font-medium text-gray-900">{user.fullName || <span className="text-gray-400 italic text-xs">Chưa cập nhật</span>}</p>
+                    {user.email && <p className="text-xs text-gray-400 mt-0.5">{user.email}</p>}
                   </td>
-                  <td className="px-4 py-3.5 text-gray-600">{user.phone || '-'}</td>
-                  <td className="px-4 py-3.5 text-gray-600">{user.role}</td>
-                  <td className="px-4 py-3.5"><Badge value={user.kycStatus} /></td>
-                  <td className="px-4 py-3.5"><Badge value={user.accountStatus} /></td>
-                  <td className="px-4 py-3.5 text-gray-400">{formatDate(user.createdAt)}</td>
+                  <td className="px-4 py-3.5 text-center text-gray-700">{user.phone || '-'}</td>
+                  <td className="px-4 py-3.5 text-center text-gray-500 text-xs font-medium">{user.role}</td>
+                  <td className="px-4 py-3.5 text-center"><Badge value={user.kycStatus} /></td>
+                  <td className="px-4 py-3.5 text-center"><Badge value={user.accountStatus} /></td>
+                  <td className="px-4 py-3.5 text-center text-gray-400 text-xs">{formatDate(user.createdAt)}</td>
                   <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-center gap-1.5">
                       {user.kycStatus === 'PENDING' && (
                         <>
                           <button
