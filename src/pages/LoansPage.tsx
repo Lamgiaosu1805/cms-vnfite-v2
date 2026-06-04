@@ -91,9 +91,10 @@ function LoanDetailPage({ loan, onBack }: { loan: CmsLoan; onBack: () => void })
         </Section>
 
         {/* Thông tin bổ sung */}
-        {(loan.occupation || loan.monthlyIncome != null || loan.currentAddress) && (
+        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.currentAddress) && (
           <Section title="Thông tin bổ sung">
             {loan.occupation && <DetailRow label="Nghề nghiệp" value={loan.occupation} />}
+            <DetailRow label="Nơi làm việc" value={loan.workplace ?? 'Không có'} />
             {loan.monthlyIncome != null && (
               <DetailRow label="Thu nhập/tháng" value={formatMoney(loan.monthlyIncome)} />
             )}

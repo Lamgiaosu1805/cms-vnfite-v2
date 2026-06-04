@@ -290,6 +290,7 @@ export interface CmsLoan {
   termMonths: number;
   purpose: string | null;
   occupation: string | null;
+  workplace: string | null;
   monthlyIncome: number | null;
   currentAddress: string | null;
   status: string;
