@@ -211,15 +211,16 @@ export interface ChartPoint {
   newUsers: number;
   newLoans: number;
   loanVolume: number;
+  future: boolean;
 }
 
-export type ChartPeriod = 'day' | 'week' | 'month';
+export type ChartPeriod = 'week' | 'month' | 'year';
 
 export async function fetchStats(): Promise<DashboardStats> {
   return request('/dashboard/stats');
 }
 
-export async function fetchChart(period: ChartPeriod = 'day'): Promise<{ points: ChartPoint[] }> {
+export async function fetchChart(period: ChartPeriod = 'week'): Promise<{ points: ChartPoint[] }> {
   return request(`/dashboard/chart?period=${period}`);
 }
 

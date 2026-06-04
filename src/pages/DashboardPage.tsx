@@ -1,24 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BarChart3, CircleDollarSign, RefreshCw, ShieldCheck, TrendingUp, Users,
-  Calendar, CalendarDays, CalendarRange,
 } from 'lucide-react';
 import { fetchChart, fetchStats, type ChartPeriod, type ChartPoint, type DashboardStats } from '../api/client';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function formatMoney(value: number | string | undefined) {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(Number(value || 0));
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 })
+    .format(Number(value || 0));
 }
 
-function formatMoneyShort(value: number) {
-  if (value >= 1_000_000_000) return (value / 1_000_000_000).toFixed(1) + ' tỷ';
-  if (value >= 1_000_000) return (value / 1_000_000).toFixed(1) + ' tr';
-  if (value >= 1_000) return (value / 1_000).toFixed(0) + 'k';
-  return value.toString();
+function shortMoney(v: number) {
+  if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1) + 'B';
+  if (v >= 1_000_000)     return (v / 1_000_000).toFixed(1) + 'M';
+  if (v >= 1_000)         return (v / 1_000).toFixed(0) + 'K';
+  return v > 0 ? v.toString() : '';
 }
+
+// ─── Metric card ──────────────────────────────────────────────────────────────
 
 function Metric({ label, value, icon, color, sub }: {
   label: string; value: string | number; icon: React.ReactNode; color: string; sub?: string;
@@ -27,8 +27,7 @@ function Metric({ label, value, icon, color, sub }: {
     <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs text-gray-500 font-medium">{label}</span>
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white"
-          style={{ background: color }}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white" style={{ background: color }}>
           {icon}
         </div>
       </div>
@@ -38,26 +37,143 @@ function Metric({ label, value, icon, color, sub }: {
   );
 }
 
-const PERIODS: { key: ChartPeriod; label: string; icon: React.ReactNode }[] = [
-  { key: 'day',   label: 'Ngày',  icon: <CalendarDays size={14} /> },
-  { key: 'week',  label: 'Tuần',  icon: <Calendar size={14} /> },
-  { key: 'month', label: 'Tháng', icon: <CalendarRange size={14} /> },
+// ─── Period tabs ──────────────────────────────────────────────────────────────
+
+const PERIODS: { key: ChartPeriod; label: string }[] = [
+  { key: 'week',  label: 'Tuần' },
+  { key: 'month', label: 'Tháng' },
+  { key: 'year',  label: 'Năm' },
 ];
 
+// ─── Bar chart ────────────────────────────────────────────────────────────────
+
+function BarChart({ points, period }: { points: ChartPoint[]; period: ChartPeriod }) {
+  const [tooltip, setTooltip] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const maxVol   = Math.max(...points.map(p => Number(p.loanVolume  || 0)), 1);
+  const maxUsers = Math.max(...points.map(p => Number(p.newUsers    || 0)), 1);
+
+  // Y-axis ticks (4 ticks)
+  const yTicks = [1, 0.75, 0.5, 0.25, 0].map(r => ({
+    pct: r,
+    vol: maxVol * r,
+  }));
+
+  // Bar width based on count
+  const barW  = period === 'month' ? 'w-5' : period === 'year' ? 'w-8' : 'w-10';
+  const gapX  = period === 'month' ? 'gap-1' : 'gap-2';
+
+  const active = tooltip ? points[tooltip.idx] : null;
+
+  return (
+    <div className="relative select-none" ref={containerRef}>
+      {/* Tooltip */}
+      {active && (
+        <div
+          className="absolute z-20 bg-gray-900 text-white text-xs rounded-xl px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
+          style={{ left: tooltip!.x, top: tooltip!.y - 8, transform: 'translate(-50%, -100%)' }}>
+          <div className="font-semibold mb-1">{active.label} {period === 'week' ? `(${active.date})` : ''}</div>
+          <div className="flex flex-col gap-0.5">
+            <span>💰 {formatMoney(active.loanVolume)}</span>
+            <span>📋 {active.newLoans} khoản vay</span>
+            <span>👤 {active.newUsers} khách hàng</span>
+          </div>
+          {/* Arrow */}
+          <div className="absolute left-1/2 -translate-x-1/2 bottom-[-5px] w-0 h-0"
+            style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '5px solid #111827' }} />
+        </div>
+      )}
+
+      <div className="flex gap-4">
+        {/* Y-axis */}
+        <div className="flex flex-col justify-between text-right text-xs text-gray-300 shrink-0 w-12 pb-6" style={{ height: 160 }}>
+          {yTicks.map(t => (
+            <span key={t.pct}>{shortMoney(t.vol)}</span>
+          ))}
+        </div>
+
+        {/* Chart area */}
+        <div className="flex-1 overflow-x-auto">
+          <div className={`flex ${gapX} items-end pb-1`} style={{ minWidth: 'max-content', height: 160 }}>
+            {points.map((p, i) => {
+              const volH   = Math.max(2, (Number(p.loanVolume || 0) / maxVol)   * 140);
+              const userH  = Math.max(2, (Number(p.newUsers   || 0) / maxUsers) * 140);
+              const dim    = p.future;
+
+              return (
+                <div key={`${p.date}-${i}`}
+                  className="flex flex-col items-center justify-end cursor-pointer group"
+                  style={{ height: 160 }}
+                  onMouseEnter={e => {
+                    const rect = containerRef.current?.getBoundingClientRect();
+                    const el   = e.currentTarget.getBoundingClientRect();
+                    if (rect) setTooltip({
+                      idx: i,
+                      x: el.left + el.width / 2 - rect.left + 64, // +64 = y-axis width
+                      y: el.top - rect.top,
+                    });
+                  }}
+                  onMouseLeave={() => setTooltip(null)}>
+                  {/* Dual bars */}
+                  <div className="flex gap-0.5 items-end">
+                    {/* Volume bar (red) */}
+                    <div
+                      className={`rounded-t-md transition-all duration-200 group-hover:opacity-90 ${barW}`}
+                      style={{
+                        height: volH,
+                        background: dim
+                          ? '#F3F4F6'
+                          : 'linear-gradient(180deg,#E84A20,#C82020)',
+                      }} />
+                    {/* Users bar (blue) */}
+                    <div
+                      className={`rounded-t-md transition-all duration-200 group-hover:opacity-90`}
+                      style={{
+                        height: userH,
+                        width: period === 'month' ? 6 : 8,
+                        background: dim
+                          ? '#F3F4F6'
+                          : 'linear-gradient(180deg,#60A5FA,#2563EB)',
+                      }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* X-axis labels */}
+          <div className={`flex ${gapX} mt-1`} style={{ minWidth: 'max-content' }}>
+            {points.map((p, i) => (
+              <div key={i}
+                className={`text-center text-gray-400 font-medium shrink-0 ${barW} ${p.future ? 'opacity-30' : ''}`}
+                style={{ fontSize: period === 'month' ? 9 : 11 }}>
+                {p.label}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export function DashboardPage() {
-  const [stats, setStats]         = useState<DashboardStats | null>(null);
-  const [chart, setChart]         = useState<ChartPoint[]>([]);
-  const [period, setPeriod]       = useState<ChartPeriod>('day');
+  const [stats, setStats]               = useState<DashboardStats | null>(null);
+  const [chart, setChart]               = useState<ChartPoint[]>([]);
+  const [period, setPeriod]             = useState<ChartPeriod>('week');
   const [chartLoading, setChartLoading] = useState(false);
-  const [error, setError]         = useState('');
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState('');
 
   const loadStats = () => {
     setLoading(true);
     setError('');
     fetchStats()
       .then(s => setStats(s))
-      .catch((err: Error) => setError(err.message))
+      .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   };
 
@@ -69,16 +185,13 @@ export function DashboardPage() {
       .finally(() => setChartLoading(false));
   };
 
-  useEffect(() => { loadStats(); loadChart('day'); }, []);
+  useEffect(() => { loadStats(); loadChart('week'); }, []);
 
   const handlePeriod = (p: ChartPeriod) => {
     if (p === period) return;
     setPeriod(p);
     loadChart(p);
   };
-
-  const maxVol  = Math.max(...chart.map(p => Number(p.loanVolume || 0)), 1);
-  const maxUsers = Math.max(...chart.map(p => Number(p.newUsers || 0)), 1);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64 text-gray-400">
@@ -109,84 +222,51 @@ export function DashboardPage() {
           icon={<BarChart3 size={16} />} color="linear-gradient(135deg,#27AE60,#1E8449)" />
       </div>
 
-      {/* Chart */}
+      {/* Chart card */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        {/* Header + Tabs */}
-        <div className="flex items-center justify-between mb-5">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <TrendingUp size={18} className="text-gray-400" />
             <h3 className="font-bold text-gray-800">Biểu đồ hoạt động</h3>
           </div>
+          {/* Period tabs */}
           <div className="flex rounded-xl overflow-hidden border border-gray-200 text-sm">
             {PERIODS.map(p => (
-              <button key={p.key}
-                onClick={() => handlePeriod(p.key)}
-                className="flex items-center gap-1.5 px-3 py-1.5 transition-colors"
+              <button key={p.key} onClick={() => handlePeriod(p.key)}
+                className="px-4 py-1.5 font-medium transition-colors"
                 style={period === p.key
                   ? { background: '#C82020', color: '#fff' }
                   : { background: '#fff', color: '#6b7280' }}>
-                {p.icon}{p.label}
+                {p.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Chart body */}
+        {/* Chart */}
         {chartLoading ? (
-          <div className="flex items-center justify-center h-48 text-gray-400">
+          <div className="flex items-center justify-center h-40 text-gray-400">
             <RefreshCw size={16} className="animate-spin mr-2" style={{ color: '#C82020' }} /> Đang tải...
           </div>
         ) : chart.length === 0 ? (
           <p className="text-sm text-gray-400 py-8 text-center">Chưa có dữ liệu</p>
         ) : (
-          <div className="space-y-2">
-            {chart.map((point) => {
-              const volPct  = Math.max(2, (Number(point.loanVolume || 0) / maxVol) * 100);
-              const userPct = Math.max(2, (Number(point.newUsers || 0) / maxUsers) * 100);
-              return (
-                <div key={`${point.date}-${point.label}`} className="group">
-                  <div className="flex items-center gap-2 text-xs mb-0.5">
-                    <span className="w-20 shrink-0 text-gray-400 text-right font-medium">
-                      {point.label || point.date}
-                    </span>
-                    <div className="flex-1 space-y-1">
-                      {/* Volume bar */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-red-50 rounded-full h-4 overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-300"
-                            style={{ width: `${volPct}%`, background: 'linear-gradient(90deg,#C82020,#E84A20)' }} />
-                        </div>
-                        <span className="w-24 shrink-0 text-gray-700 font-medium text-right">
-                          {formatMoneyShort(Number(point.loanVolume || 0))}
-                        </span>
-                      </div>
-                      {/* Users bar */}
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-blue-50 rounded-full h-2 overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-300"
-                            style={{ width: `${userPct}%`, background: 'linear-gradient(90deg,#3B82F6,#1D4ED8)' }} />
-                        </div>
-                        <span className="w-24 shrink-0 text-gray-400 text-right">
-                          {point.newUsers} KH · {point.newLoans} vay
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <BarChart points={chart} period={period} />
         )}
 
         {/* Legend */}
-        <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400">
+        <div className="flex items-center gap-5 mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400">
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full inline-block" style={{ background: 'linear-gradient(90deg,#C82020,#E84A20)' }} />
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'linear-gradient(180deg,#E84A20,#C82020)' }} />
             Giá trị khoản vay
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full inline-block" style={{ background: 'linear-gradient(90deg,#3B82F6,#1D4ED8)' }} />
-            Khách hàng mới · Khoản vay mới
+            <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'linear-gradient(180deg,#60A5FA,#2563EB)' }} />
+            Khách hàng mới
+          </span>
+          <span className="ml-auto flex items-center gap-1">
+            <span className="w-3 h-3 rounded-sm inline-block bg-gray-200" /> Chưa có dữ liệu
           </span>
         </div>
       </div>
