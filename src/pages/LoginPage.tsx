@@ -83,7 +83,7 @@ export function LoginPage({ onPasswordVerified }: LoginPageProps) {
                 <input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  autoComplete="username"
+                  autoComplete="off"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none transition"
                   onFocus={e => e.target.style.boxShadow = '0 0 0 2px rgba(200,32,32,0.25)'}
                   onBlur={e => e.target.style.boxShadow = ''}
