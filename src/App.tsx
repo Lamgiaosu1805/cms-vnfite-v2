@@ -10,7 +10,7 @@ import { UsersPage } from './pages/UsersPage';
 import { LoansPage } from './pages/LoansPage';
 import { AdminsPage } from './pages/AdminsPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
-import { RefreshCw } from 'lucide-react';
+import { Moon, RefreshCw, Sun } from 'lucide-react';
 
 const PAGE_TITLES: Record<TabKey, string> = {
   dashboard: 'Dashboard',
@@ -31,6 +31,7 @@ type AppState =
 export default function App() {
   const [state, setState] = useState<AppState>({ screen: 'loading' });
   const [tab, setTab] = useState<TabKey>('dashboard');
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('cms_theme') === 'dark');
 
   useEffect(() => {
     const storedAdmin = getStoredAdmin();
@@ -42,6 +43,11 @@ export default function App() {
       .then(required => setState({ screen: required ? 'setup' : 'login' }))
       .catch(() => setState({ screen: 'login' }));
   }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('cms_theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   /** Gọi sau bước xác thực mật khẩu — chuyển sang TOTP */
   function handlePasswordVerified(pendingToken: string, totpEnabled: boolean) {
@@ -124,7 +130,15 @@ export default function App() {
             <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #C82020, #8B0A0A)' }} />
             <h1 className="text-lg font-bold text-gray-800">{PAGE_TITLES[tab]}</h1>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+          <div className="flex items-center gap-3 text-sm text-gray-500">
+            <button
+              type="button"
+              onClick={() => setDarkMode(value => !value)}
+              title={darkMode ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-700"
+            >
+              {darkMode ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
             <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
               style={{ background: 'linear-gradient(135deg, #C82020, #8B0A0A)' }}>
               {(admin.fullName || admin.username).charAt(0).toUpperCase()}
