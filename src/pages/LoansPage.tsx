@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, RefreshCw, X } from 'lucide-react';
-import { approveLoan, fetchLoans, rejectLoan, type CmsLoan } from '../api/client';
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw } from 'lucide-react';
+import { fetchLoans, type CmsLoan } from '../api/client';
 import { Badge } from '../components/Badge';
 
-function formatMoney(value: number | string | undefined) {
+function formatMoney(value: number | string | undefined | null) {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
@@ -21,77 +21,104 @@ function shortId(id: string | null | undefined) {
   return id.length > 8 ? id.slice(0, 8) + '…' : id;
 }
 
-function borrowerDisplayName(loan: CmsLoan) {
-  return loan.borrowerName || shortId(loan.borrowerId);
-}
+// ─── Detail Page ──────────────────────────────────────────────────────────────
 
-// ─── Modals ───────────────────────────────────────────────────────────────────
-
-function ApproveModal({ loan, onConfirm, onCancel }: {
-  loan: CmsLoan;
-  onConfirm: (rate: number, notes: string) => void;
-  onCancel: () => void;
-}) {
-  const [rate, setRate] = useState('');
-  const [notes, setNotes] = useState('');
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  if (value === null || value === undefined || value === '') return null;
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
-        <h3 className="font-semibold text-gray-800 mb-4">Phê duyệt khoản gọi vốn</h3>
-        <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm space-y-1">
-          <div className="flex justify-between"><span className="text-gray-500">Số tiền</span><strong>{formatMoney(loan.amount)}</strong></div>
-          <div className="flex justify-between"><span className="text-gray-500">Kỳ hạn</span><strong>{loan.termMonths} tháng</strong></div>
-          {loan.productName && <div className="flex justify-between"><span className="text-gray-500">Sản phẩm</span><strong>{loan.productName}</strong></div>}
-          {loan.purpose && <div className="flex justify-between"><span className="text-gray-500">Mục đích</span><strong>{loan.purpose}</strong></div>}
-        </div>
-        <p className="text-sm text-gray-500 mb-4">Nhập lãi suất thẩm định (%/năm) — sẽ gửi cho người vay xác nhận.</p>
-        <div className="space-y-3 mb-5">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Lãi suất thẩm định (%/năm)</label>
-            <input type="number" step="0.1" min="1" max="50" value={rate}
-              onChange={e => setRate(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú (tuỳ chọn)</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none" />
-          </div>
-        </div>
-        <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">Huỷ</button>
-          <button onClick={() => onConfirm(parseFloat(rate), notes)}
-            disabled={!rate || isNaN(parseFloat(rate))}
-            className="px-4 py-2 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
-            Gửi phê duyệt
-          </button>
-        </div>
-      </div>
+    <div className="flex justify-between items-start gap-4 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0">
+      <span className="text-sm text-gray-400 dark:text-gray-500 shrink-0 w-44">{label}</span>
+      <span className="text-sm text-gray-800 dark:text-gray-200 text-right font-medium">{value}</span>
     </div>
   );
 }
 
-function RejectModal({ loan, onConfirm, onCancel }: {
-  loan: CmsLoan;
-  onConfirm: (reason: string) => void;
-  onCancel: () => void;
-}) {
-  const [reason, setReason] = useState('');
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full">
-        <h3 className="font-semibold text-gray-800 mb-3">Từ chối khoản gọi vốn</h3>
-        <p className="text-xs text-gray-400 mb-3">Mã: {loan.loanCode || shortId(loan.loanId)}</p>
-        <textarea value={reason} onChange={e => setReason(e.target.value)}
-          placeholder="Lý do từ chối..." rows={3}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none mb-4" />
-        <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50">Huỷ</button>
-          <button onClick={() => onConfirm(reason)} disabled={!reason.trim()}
-            className="px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
-            Từ chối
-          </button>
-        </div>
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500 mb-3">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function LoanDetailPage({ loan, onBack }: { loan: CmsLoan; onBack: () => void }) {
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+        >
+          <ArrowLeft size={16} />
+          Quay lại danh sách
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <span className="font-mono font-bold text-gray-900 dark:text-white text-xl">
+          {loan.loanCode ?? shortId(loan.loanId)}
+        </span>
+        <Badge value={loan.status} />
+      </div>
+
+      {/* Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Người gọi vốn */}
+        <Section title="Người gọi vốn">
+          <DetailRow label="Họ tên" value={loan.borrowerName ?? '—'} />
+          <DetailRow
+            label="Mã khách hàng"
+            value={<span className="font-mono text-gray-400 dark:text-gray-500">{shortId(loan.borrowerId)}</span>}
+          />
+        </Section>
+
+        {/* Khoản gọi vốn */}
+        <Section title="Khoản gọi vốn">
+          {loan.productName && <DetailRow label="Sản phẩm" value={loan.productName} />}
+          <DetailRow label="Số tiền" value={formatMoney(loan.amount)} />
+          <DetailRow
+            label="Lãi suất đề nghị"
+            value={
+              loan.interestRate != null
+                ? `${loan.interestRate}%/năm`
+                : <span className="text-gray-300 dark:text-gray-600">Chưa thẩm định</span>
+            }
+          />
+          <DetailRow label="Kỳ hạn" value={`${loan.termMonths} tháng`} />
+          {loan.purpose && <DetailRow label="Mục đích" value={loan.purpose} />}
+        </Section>
+
+        {/* Thông tin bổ sung */}
+        {(loan.occupation || loan.monthlyIncome != null || loan.currentAddress) && (
+          <Section title="Thông tin bổ sung">
+            {loan.occupation && <DetailRow label="Nghề nghiệp" value={loan.occupation} />}
+            {loan.monthlyIncome != null && (
+              <DetailRow label="Thu nhập/tháng" value={formatMoney(loan.monthlyIncome)} />
+            )}
+            {loan.currentAddress && <DetailRow label="Địa chỉ hiện tại" value={loan.currentAddress} />}
+          </Section>
+        )}
+
+        {/* Thẩm định */}
+        {(loan.reviewedBy || loan.reviewedAt || loan.rejectionReason) && (
+          <Section title="Thẩm định">
+            {loan.reviewedBy && <DetailRow label="Người thẩm định" value={loan.reviewedBy} />}
+            {loan.reviewedAt && <DetailRow label="Ngày thẩm định" value={formatDate(loan.reviewedAt)} />}
+            {loan.rejectionReason && (
+              <DetailRow
+                label="Lý do từ chối"
+                value={<span className="text-red-500">{loan.rejectionReason}</span>}
+              />
+            )}
+          </Section>
+        )}
+
+        {/* Thời gian */}
+        <Section title="Thời gian">
+          <DetailRow label="Ngày tạo" value={formatDate(loan.createdAt)} />
+        </Section>
       </div>
     </div>
   );
@@ -102,16 +129,16 @@ function RejectModal({ loan, onConfirm, onCancel }: {
 const LOAN_STATUSES = [
   { value: '', label: 'Tất cả' },
   { value: 'PENDING_REVIEW', label: 'Chờ thẩm định' },
-  { value: 'AWAITING_BORROWER_APPROVAL', label: 'Chờ người vay xác nhận' },
+  { value: 'AWAITING_BORROWER_APPROVAL', label: 'Chờ xác nhận' },
   { value: 'ACTIVE', label: 'Đang gọi vốn' },
   { value: 'FUNDED', label: 'Đã fund' },
-  { value: 'REPAYING', label: 'Đang trả nợ' },
+  { value: 'REPAYING', label: 'Đang trả' },
   { value: 'COMPLETED', label: 'Hoàn thành' },
   { value: 'REJECTED', label: 'Từ chối' },
   { value: 'CANCELLED', label: 'Đã huỷ' },
 ];
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── List Page ────────────────────────────────────────────────────────────────
 
 export function LoansPage() {
   const [data, setData] = useState<{ content: CmsLoan[]; totalElements: number; totalPages: number } | null>(null);
@@ -120,8 +147,7 @@ export function LoansPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
-  const [approveModal, setApproveModal] = useState<CmsLoan | null>(null);
-  const [rejectModal, setRejectModal] = useState<CmsLoan | null>(null);
+  const [selectedLoan, setSelectedLoan] = useState<CmsLoan | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -132,38 +158,40 @@ export function LoansPage() {
       .finally(() => setLoading(false));
   }, [status, page, refresh]);
 
-  async function doAction(promise: Promise<void>) {
-    try {
-      await promise;
-      setRefresh(r => r + 1);
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Lỗi thực hiện');
-    }
+  if (selectedLoan) {
+    return <LoanDetailPage loan={selectedLoan} onBack={() => setSelectedLoan(null)} />;
   }
 
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-wrap gap-3 items-center">
-        <select value={status} onChange={e => { setStatus(e.target.value); setPage(0); }}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-wrap gap-3 items-center">
+        <select
+          value={status}
+          onChange={e => { setStatus(e.target.value); setPage(0); }}
+          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-red-500"
+        >
           {LOAN_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <button onClick={() => setRefresh(r => r + 1)} className="p-2 text-gray-400 hover:text-gray-600">
+        <button onClick={() => setRefresh(r => r + 1)} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
-        {data && <span className="text-sm text-gray-400 ml-auto">Tổng {data.totalElements} khoản</span>}
+        {data && (
+          <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
+            Tổng {data.totalElements} khoản
+          </span>
+        )}
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        {error && <p className="text-red-600 text-sm px-6 py-4 bg-red-50">{error}</p>}
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        {error && <p className="text-red-600 text-sm px-6 py-4 bg-red-50 dark:bg-red-900/20">{error}</p>}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1080px] table-fixed text-sm">
             <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <tr className="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                 <th className="text-center px-5 py-3.5">Mã khoản</th>
-                <th className="text-center px-4 py-3.5">Người vay</th>
+                <th className="text-center px-4 py-3.5">Người gọi vốn</th>
                 <th className="text-center px-4 py-3.5">Sản phẩm</th>
                 <th className="text-center px-4 py-3.5">Số tiền</th>
                 <th className="text-center px-4 py-3.5">Lãi suất</th>
@@ -173,67 +201,65 @@ export function LoansPage() {
                 <th className="text-center px-4 py-3.5">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {loading && !data && (
-                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400">
-                  <RefreshCw size={18} className="animate-spin inline mr-2" />Đang tải...
-                </td></tr>
+                <tr>
+                  <td colSpan={9} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
+                    <RefreshCw size={18} className="animate-spin inline mr-2" />Đang tải...
+                  </td>
+                </tr>
               )}
               {data?.content.map(loan => (
-                <tr key={loan.loanId} className="hover:bg-gray-50/70 transition-colors">
+                <tr key={loan.loanId} className="hover:bg-gray-50/70 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-5 py-3.5 text-center align-middle">
-                    <p className="font-semibold text-gray-900 text-xs font-mono tracking-wide">
+                    <p className="font-semibold text-gray-900 dark:text-white text-xs font-mono tracking-wide">
                       {loan.loanCode ?? shortId(loan.loanId)}
                     </p>
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
-                    <p className="font-medium text-gray-800 whitespace-nowrap">
-                      {borrowerDisplayName(loan)}
+                    <p className="font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap text-xs">
+                      {loan.borrowerName ?? shortId(loan.borrowerId)}
                     </p>
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
-                    <p className="mx-auto max-w-[180px] truncate text-gray-700">
+                    <p className="mx-auto max-w-[180px] truncate text-gray-600 dark:text-gray-400 text-xs">
                       {loan.productName ?? loan.purpose ?? '—'}
                     </p>
                   </td>
-
-                  <td className="px-4 py-3.5 text-center font-semibold text-gray-800 align-middle">
+                  <td className="px-4 py-3.5 text-center font-semibold text-gray-800 dark:text-gray-200 align-middle text-xs">
                     {formatMoney(loan.amount)}
                   </td>
-                  <td className="px-4 py-3.5 text-center text-gray-600 align-middle">
+                  <td className="px-4 py-3.5 text-center text-gray-600 dark:text-gray-400 align-middle text-xs">
                     {loan.interestRate != null
                       ? <span className="font-medium">{loan.interestRate}%</span>
-                      : <span className="text-gray-300 text-xs">—</span>}
+                      : <span className="text-gray-300 dark:text-gray-600">—</span>}
                   </td>
-                  <td className="px-4 py-3.5 text-center text-gray-600 align-middle">
+                  <td className="px-4 py-3.5 text-center text-gray-600 dark:text-gray-400 align-middle text-xs">
                     {loan.termMonths} tháng
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
                     <Badge value={loan.status} />
                   </td>
-                  <td className="px-4 py-3.5 text-center text-gray-400 text-xs align-middle">
+                  <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs align-middle">
                     {formatDate(loan.createdAt)}
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
-                    {loan.status === 'PENDING_REVIEW' && (
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button onClick={() => setApproveModal(loan)} title="Phê duyệt"
-                          className="p-1.5 rounded-lg text-green-600 hover:bg-green-50 transition-colors">
-                          <Check size={15} />
-                        </button>
-                        <button onClick={() => setRejectModal(loan)} title="Từ chối"
-                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors">
-                          <X size={15} />
-                        </button>
-                      </div>
-                    )}
+                    <button
+                      onClick={() => setSelectedLoan(loan)}
+                      title="Xem chi tiết"
+                      className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                    >
+                      <Eye size={15} />
+                    </button>
                   </td>
                 </tr>
               ))}
               {data?.content.length === 0 && (
-                <tr><td colSpan={9} className="px-5 py-8 text-center text-gray-400">
-                  Không có khoản gọi vốn nào
-                </td></tr>
+                <tr>
+                  <td colSpan={9} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
+                    Không có khoản gọi vốn nào
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -241,35 +267,28 @@ export function LoansPage() {
 
         {/* Pagination */}
         {data && data.totalPages > 1 && (
-          <div className="px-5 py-3.5 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
+          <div className="px-5 py-3.5 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
             <span>Tổng {data.totalElements} khoản gọi vốn</span>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+              >
                 <ChevronLeft size={16} />
               </button>
               <span className="px-2">Trang {page + 1} / {data.totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(data.totalPages - 1, p + 1))}
+              <button
+                onClick={() => setPage(p => Math.min(data.totalPages - 1, p + 1))}
                 disabled={page >= data.totalPages - 1}
-                className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-40">
+                className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40"
+              >
                 <ChevronRight size={16} />
               </button>
             </div>
           </div>
         )}
       </div>
-
-      {/* Modals */}
-      {approveModal && (
-        <ApproveModal loan={approveModal}
-          onConfirm={(rate, notes) => { setApproveModal(null); doAction(approveLoan(approveModal.loanId, rate, notes)); }}
-          onCancel={() => setApproveModal(null)} />
-      )}
-      {rejectModal && (
-        <RejectModal loan={rejectModal}
-          onConfirm={reason => { setRejectModal(null); doAction(rejectLoan(rejectModal.loanId, reason)); }}
-          onCancel={() => setRejectModal(null)} />
-      )}
     </div>
   );
 }

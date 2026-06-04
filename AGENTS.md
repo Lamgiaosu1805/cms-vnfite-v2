@@ -65,6 +65,9 @@ npm run preview
 - Use tables, filters, summaries, forms, badges, tabs, and modals where they improve operator workflow.
 - Use `lucide-react` icons for actions and navigation.
 - Keep colors restrained; red should indicate VNFITE brand and important actions, not dominate every surface.
+- The CMS supports both light mode and dark mode. Any new or changed UI must look correct in both themes.
+- Dark mode is controlled by the `dark` class on the document root and the `cms_theme` localStorage key.
+- When adding surfaces, forms, tables, modals, badges, or custom colors, verify contrast, borders, hover states, and disabled states in both light and dark mode.
 
 ## Code Rules
 
