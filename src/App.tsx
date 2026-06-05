@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { UsersPage } from './pages/UsersPage';
 import { LoansPage } from './pages/LoansPage';
 import { AdminsPage } from './pages/AdminsPage';
+import { AuditLogPage } from './pages/AuditLogPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 
@@ -17,6 +18,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   users: 'Khách hàng',
   loans: 'Gọi vốn',
   admins: 'Quản lý Admin',
+  audit: 'Nhật ký quyết định',
 };
 
 type AppState =
@@ -121,21 +123,21 @@ export default function App() {
   // Main app
   const { admin } = state;
   return (
-    <div className="flex min-h-screen bg-[#FFF8F7]">
+    <div className="flex min-h-screen bg-[#FFF8F7] dark:bg-gray-950">
       <Sidebar admin={admin} activeTab={tab} onTabChange={setTab} onLogout={handleLogout} />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
+        <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #C82020, #8B0A0A)' }} />
-            <h1 className="text-lg font-bold text-gray-800">{PAGE_TITLES[tab]}</h1>
+            <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100">{PAGE_TITLES[tab]}</h1>
           </div>
-          <div className="flex items-center gap-3 text-sm text-gray-500">
+          <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
             <button
               type="button"
               onClick={() => setDarkMode(value => !value)}
               title={darkMode ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-700"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 transition hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200"
             >
               {darkMode ? <Sun size={17} /> : <Moon size={17} />}
             </button>
@@ -147,11 +149,12 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-6 overflow-auto dark:bg-gray-950">
           {tab === 'dashboard' && <DashboardPage />}
-          {tab === 'users' && <UsersPage />}
-          {tab === 'loans' && <LoansPage />}
-          {tab === 'admins' && <AdminsPage />}
+          {tab === 'users'     && <UsersPage />}
+          {tab === 'loans'     && <LoansPage />}
+          {tab === 'admins'    && <AdminsPage />}
+          {tab === 'audit'     && <AuditLogPage />}
         </main>
       </div>
     </div>

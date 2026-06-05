@@ -1,7 +1,7 @@
-import { BarChart3, CircleDollarSign, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react';
+import { BarChart3, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react';
 import type { AdminInfo } from '../api/client';
 
-export type TabKey = 'dashboard' | 'users' | 'loans' | 'admins';
+export type TabKey = 'dashboard' | 'users' | 'loans' | 'admins' | 'audit';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -12,10 +12,12 @@ interface SidebarProps {
 
 export function Sidebar({ admin, activeTab, onTabChange, onLogout }: SidebarProps) {
   const allItems: { key: TabKey; label: string; icon: React.ReactNode; roles?: string[] }[] = [
-    { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { key: 'users', label: 'Khách hàng', icon: <Users size={18} /> },
-    { key: 'loans', label: 'Gọi vốn với NĐT', icon: <CircleDollarSign size={18} /> },
-    { key: 'admins', label: 'Quản lý Admin', icon: <ShieldCheck size={18} />, roles: ['SUPER_ADMIN'] },
+    { key: 'dashboard', label: 'Dashboard',          icon: <LayoutDashboard size={18} /> },
+    { key: 'users',     label: 'Khách hàng',         icon: <Users size={18} /> },
+    { key: 'loans',     label: 'Gọi vốn với NĐT',   icon: <CircleDollarSign size={18} /> },
+    // Audit log: chỉ ADMIN và SUPER_ADMIN thấy được
+    { key: 'audit',     label: 'Nhật ký quyết định', icon: <ClipboardList size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { key: 'admins',    label: 'Quản lý Admin',       icon: <ShieldCheck size={18} />,   roles: ['SUPER_ADMIN'] },
   ];
   const navItems = allItems.filter(item => !item.roles || item.roles.includes(admin.role));
 

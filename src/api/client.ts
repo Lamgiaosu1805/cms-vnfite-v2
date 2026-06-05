@@ -415,3 +415,56 @@ export async function fetchAppraisalSuggestion(
 ): Promise<AppraisalSuggestion> {
   return request(`/loans/${loanId}/appraisal-suggestion?discouraged=${discouraged}`);
 }
+
+// ─── Audit Log ───────────────────────────────────────────────────────────────
+
+export interface AuditLogEntry {
+  id: string;
+  loanId: string;
+  loanCode: string | null;
+  borrowerId: string | null;
+  // Snapshot khoản vay
+  requestedAmount: number | null;
+  proposedAmount: number | null;
+  proposedInterestRate: number | null;
+  proposedBy: string | null;
+  finalAmount: number | null;
+  finalInterestRate: number | null;
+  termMonths: number | null;
+  purpose: string | null;
+  occupation: string | null;
+  monthlyIncome: number | null;
+  // Engine thẩm định
+  creditScore: number | null;
+  creditBand: string | null;
+  /** Chỉ có khi gọi fetchAuditLogById — null trong danh sách */
+  appraisalSnapshot: AppraisalSuggestion | null;
+  // Quyết định
+  decision: 'APPROVED' | 'REJECTED';
+  rejectionReason: string | null;
+  decidedBy: string;
+  decidedAt: string;
+  deciderRole: string | null;
+  appraiserUsername: string | null;
+  createdAt: string | null;
+}
+
+export async function fetchAuditLogs(params: {
+  loanId?: string;
+  decision?: string;
+  decidedBy?: string;
+  page?: number;
+  size?: number;
+}): Promise<PagedResponse<AuditLogEntry>> {
+  const q = new URLSearchParams();
+  if (params.loanId)    q.set('loanId',    params.loanId);
+  if (params.decision)  q.set('decision',  params.decision);
+  if (params.decidedBy) q.set('decidedBy', params.decidedBy);
+  q.set('page', String(params.page ?? 0));
+  q.set('size', String(params.size ?? 20));
+  return request(`/audit/loans?${q}`);
+}
+
+export async function fetchAuditLogById(id: string): Promise<AuditLogEntry> {
+  return request(`/audit/loans/${id}`);
+}
