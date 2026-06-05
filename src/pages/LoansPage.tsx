@@ -28,6 +28,21 @@ function shortId(id: string | null | undefined) {
   return id.length > 8 ? id.slice(0, 8) + '…' : id;
 }
 
+function TruncatedText({
+  value,
+  className = '',
+}: {
+  value: string | null | undefined;
+  className?: string;
+}) {
+  const text = value && value.trim() ? value : '—';
+  return (
+    <span title={text} className={`block truncate ${className}`}>
+      {text}
+    </span>
+  );
+}
+
 // ─── Detail Page ──────────────────────────────────────────────────────────────
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
@@ -638,14 +653,16 @@ export function LoansPage() {
                     </p>
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
-                    <p className="font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap text-xs">
-                      {loan.borrowerName ?? shortId(loan.borrowerId)}
-                    </p>
+                    <TruncatedText
+                      value={loan.borrowerName ?? shortId(loan.borrowerId)}
+                      className="mx-auto max-w-[160px] font-medium text-gray-800 dark:text-gray-200 text-xs"
+                    />
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
-                    <p className="mx-auto max-w-[180px] truncate text-gray-600 dark:text-gray-400 text-xs">
-                      {loan.productName ?? loan.purpose ?? '—'}
-                    </p>
+                    <TruncatedText
+                      value={loan.productName ?? loan.purpose}
+                      className="mx-auto max-w-[180px] text-gray-600 dark:text-gray-400 text-xs"
+                    />
                   </td>
                   <td className="px-4 py-3.5 text-center font-semibold text-gray-800 dark:text-gray-200 align-middle text-xs">
                     {formatMoney(loan.amount)}
