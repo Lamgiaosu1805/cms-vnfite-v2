@@ -474,14 +474,16 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         </Section>
 
         {/* Thông tin bổ sung */}
-        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.currentAddress) && (
+        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.currentAddress || loan.commune || loan.province) && (
           <Section title="Thông tin bổ sung">
             {loan.occupation && <DetailRow label="Nghề nghiệp" value={loan.occupation} />}
             <DetailRow label="Nơi làm việc" value={loan.workplace ?? 'Không có'} />
             {loan.monthlyIncome != null && (
               <DetailRow label="Thu nhập/tháng" value={formatMoney(loan.monthlyIncome)} />
             )}
-            {loan.currentAddress && <DetailRow label="Địa chỉ hiện tại" value={loan.currentAddress} />}
+            {loan.currentAddress && <DetailRow label="Địa chỉ chi tiết" value={loan.currentAddress} />}
+            {loan.commune && <DetailRow label="Xã/Phường" value={loan.commune} />}
+            {loan.province && <DetailRow label="Tỉnh/Thành phố" value={loan.province} />}
           </Section>
         )}
 
