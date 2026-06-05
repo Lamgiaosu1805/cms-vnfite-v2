@@ -285,8 +285,14 @@ export interface CmsLoan {
   borrowerName: string | null;
   productName: string | null;
   amount: number;
-  /** Null khi mới tạo — CMS admin set khi approve */
+  /** Null khi mới tạo — set khi ban lãnh đạo phê duyệt */
   interestRate: number | null;
+  /** Đề xuất của thẩm định viên (cấp 1) trình ban lãnh đạo */
+  proposedAmount: number | null;
+  proposedInterestRate: number | null;
+  proposedBy: string | null;
+  proposedAt: string | null;
+  appraisalNote: string | null;
   termMonths: number;
   purpose: string | null;
   occupation: string | null;
@@ -312,10 +318,19 @@ export async function fetchLoans(params: {
   return request(`/loans?${q}`);
 }
 
-export async function approveLoan(loanId: string, proposedInterestRate: number, notes?: string): Promise<void> {
+/** Cấp 1 — thẩm định viên đề xuất số tiền + lãi suất trình ban lãnh đạo. */
+export async function proposeLoan(
+  loanId: string,
+  payload: { proposedAmount: number; proposedInterestRate: number; note?: string },
+): Promise<void> {
+  return request(`/loans/${loanId}/propose`, { method: 'PUT', data: payload });
+}
+
+/** Cấp 2 — ban lãnh đạo duyệt (interestRate có thể đã được lãnh đạo sửa). */
+export async function approveLoan(loanId: string, interestRate: number, notes?: string): Promise<void> {
   return request(`/loans/${loanId}/approve`, {
     method: 'PUT',
-    data: { interestRate: proposedInterestRate, reason: notes },
+    data: { interestRate, reason: notes },
   });
 }
 

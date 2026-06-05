@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw,
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
+  Send, Check, X, ShieldCheck,
 } from 'lucide-react';
 import {
-  fetchLoans, fetchAppraisalSuggestion,
+  fetchLoans, fetchAppraisalSuggestion, proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   type CmsLoan, type AppraisalSuggestion, type RecommendedDecision, type FactorImpact,
 } from '../api/client';
 import { Badge } from '../components/Badge';
@@ -87,6 +88,16 @@ function rateText(x: number | null | undefined): string {
   return x == null ? '—' : `${x}%/năm`;
 }
 
+const inputCls =
+  'mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 ' +
+  'text-gray-800 dark:text-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500';
+const btnPrimary =
+  'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white ' +
+  'text-sm font-medium disabled:opacity-50';
+const btnDanger =
+  'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-300 dark:border-red-700 ' +
+  'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 text-sm font-medium disabled:opacity-50';
+
 function SubSection({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
@@ -107,12 +118,22 @@ function MiniRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function AppraisalPanel({ loanId }: { loanId: string }) {
+function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
+  const loanId = loan.loanId;
   const [data, setData] = useState<AppraisalSuggestion | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [discouraged, setDiscouraged] = useState(false);
   const [tick, setTick] = useState(0);
+
+  // Phê duyệt 2 cấp
+  const admin = getStoredAdmin();
+  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const [amountInput, setAmountInput] = useState('');
+  const [rateInput, setRateInput] = useState('');
+  const [noteInput, setNoteInput] = useState('');
+  const [acting, setActing] = useState(false);
+  const [actError, setActError] = useState('');
 
   useEffect(() => {
     setLoading(true);
@@ -122,6 +143,49 @@ function AppraisalPanel({ loanId }: { loanId: string }) {
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, [loanId, discouraged, tick]);
+
+  // Prefill form: chờ thẩm định → gợi ý engine; chờ lãnh đạo → số đã đề xuất
+  useEffect(() => {
+    if (loan.status === 'PENDING_REVIEW' && data?.recommendation) {
+      setAmountInput(String(data.recommendation.suggestedAmount ?? ''));
+      setRateInput(data.recommendation.suggestedInterestRate != null
+        ? String(data.recommendation.suggestedInterestRate) : '');
+    } else if (loan.status === 'PENDING_APPROVAL') {
+      setAmountInput(loan.proposedAmount != null ? String(loan.proposedAmount) : '');
+      setRateInput(loan.proposedInterestRate != null ? String(loan.proposedInterestRate) : '');
+    }
+  }, [loan.status, loan.proposedAmount, loan.proposedInterestRate, data]);
+
+  const runAction = async (fn: () => Promise<void>) => {
+    setActing(true);
+    setActError('');
+    try {
+      await fn();
+      onActionDone();
+    } catch (e) {
+      setActError((e as Error).message);
+      setActing(false);
+    }
+  };
+
+  const handlePropose = () => {
+    const amt = Number(amountInput);
+    const rate = Number(rateInput);
+    if (!(amt > 0)) { setActError('Số tiền đề xuất không hợp lệ.'); return; }
+    if (!(rate > 0)) { setActError('Lãi suất đề xuất không hợp lệ.'); return; }
+    runAction(() => proposeLoan(loanId, { proposedAmount: amt, proposedInterestRate: rate, note: noteInput.trim() || undefined }));
+  };
+
+  const handleApprove = () => {
+    const rate = Number(rateInput);
+    if (!(rate > 0)) { setActError('Lãi suất duyệt không hợp lệ.'); return; }
+    runAction(() => approveLoan(loanId, rate, noteInput.trim() || undefined));
+  };
+
+  const handleReject = () => {
+    if (noteInput.trim().length < 3) { setActError('Nhập lý do từ chối.'); return; }
+    runAction(() => rejectLoan(loanId, noteInput.trim()));
+  };
 
   const rec = data?.recommendation;
   const dm = rec ? decisionMeta(rec.decision) : null;
@@ -284,11 +348,84 @@ function AppraisalPanel({ loanId }: { loanId: string }) {
           </p>
         </>
       )}
+
+      {/* ── Hành động phê duyệt 2 cấp ── */}
+      {(loan.status === 'PENDING_REVIEW' || loan.status === 'PENDING_APPROVAL') && (
+        <div className="rounded-xl border border-red-100 dark:border-red-900/40 bg-red-50/40 dark:bg-red-900/10 p-4 space-y-3">
+          {loan.status === 'PENDING_APPROVAL' && (
+            <div>
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                <Send size={13} />Đề xuất của thẩm định viên
+              </p>
+              <MiniRow label="Số tiền đề xuất" value={formatMoney(loan.proposedAmount)} />
+              <MiniRow label="Lãi suất đề xuất" value={loan.proposedInterestRate != null ? `${loan.proposedInterestRate}%/năm` : '—'} />
+              <MiniRow label="Thẩm định viên" value={loan.proposedBy ?? '—'} />
+              {loan.appraisalNote && <MiniRow label="Ghi chú" value={loan.appraisalNote} />}
+            </div>
+          )}
+
+          {loan.status === 'PENDING_REVIEW' && (
+            <>
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-500">
+                <Send size={13} />Đề xuất trình ban lãnh đạo
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="text-xs text-gray-500 dark:text-gray-400">
+                  Số tiền đề xuất (VND)
+                  <input type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)} className={inputCls} />
+                </label>
+                <label className="text-xs text-gray-500 dark:text-gray-400">
+                  Lãi suất (%/năm)
+                  <input type="number" step="0.1" value={rateInput} onChange={e => setRateInput(e.target.value)} className={inputCls} />
+                </label>
+              </div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400">
+                Ghi chú thẩm định
+                <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} rows={2} className={inputCls} />
+              </label>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500">Số liệu điền sẵn từ gợi ý engine — chỉnh nếu cần.</p>
+              <button disabled={acting} onClick={handlePropose} className={btnPrimary}>
+                <Send size={14} />Trình ban lãnh đạo
+              </button>
+            </>
+          )}
+
+          {loan.status === 'PENDING_APPROVAL' && (isLeader ? (
+            <>
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-500 pt-1">
+                <ShieldCheck size={13} />Ban lãnh đạo phê duyệt
+              </p>
+              <label className="block text-xs text-gray-500 dark:text-gray-400">
+                Lãi suất duyệt (%/năm) — có thể sửa trước khi duyệt
+                <input type="number" step="0.1" value={rateInput} onChange={e => setRateInput(e.target.value)} className={inputCls} />
+              </label>
+              <label className="block text-xs text-gray-500 dark:text-gray-400">
+                Ghi chú / lý do (bắt buộc khi từ chối)
+                <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} rows={2} className={inputCls} />
+              </label>
+              <div className="flex gap-2">
+                <button disabled={acting} onClick={handleApprove} className={btnPrimary}>
+                  <Check size={14} />Phê duyệt
+                </button>
+                <button disabled={acting} onClick={handleReject} className={btnDanger}>
+                  <X size={14} />Từ chối
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+              <ShieldCheck size={14} className="text-indigo-500" />Đang chờ ban lãnh đạo phê duyệt.
+            </p>
+          ))}
+
+          {actError && <p className="text-xs text-red-600 dark:text-red-400">{actError}</p>}
+        </div>
+      )}
     </div>
   );
 }
 
-function LoanDetailPage({ loan, onBack }: { loan: CmsLoan; onBack: () => void }) {
+function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void }) {
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -368,8 +505,8 @@ function LoanDetailPage({ loan, onBack }: { loan: CmsLoan; onBack: () => void })
         </Section>
       </div>
 
-      {/* Hỗ trợ thẩm định */}
-      <AppraisalPanel loanId={loan.loanId} />
+      {/* Hỗ trợ thẩm định + phê duyệt 2 cấp */}
+      <AppraisalPanel loan={loan} onActionDone={onActionDone} />
     </div>
   );
 }
@@ -379,6 +516,7 @@ function LoanDetailPage({ loan, onBack }: { loan: CmsLoan; onBack: () => void })
 const LOAN_STATUSES = [
   { value: '', label: 'Tất cả' },
   { value: 'PENDING_REVIEW', label: 'Chờ thẩm định' },
+  { value: 'PENDING_APPROVAL', label: 'Chờ lãnh đạo duyệt' },
   { value: 'AWAITING_BORROWER_APPROVAL', label: 'Chờ xác nhận' },
   { value: 'ACTIVE', label: 'Đang gọi vốn' },
   { value: 'FUNDED', label: 'Đã fund' },
@@ -409,7 +547,13 @@ export function LoansPage() {
   }, [status, page, refresh]);
 
   if (selectedLoan) {
-    return <LoanDetailPage loan={selectedLoan} onBack={() => setSelectedLoan(null)} />;
+    return (
+      <LoanDetailPage
+        loan={selectedLoan}
+        onBack={() => setSelectedLoan(null)}
+        onActionDone={() => { setSelectedLoan(null); setRefresh(r => r + 1); }}
+      />
+    );
   }
 
   return (
