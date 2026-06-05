@@ -61,30 +61,30 @@ export function LoginPage({ onPasswordVerified }: LoginPageProps) {
       </div>
 
       {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-[#FFF8F7]">
+      <div className="flex-1 flex items-center justify-center p-8 bg-[#FFF8F7] dark:bg-gray-900">
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="flex lg:hidden flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-white shadow-md border border-red-100 flex items-center justify-center mb-3">
+            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-gray-800 shadow-md border border-red-100 dark:border-gray-700 flex items-center justify-center mb-3">
               <img src="/logo.png" alt="VNFITE" className="w-12 h-12 object-contain" />
             </div>
             <h1 className="text-2xl font-bold" style={{ color: '#C82020' }}>VNFITE CMS</h1>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-lg border border-red-50 p-8">
-            <h2 className="text-xl font-bold text-gray-800 mb-1">Đăng nhập</h2>
-            <p className="text-sm text-gray-400 mb-6">Nhập thông tin tài khoản quản trị</p>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-red-50 dark:border-gray-700 p-8">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">Đăng nhập</h2>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">Nhập thông tin tài khoản quản trị</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Tên đăng nhập
                 </label>
                 <input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   autoComplete="off"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none transition"
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none transition dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
                   onFocus={e => e.target.style.boxShadow = '0 0 0 2px rgba(200,32,32,0.25)'}
                   onBlur={e => e.target.style.boxShadow = ''}
                   required
@@ -92,7 +92,7 @@ export function LoginPage({ onPasswordVerified }: LoginPageProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                   Mật khẩu
                 </label>
                 <input
@@ -100,7 +100,7 @@ export function LoginPage({ onPasswordVerified }: LoginPageProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none transition"
+                  className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:outline-none transition dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
                   onFocus={e => e.target.style.boxShadow = '0 0 0 2px rgba(200,32,32,0.25)'}
                   onBlur={e => e.target.style.boxShadow = ''}
                   required
@@ -108,7 +108,7 @@ export function LoginPage({ onPasswordVerified }: LoginPageProps) {
               </div>
 
               {error && (
-                <p className="text-sm text-red-600 bg-red-50 px-3 py-2.5 rounded-xl border border-red-100">
+                <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 px-3 py-2.5 rounded-xl border border-red-100 dark:border-red-900/40">
                   {error}
                 </p>
               )}
@@ -125,7 +125,7 @@ export function LoginPage({ onPasswordVerified }: LoginPageProps) {
             </form>
           </div>
 
-          <p className="text-center text-xs text-gray-400 mt-6">
+          <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
             © 2025 VNFITE. All rights reserved.
           </p>
         </div>
