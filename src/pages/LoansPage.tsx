@@ -543,7 +543,7 @@ const LOAN_STATUSES = [
 
 export function LoansPage() {
   const [data, setData] = useState<{ content: CmsLoan[]; totalElements: number; totalPages: number } | null>(null);
-  const [status, setStatus]   = useState('PENDING_REVIEW');
+  const [status, setStatus]   = useState('');
   const [province, setProvince] = useState('');
   const [page, setPage]       = useState(0);
   const [loading, setLoading] = useState(false);
