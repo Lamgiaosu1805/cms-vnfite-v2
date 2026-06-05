@@ -299,6 +299,8 @@ export interface CmsLoan {
   workplace: string | null;
   monthlyIncome: number | null;
   currentAddress: string | null;
+  commune: string | null;
+  province: string | null;
   status: string;
   rejectionReason: string | null;
   reviewedBy: string | null;
@@ -308,11 +310,13 @@ export interface CmsLoan {
 
 export async function fetchLoans(params: {
   status?: string;
+  province?: string;
   page?: number;
   size?: number;
 }): Promise<PagedResponse<CmsLoan>> {
   const q = new URLSearchParams();
-  if (params.status) q.set('status', params.status);
+  if (params.status)   q.set('status',   params.status);
+  if (params.province) q.set('province', params.province);
   q.set('page', String(params.page ?? 0));
   q.set('size', String(params.size ?? 20));
   return request(`/loans?${q}`);

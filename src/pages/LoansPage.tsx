@@ -513,6 +513,17 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// 34 tỉnh/thành phố chính thức theo NQ 202/2025/QH15 — dùng cho filter CMS
+const VN_PROVINCES_2025 = [
+  'An Giang', 'Bắc Ninh', 'Cà Mau', 'Cao Bằng', 'Cần Thơ',
+  'Đà Nẵng', 'Đắk Lắk', 'Điện Biên', 'Đồng Nai', 'Đồng Tháp',
+  'Gia Lai', 'Hà Nội', 'Hà Tĩnh', 'Hải Phòng', 'Hồ Chí Minh',
+  'Huế', 'Hưng Yên', 'Khánh Hòa', 'Lai Châu', 'Lạng Sơn',
+  'Lào Cai', 'Lâm Đồng', 'Nghệ An', 'Ninh Bình', 'Phú Thọ',
+  'Quảng Ngãi', 'Quảng Ninh', 'Quảng Trị', 'Sơn La', 'Tây Ninh',
+  'Thái Nguyên', 'Thanh Hóa', 'Tuyên Quang', 'Vĩnh Long',
+];
+
 const LOAN_STATUSES = [
   { value: '', label: 'Tất cả' },
   { value: 'PENDING_REVIEW', label: 'Chờ thẩm định' },
@@ -530,21 +541,22 @@ const LOAN_STATUSES = [
 
 export function LoansPage() {
   const [data, setData] = useState<{ content: CmsLoan[]; totalElements: number; totalPages: number } | null>(null);
-  const [status, setStatus] = useState('PENDING_REVIEW');
-  const [page, setPage] = useState(0);
+  const [status, setStatus]   = useState('PENDING_REVIEW');
+  const [province, setProvince] = useState('');
+  const [page, setPage]       = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError]     = useState('');
   const [refresh, setRefresh] = useState(0);
   const [selectedLoan, setSelectedLoan] = useState<CmsLoan | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setError('');
-    fetchLoans({ status: status || undefined, page, size: 20 })
+    fetchLoans({ status: status || undefined, province: province || undefined, page, size: 20 })
       .then(setData)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [status, page, refresh]);
+  }, [status, province, page, refresh]);
 
   if (selectedLoan) {
     return (
@@ -560,6 +572,7 @@ export function LoansPage() {
     <div className="space-y-4">
       {/* Filters */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-wrap gap-3 items-center">
+        {/* Trạng thái */}
         <select
           value={status}
           onChange={e => { setStatus(e.target.value); setPage(0); }}
@@ -567,12 +580,24 @@ export function LoansPage() {
         >
           {LOAN_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
+
+        {/* Tỉnh / Thành phố */}
+        <select
+          value={province}
+          onChange={e => { setProvince(e.target.value); setPage(0); }}
+          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-red-500"
+        >
+          <option value="">Tất cả tỉnh/TP</option>
+          {VN_PROVINCES_2025.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+
         <button onClick={() => setRefresh(r => r + 1)} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
         {data && (
           <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
             Tổng {data.totalElements} khoản
+            {province ? ` tại ${province}` : ''}
           </span>
         )}
       </div>
