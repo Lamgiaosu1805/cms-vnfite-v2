@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw } from 'lucide-react';
-import { fetchLoans, type CmsLoan } from '../api/client';
+import {
+  ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw,
+  Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
+} from 'lucide-react';
+import {
+  fetchLoans, fetchAppraisalSuggestion,
+  type CmsLoan, type AppraisalSuggestion, type RecommendedDecision, type FactorImpact,
+} from '../api/client';
 import { Badge } from '../components/Badge';
 
 function formatMoney(value: number | string | undefined | null) {
@@ -38,6 +44,246 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500 mb-3">{title}</p>
       {children}
+    </div>
+  );
+}
+
+// ─── Appraisal support panel ────────────────────────────────────────────────────
+
+const CATEGORY_LABEL: Record<string, string> = {
+  IDENTITY: 'Định danh', INCOME: 'Thu nhập', EMPLOYMENT: 'Nghề nghiệp',
+  REFERENCE: 'Tham chiếu', PURPOSE: 'Mục đích', DOCUMENT: 'Chứng từ', FRAUD: 'Gian lận',
+};
+
+const METHOD_LABEL: Record<string, string> = {
+  EMI_MONTHLY: 'Gốc + lãi đều hàng tháng',
+  INTEREST_MONTHLY_PRINCIPAL_QUARTERLY: 'Lãi tháng · gốc theo quý',
+};
+
+function bandTone(band: string): string {
+  const c = (band || '')[0];
+  if (c === 'A') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+  if (c === 'B') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+  return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+}
+
+function decisionMeta(d: RecommendedDecision): { label: string; cls: string } {
+  if (d === 'APPROVE') return { label: 'Nghiêng DUYỆT', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' };
+  if (d === 'REVIEW') return { label: 'CẦN THẨM ĐỊNH KỸ', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
+  return { label: 'Nghiêng TỪ CHỐI', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
+}
+
+function impactTone(impact: FactorImpact): string {
+  if (impact === 'POSITIVE') return 'text-green-600 dark:text-green-400';
+  if (impact === 'NEGATIVE') return 'text-red-600 dark:text-red-400';
+  return 'text-gray-400 dark:text-gray-500';
+}
+
+function ratioPct(x: number | null | undefined): string {
+  return x == null ? '—' : `${Math.round(x * 100)}%`;
+}
+
+function rateText(x: number | null | undefined): string {
+  return x == null ? '—' : `${x}%/năm`;
+}
+
+function SubSection({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+        {icon}{title}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function MiniRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex justify-between items-start gap-3 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{label}</span>
+      <span className="text-xs text-gray-800 dark:text-gray-200 text-right font-medium">{value}</span>
+    </div>
+  );
+}
+
+function AppraisalPanel({ loanId }: { loanId: string }) {
+  const [data, setData] = useState<AppraisalSuggestion | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [discouraged, setDiscouraged] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    setLoading(true);
+    setError('');
+    fetchAppraisalSuggestion(loanId, discouraged)
+      .then(setData)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [loanId, discouraged, tick]);
+
+  const rec = data?.recommendation;
+  const dm = rec ? decisionMeta(rec.decision) : null;
+  const sp = data?.schedulePreview ?? null;
+  const af = data?.affordability ?? null;
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Sparkles size={16} className="text-red-500" />
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Hỗ trợ thẩm định</p>
+        <label className="ml-auto flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={discouraged}
+            onChange={e => setDiscouraged(e.target.checked)}
+            className="accent-red-500"
+          />
+          Lĩnh vực không khuyến khích (+2%)
+        </label>
+        <button
+          onClick={() => setTick(t => t + 1)}
+          className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+          title="Tải lại"
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
+
+      {loading && !data && (
+        <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">
+          <RefreshCw size={16} className="animate-spin inline mr-2" />Đang phân tích...
+        </p>
+      )}
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
+      )}
+
+      {data && rec && (
+        <>
+          {/* Top metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Hạng tín nhiệm</p>
+              <div className="flex items-center gap-2">
+                <span className={`text-lg font-bold px-2.5 py-0.5 rounded-lg ${bandTone(data.risk.band)}`}>{data.risk.band}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">{data.risk.score}/100 điểm</span>
+              </div>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Nhóm sản phẩm {data.productGroup ?? '—'}</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Khuyến nghị</p>
+              {dm && <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-lg ${dm.cls}`}>{dm.label}</span>}
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Hỗ trợ — không tự quyết</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Đề xuất giải ngân</p>
+              <p className="text-base font-bold text-gray-900 dark:text-white">{formatMoney(rec.suggestedAmount)}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Lãi suất tối thiểu <span className="font-semibold text-gray-700 dark:text-gray-200">{rateText(rec.suggestedInterestRate)}</span>
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Phí giải ngân {rec.feePercent != null ? `${rec.feePercent}%` : '—'}
+                {rec.connectionFee != null && <span className="text-gray-400 dark:text-gray-500"> ({formatMoney(rec.connectionFee)})</span>}
+              </p>
+            </div>
+          </div>
+
+          {/* Service unavailable banner */}
+          {!rec.serviceAvailable && (
+            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40 px-3 py-2.5 text-sm text-red-700 dark:text-red-300 flex gap-2">
+              <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+              {rec.rateNote}
+            </div>
+          )}
+          {rec.serviceAvailable && (
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 -mt-2">{rec.rateNote} · Số tiền: {rec.amountCapReason}.</p>
+          )}
+
+          {/* Affordability + schedule */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {af && (
+              <SubSection title="Năng lực trả nợ" icon={<Wallet size={13} />}>
+                <MiniRow label="Thu nhập/tháng" value={af.incomeProvided ? formatMoney(af.monthlyIncome) : <span className="text-red-500">Chưa khai</span>} />
+                <MiniRow label="Trần PTI" value={ratioPct(af.ptiCap)} />
+                <MiniRow label="Khoản trả/tháng (số yêu cầu)" value={af.requestedInstallment != null ? formatMoney(af.requestedInstallment) : '—'} />
+                <MiniRow label="PTI ở số yêu cầu" value={ratioPct(af.requestedPti)} />
+                <MiniRow label="Trả tối đa/tháng (theo thu nhập)" value={af.maxInstallmentByIncome != null ? formatMoney(af.maxInstallmentByIncome) : '—'} />
+                <MiniRow label="Gốc tối đa theo thu nhập" value={af.maxPrincipalByIncome != null ? formatMoney(af.maxPrincipalByIncome) : '—'} />
+              </SubSection>
+            )}
+
+            {sp ? (
+              <SubSection title="Lịch trả nợ xem trước (ở mức đề xuất)" icon={<CircleDollarSign size={13} />}>
+                <MiniRow label="Phương thức" value={METHOD_LABEL[sp.method] ?? sp.method} />
+                <MiniRow label="Số kỳ" value={`${sp.periods} kỳ`} />
+                <MiniRow label="Trả kỳ đầu" value={formatMoney(sp.firstInstallment)} />
+                <MiniRow label="Tổng gốc" value={formatMoney(sp.totalPrincipal)} />
+                <MiniRow label="Tổng lãi" value={formatMoney(sp.totalInterest)} />
+                <MiniRow label="Tổng phải trả" value={<span className="font-semibold">{formatMoney(sp.totalPayable)}</span>} />
+              </SubSection>
+            ) : (
+              <SubSection title="Lịch trả nợ xem trước" icon={<CircleDollarSign size={13} />}>
+                <p className="text-xs text-gray-400 dark:text-gray-500 italic">Không khả dụng (hạng không được cấp dịch vụ).</p>
+              </SubSection>
+            )}
+          </div>
+
+          {/* Score factors */}
+          <SubSection title="Yếu tố chấm điểm" icon={<Gauge size={13} />}>
+            <div className="space-y-0.5">
+              {data.risk.factors.map(f => (
+                <div key={f.code} className="flex items-start gap-2.5 py-1.5 text-sm">
+                  <span className={`font-bold w-9 text-right shrink-0 ${impactTone(f.impact)}`}>
+                    {f.points > 0 ? `+${f.points}` : f.points}
+                  </span>
+                  <div className="leading-snug">
+                    <span className="text-gray-700 dark:text-gray-200 font-medium">{f.label}</span>
+                    <span className="text-gray-400 dark:text-gray-500"> — {f.detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SubSection>
+
+          {/* Auto warnings */}
+          {data.autoWarnings.length > 0 && (
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 p-3 space-y-1.5">
+              {data.autoWarnings.map((w, i) => (
+                <p key={i} className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" />{w}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* Manual checklist */}
+          <SubSection title="Checklist thẩm định thủ công" icon={<ClipboardList size={13} />}>
+            <div>
+              {data.manualChecklist.map(c => (
+                <div key={c.code} className="py-2.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                      {CATEGORY_LABEL[c.category] ?? c.category}
+                    </span>
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{c.title}</span>
+                    {c.required && <span className="text-[10px] text-red-500 font-medium">* bắt buộc</span>}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{c.instruction}</p>
+                </div>
+              ))}
+            </div>
+          </SubSection>
+
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 italic border-t border-gray-100 dark:border-gray-800 pt-3">
+            {data.disclaimer}
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -121,6 +367,9 @@ function LoanDetailPage({ loan, onBack }: { loan: CmsLoan; onBack: () => void })
           <DetailRow label="Ngày tạo" value={formatDate(loan.createdAt)} />
         </Section>
       </div>
+
+      {/* Hỗ trợ thẩm định */}
+      <AppraisalPanel loanId={loan.loanId} />
     </div>
   );
 }

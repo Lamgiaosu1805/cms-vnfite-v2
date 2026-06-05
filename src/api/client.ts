@@ -325,3 +325,78 @@ export async function rejectLoan(loanId: string, reason: string): Promise<void> 
     data: { reason },
   });
 }
+
+// ─── Hỗ trợ thẩm định (appraisal suggestion) ────────────────────────────────────
+
+export type FactorImpact = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+export type RecommendedDecision = 'APPROVE' | 'REVIEW' | 'REJECT';
+
+export interface AppraisalScoreFactor {
+  code: string;
+  label: string;
+  impact: FactorImpact;
+  points: number;
+  detail: string;
+}
+
+export interface AppraisalChecklistItem {
+  code: string;
+  category: string;
+  title: string;
+  instruction: string;
+  required: boolean;
+}
+
+export interface AppraisalSuggestion {
+  loanId: string;
+  loanCode: string | null;
+  status: string;
+  requestedAmount: number;
+  termMonths: number;
+  productGroup: number | null;
+  productName: string | null;
+  risk: {
+    score: number;
+    band: string; // A1..C3
+    factors: AppraisalScoreFactor[];
+  };
+  affordability: {
+    incomeProvided: boolean;
+    monthlyIncome: number | null;
+    ptiCap: number;
+    requestedInstallment: number | null;
+    requestedPti: number | null;
+    maxInstallmentByIncome: number | null;
+    maxPrincipalByIncome: number | null;
+  };
+  recommendation: {
+    suggestedAmount: number;
+    amountCapReason: string;
+    suggestedInterestRate: number | null;
+    suggestedRateMin: number | null;
+    suggestedRateMax: number | null;
+    feePercent: number | null;
+    connectionFee: number | null;
+    serviceAvailable: boolean;
+    rateNote: string;
+    decision: RecommendedDecision;
+  };
+  schedulePreview: {
+    method: string;
+    periods: number;
+    firstInstallment: number;
+    totalPrincipal: number;
+    totalInterest: number;
+    totalPayable: number;
+  } | null;
+  manualChecklist: AppraisalChecklistItem[];
+  autoWarnings: string[];
+  disclaimer: string;
+}
+
+export async function fetchAppraisalSuggestion(
+  loanId: string,
+  discouraged = false,
+): Promise<AppraisalSuggestion> {
+  return request(`/loans/${loanId}/appraisal-suggestion?discouraged=${discouraged}`);
+}
