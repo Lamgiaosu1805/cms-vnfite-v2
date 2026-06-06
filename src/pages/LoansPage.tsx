@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw,
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
-  Send, Check, X, ShieldCheck,
+  Send, Check, X, ShieldCheck, Search,
 } from 'lucide-react';
 import {
   fetchLoans, fetchAppraisalSuggestion, proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
@@ -552,6 +552,8 @@ interface LoansPageProps {
 export function LoansPage({ status, onActionDone }: LoansPageProps) {
   const [data, setData] = useState<{ content: CmsLoan[]; totalElements: number; totalPages: number } | null>(null);
   const [province, setProvince] = useState('');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage]       = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
@@ -559,13 +561,27 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
   const [selectedLoan, setSelectedLoan] = useState<CmsLoan | null>(null);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(0);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
     setLoading(true);
     setError('');
-    fetchLoans({ status: status || undefined, province: province || undefined, page, size: 20 })
+    fetchLoans({
+      status: status || undefined,
+      province: province || undefined,
+      search: debouncedSearch || undefined,
+      page,
+      size: 20,
+    })
       .then(setData)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [status, province, page, refresh]);
+  }, [status, province, debouncedSearch, page, refresh]);
 
   if (selectedLoan) {
     return (
@@ -581,6 +597,26 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
     <div className="space-y-4">
       {/* Filters */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-wrap gap-3 items-center">
+        <div className="relative min-w-[280px] flex-1 sm:flex-none">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Tìm mã khoản, sản phẩm, mục đích..."
+            className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 py-2 pl-9 pr-9 text-sm text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-red-500"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"
+              title="Xóa tìm kiếm"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
         {/* Tỉnh / Thành phố */}
         <select
           value={province}
@@ -598,6 +634,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
           <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
             {loanStatusLabel(status)} · {data.totalElements} khoản
             {province ? ` tại ${province}` : ''}
+            {debouncedSearch ? ` · "${debouncedSearch}"` : ''}
           </span>
         )}
       </div>

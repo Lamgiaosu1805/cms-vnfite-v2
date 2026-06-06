@@ -311,12 +311,14 @@ export interface CmsLoan {
 export async function fetchLoans(params: {
   status?: string;
   province?: string;
+  search?: string;
   page?: number;
   size?: number;
 }): Promise<PagedResponse<CmsLoan>> {
   const q = new URLSearchParams();
   if (params.status)   q.set('status',   params.status);
   if (params.province) q.set('province', params.province);
+  if (params.search)   q.set('search',   params.search);
   q.set('page', String(params.page ?? 0));
   q.set('size', String(params.size ?? 20));
   return request(`/loans?${q}`);
