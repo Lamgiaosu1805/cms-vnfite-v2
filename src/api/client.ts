@@ -17,7 +17,7 @@ axiosClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 axiosClient.interceptors.response.use(
   (res: AxiosResponse) => res,
-  (err: AxiosError<{ message?: string; error?: string; detail?: string }>) => {
+  (err: AxiosError<{ message?: string; error?: string; detail?: string; details?: string[] }>) => {
     const status = err.response?.status ?? 0;
     const url = err.config?.url ?? '';
     // Auth endpoints: 401/403 là lỗi nghiệp vụ (sai mật khẩu, sai OTP) — KHÔNG redirect
@@ -33,7 +33,8 @@ axiosClient.interceptors.response.use(
       }
     }
     const body = err.response?.data;
-    const message = body?.message || body?.error || body?.detail || `Lỗi ${status}`;
+    const details = Array.isArray(body?.details) ? body.details.filter(Boolean).join('; ') : '';
+    const message = details || body?.message || body?.error || body?.detail || `Lỗi ${status}`;
     return Promise.reject(new Error(message));
   },
 );
