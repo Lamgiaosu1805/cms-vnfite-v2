@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { checkSetupRequired, clearSession, getStoredAdmin, type AdminInfo, type LoginResult } from './api/client';
+import { checkSetupRequired, clearSession, fetchLoans, getStoredAdmin, type AdminInfo, type LoginResult } from './api/client';
 import { LoginPage } from './pages/LoginPage';
 import { SetupPage } from './pages/SetupPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
@@ -12,6 +12,7 @@ import { AdminsPage } from './pages/AdminsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
+import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
 
 const PAGE_TITLES: Record<TabKey, string> = {
   dashboard: 'Dashboard',
@@ -33,6 +34,9 @@ type AppState =
 export default function App() {
   const [state, setState] = useState<AppState>({ screen: 'loading' });
   const [tab, setTab] = useState<TabKey>('dashboard');
+  const [loanStatus, setLoanStatus] = useState<LoanStatusFilter>('');
+  const [loanStatusCounts, setLoanStatusCounts] = useState<Record<string, number>>({});
+  const [loanCountsRefresh, setLoanCountsRefresh] = useState(0);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('cms_theme') === 'dark');
 
   useEffect(() => {
@@ -50,6 +54,24 @@ export default function App() {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('cms_theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  useEffect(() => {
+    if (state.screen !== 'main') return;
+    let cancelled = false;
+    Promise.all(
+      LOAN_STATUS_OPTIONS.map(async item => {
+        const result = await fetchLoans({ status: item.value || undefined, page: 0, size: 1 });
+        return [item.value, result.totalElements] as const;
+      }),
+    )
+      .then(entries => {
+        if (!cancelled) setLoanStatusCounts(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (!cancelled) setLoanStatusCounts({});
+      });
+    return () => { cancelled = true; };
+  }, [state.screen, loanCountsRefresh]);
 
   /** Gọi sau bước xác thực mật khẩu — chuyển sang TOTP */
   function handlePasswordVerified(pendingToken: string, totpEnabled: boolean) {
@@ -71,6 +93,16 @@ export default function App() {
   function handleLogout() {
     clearSession();
     setState({ screen: 'login' });
+  }
+
+  function handleTabChange(nextTab: TabKey) {
+    if (nextTab === 'loans') setLoanStatus('');
+    setTab(nextTab);
+  }
+
+  function handleLoanStatusChange(nextStatus: LoanStatusFilter) {
+    setLoanStatus(nextStatus);
+    setTab('loans');
   }
 
   // ─── Screens ─────────────────────────────────────────────────────────────────
@@ -124,13 +156,23 @@ export default function App() {
   const { admin } = state;
   return (
     <div className="flex min-h-screen bg-[#FFF8F7] dark:bg-gray-950">
-      <Sidebar admin={admin} activeTab={tab} onTabChange={setTab} onLogout={handleLogout} />
+      <Sidebar
+        admin={admin}
+        activeTab={tab}
+        activeLoanStatus={loanStatus}
+        loanStatusCounts={loanStatusCounts}
+        onTabChange={handleTabChange}
+        onLoanStatusChange={handleLoanStatusChange}
+        onLogout={handleLogout}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #C82020, #8B0A0A)' }} />
-            <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100">{PAGE_TITLES[tab]}</h1>
+            <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+              {tab === 'loans' ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(loanStatus)}` : PAGE_TITLES[tab]}
+            </h1>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
             <button
@@ -152,7 +194,13 @@ export default function App() {
         <main className="flex-1 p-6 overflow-auto dark:bg-gray-950">
           {tab === 'dashboard' && <DashboardPage />}
           {tab === 'users'     && <UsersPage />}
-          {tab === 'loans'     && <LoansPage />}
+          {tab === 'loans'     && (
+            <LoansPage
+              key={loanStatus || 'all'}
+              status={loanStatus}
+              onActionDone={() => setLoanCountsRefresh(v => v + 1)}
+            />
+          )}
           {tab === 'admins'    && <AdminsPage />}
           {tab === 'audit'     && <AuditLogPage />}
         </main>

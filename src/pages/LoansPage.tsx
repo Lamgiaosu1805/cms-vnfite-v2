@@ -9,6 +9,7 @@ import {
   type CmsLoan, type AppraisalSuggestion, type RecommendedDecision, type FactorImpact,
 } from '../api/client';
 import { Badge } from '../components/Badge';
+import { loanStatusLabel, type LoanStatusFilter } from '../loanConstants';
 
 function formatMoney(value: number | string | undefined | null) {
   return new Intl.NumberFormat('vi-VN', {
@@ -541,24 +542,15 @@ const VN_PROVINCES_2025 = [
   'Thái Nguyên', 'Thanh Hóa', 'Tuyên Quang', 'Vĩnh Long',
 ];
 
-const LOAN_STATUSES = [
-  { value: '', label: 'Tất cả' },
-  { value: 'PENDING_REVIEW', label: 'Chờ thẩm định' },
-  { value: 'PENDING_APPROVAL', label: 'Chờ lãnh đạo duyệt' },
-  { value: 'AWAITING_BORROWER_APPROVAL', label: 'Chờ xác nhận' },
-  { value: 'ACTIVE', label: 'Đang gọi vốn' },
-  { value: 'FUNDED', label: 'Đã fund' },
-  { value: 'REPAYING', label: 'Đang trả' },
-  { value: 'COMPLETED', label: 'Hoàn thành' },
-  { value: 'REJECTED', label: 'Từ chối' },
-  { value: 'CANCELLED', label: 'Đã huỷ' },
-];
-
 // ─── List Page ────────────────────────────────────────────────────────────────
 
-export function LoansPage() {
+interface LoansPageProps {
+  status: LoanStatusFilter;
+  onActionDone?: () => void;
+}
+
+export function LoansPage({ status, onActionDone }: LoansPageProps) {
   const [data, setData] = useState<{ content: CmsLoan[]; totalElements: number; totalPages: number } | null>(null);
-  const [status, setStatus]   = useState('');
   const [province, setProvince] = useState('');
   const [page, setPage]       = useState(0);
   const [loading, setLoading] = useState(false);
@@ -580,7 +572,7 @@ export function LoansPage() {
       <LoanDetailPage
         loan={selectedLoan}
         onBack={() => setSelectedLoan(null)}
-        onActionDone={() => { setSelectedLoan(null); setRefresh(r => r + 1); }}
+        onActionDone={() => { setSelectedLoan(null); setRefresh(r => r + 1); onActionDone?.(); }}
       />
     );
   }
@@ -589,15 +581,6 @@ export function LoansPage() {
     <div className="space-y-4">
       {/* Filters */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-wrap gap-3 items-center">
-        {/* Trạng thái */}
-        <select
-          value={status}
-          onChange={e => { setStatus(e.target.value); setPage(0); }}
-          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-red-500"
-        >
-          {LOAN_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
-
         {/* Tỉnh / Thành phố */}
         <select
           value={province}
@@ -613,7 +596,7 @@ export function LoansPage() {
         </button>
         {data && (
           <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
-            Tổng {data.totalElements} khoản
+            {loanStatusLabel(status)} · {data.totalElements} khoản
             {province ? ` tại ${province}` : ''}
           </span>
         )}

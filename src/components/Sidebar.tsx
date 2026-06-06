@@ -1,16 +1,28 @@
-import { BarChart3, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react';
+import { BarChart3, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react';
 import type { AdminInfo } from '../api/client';
+import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
 export type TabKey = 'dashboard' | 'users' | 'loans' | 'admins' | 'audit';
 
 interface SidebarProps {
   admin: AdminInfo;
   activeTab: TabKey;
+  activeLoanStatus: LoanStatusFilter;
+  loanStatusCounts: Record<string, number>;
   onTabChange: (tab: TabKey) => void;
+  onLoanStatusChange: (status: LoanStatusFilter) => void;
   onLogout: () => void;
 }
 
-export function Sidebar({ admin, activeTab, onTabChange, onLogout }: SidebarProps) {
+export function Sidebar({
+  admin,
+  activeTab,
+  activeLoanStatus,
+  loanStatusCounts,
+  onTabChange,
+  onLoanStatusChange,
+  onLogout,
+}: SidebarProps) {
   const allItems: { key: TabKey; label: string; icon: React.ReactNode; roles?: string[] }[] = [
     { key: 'dashboard', label: 'Dashboard',          icon: <LayoutDashboard size={18} /> },
     { key: 'users',     label: 'Khách hàng',         icon: <Users size={18} /> },
@@ -48,16 +60,46 @@ export function Sidebar({ admin, activeTab, onTabChange, onLogout }: SidebarProp
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ key, label, icon }) => (
-          <button key={key} onClick={() => onTabChange(key)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
-            style={activeTab === key ? {
-              background: 'rgba(255,255,255,0.15)', color: '#ffffff',
-              boxShadow: 'inset 2px 0 0 #E8A030',
-            } : { color: 'rgba(255,255,255,0.7)' }}
-            onMouseEnter={e => { if (activeTab !== key) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
-            onMouseLeave={e => { if (activeTab !== key) (e.currentTarget as HTMLElement).style.background = ''; }}>
-            {icon}{label}
-          </button>
+          <div key={key}>
+            <button onClick={() => onTabChange(key)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+              style={activeTab === key ? {
+                background: 'rgba(255,255,255,0.15)', color: '#ffffff',
+                boxShadow: 'inset 2px 0 0 #E8A030',
+              } : { color: 'rgba(255,255,255,0.7)' }}
+              onMouseEnter={e => { if (activeTab !== key) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+              onMouseLeave={e => { if (activeTab !== key) (e.currentTarget as HTMLElement).style.background = ''; }}>
+              {icon}
+              <span className="flex-1 text-left">{label}</span>
+              {key === 'loans' && <ChevronDown size={14} className={activeTab === 'loans' ? 'opacity-90' : 'opacity-60'} />}
+            </button>
+
+            {key === 'loans' && activeTab === 'loans' && (
+              <div className="mt-1.5 ml-4 space-y-0.5 border-l border-white/10 pl-2">
+                {LOAN_STATUS_OPTIONS.map(item => {
+                  const selected = activeLoanStatus === item.value;
+                  return (
+                    <button
+                      key={item.value || 'all'}
+                      type="button"
+                      onClick={() => onLoanStatusChange(item.value)}
+                      className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
+                      style={selected
+                        ? { background: 'rgba(255,255,255,0.14)', color: '#ffffff' }
+                        : { color: 'rgba(255,255,255,0.65)' }}
+                      onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+                      onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = ''; }}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                      <span className="min-w-7 rounded-full bg-white/10 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                        {loanStatusCounts[item.value] ?? 0}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         ))}
       </nav>
 
