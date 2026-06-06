@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { BarChart3, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, ShieldCheck, Users } from 'lucide-react';
 import type { AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
@@ -23,6 +24,12 @@ export function Sidebar({
   onLoanStatusChange,
   onLogout,
 }: SidebarProps) {
+  const [loanMenuOpen, setLoanMenuOpen] = useState(activeTab === 'loans');
+
+  useEffect(() => {
+    if (activeTab !== 'loans') setLoanMenuOpen(false);
+  }, [activeTab]);
+
   const allItems: { key: TabKey; label: string; icon: React.ReactNode; roles?: string[] }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { key: 'users', label: 'Khách hàng', icon: <Users size={18} /> },
@@ -61,7 +68,18 @@ export function Sidebar({
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navItems.map(({ key, label, icon }) => (
           <div key={key}>
-            <button onClick={() => onTabChange(key)}
+            <button onClick={() => {
+              if (key === 'loans') {
+                if (activeTab === 'loans') {
+                  setLoanMenuOpen(value => !value);
+                } else {
+                  setLoanMenuOpen(true);
+                  onTabChange(key);
+                }
+                return;
+              }
+              onTabChange(key);
+            }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={activeTab === key ? {
                 background: 'rgba(255,255,255,0.15)', color: '#ffffff',
@@ -71,10 +89,15 @@ export function Sidebar({
               onMouseLeave={e => { if (activeTab !== key) (e.currentTarget as HTMLElement).style.background = ''; }}>
               {icon}
               <span className="flex-1 text-left">{label}</span>
-              {key === 'loans' && <ChevronDown size={14} className={activeTab === 'loans' ? 'opacity-90' : 'opacity-60'} />}
+              {key === 'loans' && (
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform ${activeTab === 'loans' ? 'opacity-90' : 'opacity-60'} ${loanMenuOpen ? 'rotate-180' : ''}`}
+                />
+              )}
             </button>
 
-            {key === 'loans' && activeTab === 'loans' && (
+            {key === 'loans' && activeTab === 'loans' && loanMenuOpen && (
               <div className="mt-1.5 ml-4 space-y-0.5 border-l border-white/10 pl-2">
                 {LOAN_STATUS_OPTIONS.map(item => {
                   const selected = activeLoanStatus === item.value;
@@ -82,7 +105,10 @@ export function Sidebar({
                     <button
                       key={item.value || 'all'}
                       type="button"
-                      onClick={() => onLoanStatusChange(item.value)}
+                      onClick={() => {
+                        setLoanMenuOpen(true);
+                        onLoanStatusChange(item.value);
+                      }}
                       className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
                       style={selected
                         ? { background: 'rgba(255,255,255,0.14)', color: '#ffffff' }

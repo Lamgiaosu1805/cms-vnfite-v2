@@ -31,6 +31,20 @@ type AppState =
   | { screen: 'change-password'; admin: AdminInfo }
   | { screen: 'main'; admin: AdminInfo };
 
+type CmsHistoryScreen = Extract<AppState['screen'], 'setup' | 'login' | 'totp-setup' | 'totp-verify' | 'change-password' | 'main'>;
+
+function currentCmsUrl() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function replaceCmsHistory(screen: CmsHistoryScreen) {
+  window.history.replaceState({ cmsScreen: screen }, '', currentCmsUrl());
+}
+
+function pushCmsHistory(screen: CmsHistoryScreen) {
+  window.history.pushState({ cmsScreen: screen }, '', currentCmsUrl());
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>({ screen: 'loading' });
   const [tab, setTab] = useState<TabKey>('dashboard');
@@ -42,12 +56,46 @@ export default function App() {
   useEffect(() => {
     const storedAdmin = getStoredAdmin();
     if (storedAdmin) {
+      replaceCmsHistory('main');
       setState({ screen: 'main', admin: storedAdmin });
       return;
     }
     checkSetupRequired()
-      .then(required => setState({ screen: required ? 'setup' : 'login' }))
-      .catch(() => setState({ screen: 'login' }));
+      .then(required => {
+        const screen = required ? 'setup' : 'login';
+        replaceCmsHistory(screen);
+        setState({ screen });
+      })
+      .catch(() => {
+        replaceCmsHistory('login');
+        setState({ screen: 'login' });
+      });
+  }, []);
+
+  useEffect(() => {
+    function handleBrowserBack(event: PopStateEvent) {
+      const screen = event.state?.cmsScreen as CmsHistoryScreen | undefined;
+      if (!screen) return;
+
+      if (screen === 'login' || screen === 'setup') {
+        clearSession();
+        setState({ screen });
+        return;
+      }
+
+      if (screen === 'main') {
+        const storedAdmin = getStoredAdmin();
+        if (storedAdmin) {
+          setState({ screen: 'main', admin: storedAdmin });
+        } else {
+          replaceCmsHistory('login');
+          setState({ screen: 'login' });
+        }
+      }
+    }
+
+    window.addEventListener('popstate', handleBrowserBack);
+    return () => window.removeEventListener('popstate', handleBrowserBack);
   }, []);
 
   useEffect(() => {
@@ -75,6 +123,8 @@ export default function App() {
 
   /** Gọi sau bước xác thực mật khẩu — chuyển sang TOTP */
   function handlePasswordVerified(pendingToken: string, totpEnabled: boolean) {
+    const screen = totpEnabled ? 'totp-verify' : 'totp-setup';
+    pushCmsHistory(screen);
     setState(totpEnabled
       ? { screen: 'totp-verify', pendingToken }
       : { screen: 'totp-setup', pendingToken }
@@ -84,14 +134,23 @@ export default function App() {
   /** Gọi sau khi TOTP xong và có accessToken đầy đủ */
   function handleLoggedIn({ admin, mustChangePassword }: LoginResult) {
     if (mustChangePassword) {
+      replaceCmsHistory('change-password');
       setState({ screen: 'change-password', admin });
     } else {
+      replaceCmsHistory('main');
       setState({ screen: 'main', admin });
     }
   }
 
   function handleLogout() {
     clearSession();
+    replaceCmsHistory('login');
+    setState({ screen: 'login' });
+  }
+
+  function backToLogin() {
+    clearSession();
+    replaceCmsHistory('login');
     setState({ screen: 'login' });
   }
 
@@ -116,7 +175,10 @@ export default function App() {
   }
 
   if (state.screen === 'setup') {
-    return <SetupPage onDone={() => setState({ screen: 'login' })} />;
+    return <SetupPage onDone={() => {
+      replaceCmsHistory('login');
+      setState({ screen: 'login' });
+    }} />;
   }
 
   if (state.screen === 'login') {
@@ -128,7 +190,7 @@ export default function App() {
       <TotpSetupPage
         pendingToken={state.pendingToken}
         onLoggedIn={handleLoggedIn}
-        onBack={() => setState({ screen: 'login' })}
+        onBack={backToLogin}
       />
     );
   }
@@ -138,7 +200,7 @@ export default function App() {
       <TotpVerifyPage
         pendingToken={state.pendingToken}
         onLoggedIn={handleLoggedIn}
-        onBack={() => setState({ screen: 'login' })}
+        onBack={backToLogin}
       />
     );
   }
@@ -147,7 +209,10 @@ export default function App() {
     return (
       <ChangePasswordPage
         admin={state.admin}
-        onDone={() => setState({ screen: 'main', admin: state.admin })}
+        onDone={() => {
+          replaceCmsHistory('main');
+          setState({ screen: 'main', admin: state.admin });
+        }}
       />
     );
   }
