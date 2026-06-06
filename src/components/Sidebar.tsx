@@ -24,12 +24,12 @@ export function Sidebar({
   onLogout,
 }: SidebarProps) {
   const allItems: { key: TabKey; label: string; icon: React.ReactNode; roles?: string[] }[] = [
-    { key: 'dashboard', label: 'Dashboard',          icon: <LayoutDashboard size={18} /> },
-    { key: 'users',     label: 'Khách hàng',         icon: <Users size={18} /> },
-    { key: 'loans',     label: 'Gọi vốn với NĐT',   icon: <CircleDollarSign size={18} /> },
+    { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
+    { key: 'users', label: 'Khách hàng', icon: <Users size={18} /> },
+    { key: 'loans', label: 'Danh sách gọi vốn', icon: <CircleDollarSign size={18} /> },
     // Audit log: chỉ ADMIN và SUPER_ADMIN thấy được
-    { key: 'audit',     label: 'Nhật ký quyết định', icon: <ClipboardList size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
-    { key: 'admins',    label: 'Quản lý Admin',       icon: <ShieldCheck size={18} />,   roles: ['SUPER_ADMIN'] },
+    { key: 'audit', label: 'Nhật ký quyết định', icon: <ClipboardList size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { key: 'admins', label: 'Quản lý Admin', icon: <ShieldCheck size={18} />, roles: ['SUPER_ADMIN'] },
   ];
   const navItems = allItems.filter(item => !item.roles || item.roles.includes(admin.role));
 
