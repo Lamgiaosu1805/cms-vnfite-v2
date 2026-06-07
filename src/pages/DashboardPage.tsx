@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  BarChart3, CircleDollarSign, RefreshCw, ShieldCheck, TrendingUp, Users,
+  BarChart3, Bell, CircleDollarSign, RefreshCw, Send, ShieldCheck, Smartphone, TrendingUp, Users,
 } from 'lucide-react';
-import { fetchChart, fetchStats, type ChartPeriod, type ChartPoint, type DashboardStats } from '../api/client';
+import {
+  fetchChart, fetchStats, getFcmDeviceCount, sendTestPush,
+  type ChartPeriod, type ChartPoint, type DashboardStats,
+} from '../api/client';
 
 // ─── Dark-mode observer ───────────────────────────────────────────────────────
 
@@ -142,6 +145,163 @@ function BarChart({ points, period, isDark }: { points: ChartPoint[]; period: Ch
   );
 }
 
+// ─── Test Push Panel ──────────────────────────────────────────────────────────
+
+function TestPushPanel() {
+  const [deviceCount, setDeviceCount]   = useState<number | null>(null);
+  const [open, setOpen]                 = useState(false);
+  const [title, setTitle]               = useState('Thông báo từ VNFITE');
+  const [body, setBody]                 = useState('Đây là thông báo test từ hệ thống VNFITE.');
+  const [sending, setSending]           = useState(false);
+  const [result, setResult]             = useState<{ ok: boolean; msg: string } | null>(null);
+
+  useEffect(() => {
+    getFcmDeviceCount()
+      .then(r => setDeviceCount(r.count))
+      .catch(() => setDeviceCount(null));
+  }, []);
+
+  const handleSend = async () => {
+    if (!title.trim() || !body.trim()) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await sendTestPush(title.trim(), body.trim());
+      const msg = res.message
+        ? res.message
+        : `Đã gửi đến ${res.sentTo} thiết bị.`;
+      setResult({ ok: true, msg });
+      setDeviceCount(res.sentTo);
+    } catch (e: unknown) {
+      setResult({ ok: false, msg: e instanceof Error ? e.message : 'Gửi thất bại.' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleOpen = () => {
+    setOpen(true);
+    setResult(null);
+    // Refresh device count mỗi lần mở
+    getFcmDeviceCount()
+      .then(r => setDeviceCount(r.count))
+      .catch(() => {});
+  };
+
+  return (
+    <>
+      {/* Trigger card */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0"
+              style={{ background: 'linear-gradient(135deg,#C82020,#8B0A0A)' }}>
+              <Bell size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Gửi thông báo test</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-1">
+                <Smartphone size={11} />
+                {deviceCount === null
+                  ? 'Đang tải...'
+                  : deviceCount === 0
+                    ? 'Chưa có thiết bị đăng ký'
+                    : `${deviceCount} thiết bị đang đăng ký`}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleOpen}
+            disabled={deviceCount === 0}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: 'linear-gradient(135deg,#C82020,#8B0A0A)' }}>
+            <Send size={14} /> Gửi test
+          </button>
+        </div>
+      </div>
+
+      {/* Modal */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          onClick={e => { if (e.target === e.currentTarget) { setOpen(false); setResult(null); } }}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell size={18} style={{ color: '#C82020' }} />
+                <h3 className="font-bold text-gray-900 dark:text-gray-100">Gửi thông báo test</h3>
+              </div>
+              <button onClick={() => { setOpen(false); setResult(null); }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-lg leading-none">✕</button>
+            </div>
+
+            {/* Device count badge */}
+            <div className="flex items-center gap-2 text-xs bg-gray-50 dark:bg-gray-700/50 rounded-xl px-3 py-2 text-gray-500 dark:text-gray-400">
+              <Smartphone size={12} />
+              {deviceCount === null ? 'Đang tải...' : deviceCount === 0
+                ? 'Chưa có thiết bị nào đang đăng ký FCM token'
+                : `Sẽ gửi đến ${deviceCount} thiết bị đang đăng ký`}
+            </div>
+
+            {/* Form */}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tiêu đề</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  maxLength={100}
+                  placeholder="Tiêu đề thông báo..."
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2"
+                  style={{ '--tw-ring-color': '#C82020' } as React.CSSProperties} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nội dung</label>
+                <textarea
+                  value={body}
+                  onChange={e => setBody(e.target.value)}
+                  maxLength={500}
+                  rows={3}
+                  placeholder="Nội dung thông báo..."
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 resize-none"
+                  style={{ '--tw-ring-color': '#C82020' } as React.CSSProperties} />
+              </div>
+            </div>
+
+            {/* Result banner */}
+            {result && (
+              <div className={`rounded-xl px-4 py-3 text-sm font-medium ${
+                result.ok
+                  ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-100 dark:border-green-800'
+                  : 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800'
+              }`}>
+                {result.ok ? '✅ ' : '❌ '}{result.msg}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => { setOpen(false); setResult(null); }}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                Đóng
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={sending || !title.trim() || !body.trim() || deviceCount === 0}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: 'linear-gradient(135deg,#C82020,#8B0A0A)' }}>
+                {sending ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
+                {sending ? 'Đang gửi...' : 'Gửi ngay'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function DashboardPage() {
@@ -257,6 +417,9 @@ export function DashboardPage() {
           </span>
         </div>
       </div>
+
+      {/* Test push notification */}
+      <TestPushPanel />
     </div>
   );
 }

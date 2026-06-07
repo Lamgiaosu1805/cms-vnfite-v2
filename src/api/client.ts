@@ -484,3 +484,16 @@ export async function fetchAuditLogs(params: {
 export async function fetchAuditLogById(id: string): Promise<AuditLogEntry> {
   return request(`/audit/loans/${id}`);
 }
+
+// ─── Push Notification ───────────────────────────────────────────────────────
+
+export async function getFcmDeviceCount(): Promise<{ count: number }> {
+  return request('/notifications/fcm-devices');
+}
+
+export async function sendTestPush(title: string, body: string): Promise<{ sentTo: number; pushResponse?: string; message?: string }> {
+  return request('/notifications/test-push', {
+    method: 'POST',
+    data: { title, body },
+  });
+}
