@@ -4,9 +4,11 @@ import { login, saveLastUsername, getLastUsername } from '../api/client';
 
 interface LoginPageProps {
   onPasswordVerified: (pendingToken: string, totpEnabled: boolean) => void;
+  notice?: string;
+  onNoticeDismiss?: () => void;
 }
 
-export function LoginPage({ onPasswordVerified }: LoginPageProps) {
+export function LoginPage({ onPasswordVerified, notice, onNoticeDismiss }: LoginPageProps) {
   const [username, setUsername] = useState(getLastUsername);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -74,6 +76,23 @@ export function LoginPage({ onPasswordVerified }: LoginPageProps) {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-red-50 dark:border-gray-700 p-8">
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">Đăng nhập</h2>
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">Nhập thông tin tài khoản quản trị</p>
+
+            {notice && (
+              <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+                <div className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" />
+                <div className="flex-1 leading-5">{notice}</div>
+                {onNoticeDismiss && (
+                  <button
+                    type="button"
+                    onClick={onNoticeDismiss}
+                    className="text-amber-700 transition hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
+                    aria-label="Đóng thông báo"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

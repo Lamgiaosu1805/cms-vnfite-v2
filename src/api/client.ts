@@ -3,6 +3,8 @@ import axios, { type InternalAxiosRequestConfig, type AxiosResponse, type AxiosE
 // Dùng relative URL để Vite proxy forward /cms → http://42.113.122.119:7080 (tránh CORS khi dev)
 // Khi build production, deploy cùng domain hoặc set VITE_API_BASE qua env
 const BASE_URL = (import.meta.env.VITE_API_BASE as string | undefined) ?? '/cms';
+const SESSION_NOTICE_KEY = 'cms_session_notice';
+const SESSION_EXPIRED_NOTICE = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.';
 
 const axiosClient = axios.create({ baseURL: BASE_URL });
 
@@ -28,6 +30,7 @@ axiosClient.interceptors.response.use(
       localStorage.removeItem('cms_token');
       localStorage.removeItem('cms_admin');
       if (hadSession) {
+        localStorage.setItem(SESSION_NOTICE_KEY, SESSION_EXPIRED_NOTICE);
         window.location.reload();
         return new Promise(() => {});
       }
@@ -53,6 +56,12 @@ export function saveSession(token: string, admin: AdminInfo) {
 export function clearSession() {
   localStorage.removeItem('cms_token');
   localStorage.removeItem('cms_admin');
+}
+
+export function consumeSessionNotice(): string {
+  const notice = localStorage.getItem(SESSION_NOTICE_KEY) ?? '';
+  if (notice) localStorage.removeItem(SESSION_NOTICE_KEY);
+  return notice;
 }
 
 export interface AdminInfo {

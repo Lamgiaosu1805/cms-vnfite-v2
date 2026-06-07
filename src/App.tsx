@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { checkSetupRequired, clearSession, fetchLoans, getStoredAdmin, type AdminInfo, type LoginResult } from './api/client';
+import { checkSetupRequired, clearSession, consumeSessionNotice, fetchLoans, getStoredAdmin, type AdminInfo, type LoginResult } from './api/client';
 import { LoginPage } from './pages/LoginPage';
 import { SetupPage } from './pages/SetupPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
@@ -52,8 +52,10 @@ export default function App() {
   const [loanStatusCounts, setLoanStatusCounts] = useState<Record<string, number>>({});
   const [loanCountsRefresh, setLoanCountsRefresh] = useState(0);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('cms_theme') === 'dark');
+  const [loginNotice, setLoginNotice] = useState('');
 
   useEffect(() => {
+    setLoginNotice(consumeSessionNotice());
     const storedAdmin = getStoredAdmin();
     if (storedAdmin) {
       replaceCmsHistory('main');
@@ -182,7 +184,7 @@ export default function App() {
   }
 
   if (state.screen === 'login') {
-    return <LoginPage onPasswordVerified={handlePasswordVerified} />;
+    return <LoginPage onPasswordVerified={handlePasswordVerified} notice={loginNotice} onNoticeDismiss={() => setLoginNotice('')} />;
   }
 
   if (state.screen === 'totp-setup') {
