@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { BarChart3, CircleDollarSign, Lock, RefreshCw, Users } from 'lucide-react';
+import { AlertTriangle, BarChart3, CircleDollarSign, Lock, RefreshCw, Users } from 'lucide-react';
 import { login, saveLastUsername, getLastUsername } from '../api/client';
 
 interface LoginPageProps {
@@ -77,23 +77,6 @@ export function LoginPage({ onPasswordVerified, notice, onNoticeDismiss }: Login
             <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">Đăng nhập</h2>
             <p className="text-sm text-gray-400 dark:text-gray-500 mb-6">Nhập thông tin tài khoản quản trị</p>
 
-            {notice && (
-              <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-                <div className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" />
-                <div className="flex-1 leading-5">{notice}</div>
-                {onNoticeDismiss && (
-                  <button
-                    type="button"
-                    onClick={onNoticeDismiss}
-                    className="text-amber-700 transition hover:text-amber-900 dark:text-amber-300 dark:hover:text-amber-100"
-                    aria-label="Đóng thông báo"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
@@ -149,6 +132,30 @@ export function LoginPage({ onPasswordVerified, notice, onNoticeDismiss }: Login
           </p>
         </div>
       </div>
+
+      {notice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-3xl border border-amber-200 bg-white p-6 shadow-2xl dark:border-amber-900/60 dark:bg-gray-900">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+              <AlertTriangle size={28} />
+            </div>
+            <h3 className="text-center text-xl font-bold text-gray-900 dark:text-gray-100">
+              Phiên đăng nhập đã hết hạn
+            </h3>
+            <p className="mt-3 text-center text-sm leading-6 text-gray-500 dark:text-gray-400">
+              {notice}
+            </p>
+            <button
+              type="button"
+              onClick={onNoticeDismiss}
+              className="mt-6 w-full rounded-2xl py-3 text-sm font-semibold text-white transition-opacity hover:opacity-95"
+              style={{ background: 'linear-gradient(135deg, #C82020, #8B0A0A)' }}
+            >
+              Đăng nhập lại
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
