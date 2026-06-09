@@ -621,7 +621,7 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         <span className="font-mono font-bold text-gray-900 dark:text-white text-xl">
           {loan.loanCode ?? shortId(loan.loanId)}
         </span>
-        <Badge value={loan.status} />
+        <Badge value={loan.status === 'ACTIVE' ? 'loan_active' : loan.status} />
       </div>
 
       {/* Content */}
@@ -864,7 +864,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
                     {loan.termMonths} tháng
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
-                    <Badge value={loan.status} />
+                    <Badge value={loan.status === 'ACTIVE' ? 'loan_active' : loan.status} />
                   </td>
                   <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs align-middle">
                     {formatDate(loan.createdAt)}
