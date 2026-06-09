@@ -80,8 +80,18 @@ export default function App() {
       if (!screen) return;
 
       if (screen === 'login' || screen === 'setup') {
+        // Nếu user vẫn còn session hợp lệ (ấn Back từ main → login)
+        // → không xóa session, đưa về main
+        const storedAdmin = getStoredAdmin();
+        if (storedAdmin) {
+          replaceCmsHistory('main');
+          setState({ screen: 'main', admin: storedAdmin });
+          return;
+        }
+        // Không có session (ví dụ đang ở giữa luồng TOTP mà ấn Back)
+        // → xóa pending state và về login
         clearSession();
-        setState({ screen });
+        setState({ screen: 'login' });
         return;
       }
 
