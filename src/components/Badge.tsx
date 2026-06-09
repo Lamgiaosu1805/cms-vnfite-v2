@@ -19,7 +19,6 @@ const colorMap: Record<string, string> = {
   completed: 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800',
   defaulted: 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
   cancelled: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
-  rejected: 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800',
 };
 
 const labelMap: Record<string, string> = {
