@@ -7,11 +7,15 @@ import {
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
+  fetchLoanContracts, disburseLoan,
   type CmsLoan, type AppraisalSuggestion, type RecommendedDecision,
-  type FactorImpact, type RepaymentScheduleItem,
+  type FactorImpact, type RepaymentScheduleItem, type LoanContract,
 } from '../api/client';
 import { Badge } from '../components/Badge';
-import { loanStatusLabel, type LoanStatusFilter } from '../loanConstants';
+import {
+  loanStatusLabel, type LoanStatusFilter,
+  CONTRACT_TYPE_LABEL, CONTRACT_STATUS_LABEL,
+} from '../loanConstants';
 
 function formatMoney(value: number | string | undefined | null) {
   return new Intl.NumberFormat('vi-VN', {
@@ -603,6 +607,190 @@ function RepaymentScheduleSection({ loanId }: { loanId: string }) {
   );
 }
 
+// ─── Hợp đồng điện tử ───────────────────────────────────────────────────────────
+
+const CONTRACT_STATUS_CLS: Record<string, string> = {
+  PENDING_SIGNATURE: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  SIGNED: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  VOIDED: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+};
+
+function ContractsSection({ loanId }: { loanId: string }) {
+  const [contracts, setContracts] = useState<LoanContract[] | null>(null);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+  const [open, setOpen]           = useState(false);
+
+  const load = async () => {
+    if (contracts !== null) { setOpen(v => !v); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const data = await fetchLoanContracts(loanId);
+      setContracts(data);
+      setOpen(true);
+    } catch {
+      setError('Không tải được danh sách hợp đồng.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signedCount = contracts?.filter(c => c.status === 'SIGNED').length ?? 0;
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+      <button
+        onClick={load}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Hợp đồng điện tử</p>
+          {contracts && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {signedCount}/{contracts.length} đã ký
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {loading && <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />}
+          {!loading && (
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+        </div>
+      </button>
+
+      {error && <p className="px-5 pb-4 text-xs text-red-500">{error}</p>}
+
+      {open && contracts && contracts.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-left">
+                <th className="px-4 py-2 font-semibold">Số HĐ</th>
+                <th className="px-4 py-2 font-semibold">Loại</th>
+                <th className="px-4 py-2 font-semibold text-right">Số tiền</th>
+                <th className="px-4 py-2 font-semibold text-center">Trạng thái</th>
+                <th className="px-4 py-2 font-semibold">Ngày ký</th>
+                <th className="px-4 py-2 font-semibold text-center">Bản HĐ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contracts.map(c => (
+                <tr key={c.id} className="border-t border-gray-100 dark:border-gray-700">
+                  <td className="px-4 py-2.5 font-mono text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    {c.contractNo ?? shortId(c.id)}
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300">
+                    {CONTRACT_TYPE_LABEL[c.contractType] ?? c.contractType}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
+                    {c.amount != null ? formatMoney(c.amount) : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${CONTRACT_STATUS_CLS[c.status] ?? ''}`}>
+                      {CONTRACT_STATUS_LABEL[c.status] ?? c.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    {c.signedAt ? formatDate(c.signedAt) : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    {(c.signedDocumentUrl || c.documentUrl) ? (
+                      <a
+                        href={c.signedDocumentUrl || c.documentUrl || '#'}
+                        target="_blank" rel="noreferrer"
+                        className="text-red-600 dark:text-red-400 hover:underline"
+                      >
+                        Xem
+                      </a>
+                    ) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {open && contracts && contracts.length === 0 && (
+        <p className="px-5 pb-4 text-xs text-gray-400 dark:text-gray-500">Chưa có hợp đồng nào.</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Giải ngân (OPS) ────────────────────────────────────────────────────────────
+
+function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [acting, setActing]         = useState(false);
+  const [error, setError]           = useState('');
+
+  if (loan.status !== 'AWAITING_DISBURSEMENT') return null;
+
+  const handleDisburse = async () => {
+    setActing(true);
+    setError('');
+    try {
+      await disburseLoan(loan.loanId);
+      onActionDone();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Không thể giải ngân. Vui lòng thử lại.';
+      setError(msg);
+      setActing(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-orange-200 dark:border-orange-900/50 shadow-sm p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <CircleDollarSign size={16} className="text-orange-500" />
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Giải ngân vốn cho người gọi vốn</p>
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Người gọi vốn đã ký hợp đồng vay. Bấm <span className="font-semibold">Giải ngân</span> để chuyển vốn
+        và sinh lịch thanh toán tính từ ngày giải ngân. Thao tác này không thể hoàn tác.
+      </p>
+
+      {error && (
+        <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
+      )}
+
+      {!confirming ? (
+        <button
+          onClick={() => setConfirming(true)}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium"
+        >
+          <CircleDollarSign size={15} />
+          Giải ngân
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDisburse}
+            disabled={acting}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium disabled:opacity-50"
+          >
+            {acting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            Xác nhận giải ngân
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            disabled={acting}
+            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium disabled:opacity-50"
+          >
+            Huỷ
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void }) {
   return (
     <div className="space-y-4">
@@ -691,7 +879,13 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
       {/* Hỗ trợ thẩm định + phê duyệt 2 cấp */}
       <AppraisalPanel loan={loan} onActionDone={onActionDone} />
 
-      {/* Lịch trả nợ — hiển thị cho mọi trạng thái (tự ẩn nếu chưa có lịch) */}
+      {/* Giải ngân — chỉ hiện khi khoản ở trạng thái chờ giải ngân */}
+      <DisbursementPanel loan={loan} onActionDone={onActionDone} />
+
+      {/* Hợp đồng điện tử (vay + đầu tư) */}
+      <ContractsSection loanId={loan.loanId} />
+
+      {/* Lịch thanh toán — hiển thị cho mọi trạng thái (tự ẩn nếu chưa có lịch) */}
       <RepaymentScheduleSection loanId={loan.loanId} />
     </div>
   );

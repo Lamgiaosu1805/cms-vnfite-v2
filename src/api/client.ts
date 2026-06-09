@@ -376,6 +376,38 @@ export async function fetchRepaymentSchedule(loanId: string): Promise<RepaymentS
   return request(`/loans/${loanId}/repayments`);
 }
 
+// ─── Hợp đồng & giải ngân ───────────────────────────────────────────────────
+
+export interface LoanContract {
+  id: string;
+  loanId: string;
+  loanCode: string | null;
+  contractType: 'INVESTMENT' | 'LOAN_AGREEMENT';
+  partyId: string;
+  offerId: string | null;
+  contractNo: string | null;
+  amount: number | null;
+  interestRate: number | null;
+  termMonths: number | null;
+  provider: string;
+  documentUrl: string | null;
+  signedDocumentUrl: string | null;
+  status: 'PENDING_SIGNATURE' | 'SIGNED' | 'VOIDED';
+  issuedAt: string | null;
+  signedAt: string | null;
+  signedVia: string | null;
+  createdAt: string;
+}
+
+export async function fetchLoanContracts(loanId: string): Promise<LoanContract[]> {
+  return request(`/loans/${loanId}/contracts`);
+}
+
+/** OPS giải ngân vốn cho người gọi vốn: AWAITING_DISBURSEMENT → DISBURSED. */
+export async function disburseLoan(loanId: string): Promise<CmsLoan> {
+  return request(`/loans/${loanId}/disburse`, { method: 'POST' });
+}
+
 // ─── Hỗ trợ thẩm định (appraisal suggestion) ────────────────────────────────────
 
 export type FactorImpact = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
