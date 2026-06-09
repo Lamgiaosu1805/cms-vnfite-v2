@@ -5,8 +5,10 @@ import {
   Send, Check, X, ShieldCheck, Search,
 } from 'lucide-react';
 import {
-  fetchLoans, fetchAppraisalSuggestion, proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
-  type CmsLoan, type AppraisalSuggestion, type RecommendedDecision, type FactorImpact,
+  fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
+  proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
+  type CmsLoan, type AppraisalSuggestion, type RecommendedDecision,
+  type FactorImpact, type RepaymentScheduleItem,
 } from '../api/client';
 import { Badge } from '../components/Badge';
 import { loanStatusLabel, type LoanStatusFilter } from '../loanConstants';
@@ -441,6 +443,166 @@ function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: (
   );
 }
 
+// ─── Repayment schedule section ──────────────────────────────────────────────
+
+const STATUS_ROW_CLS: Record<RepaymentScheduleItem['status'], string> = {
+  PENDING: '',
+  PARTIAL: 'bg-amber-50 dark:bg-amber-900/10',
+  PAID:    'bg-green-50 dark:bg-green-900/10',
+  OVERDUE: 'bg-red-50 dark:bg-red-900/10',
+};
+const STATUS_BADGE_CLS: Record<RepaymentScheduleItem['status'], string> = {
+  PENDING: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400',
+  PARTIAL: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  PAID:    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  OVERDUE: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+};
+const STATUS_LABEL_SCH: Record<RepaymentScheduleItem['status'], string> = {
+  PENDING: 'Chưa trả',
+  PARTIAL: 'Một phần',
+  PAID:    'Đã trả',
+  OVERDUE: 'Quá hạn',
+};
+
+function RepaymentScheduleSection({ loanId }: { loanId: string }) {
+  const [schedule, setSchedule] = useState<RepaymentScheduleItem[] | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [open, setOpen]         = useState(false);
+
+  const load = async () => {
+    if (schedule !== null) { setOpen(v => !v); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const data = await fetchRepaymentSchedule(loanId);
+      setSchedule(data);
+      setOpen(true);
+    } catch {
+      setError('Không tải được lịch trả nợ.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalInterest = schedule?.reduce((s, r) => s + r.interestDue, 0) ?? 0;
+  const paidCount     = schedule?.filter(r => r.status === 'PAID').length ?? 0;
+  const overdueCount  = schedule?.filter(r => r.status === 'OVERDUE').length ?? 0;
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+      {/* Toggle header */}
+      <button
+        onClick={load}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Lịch trả nợ</p>
+          {schedule && (
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {paidCount}/{schedule.length} kỳ đã trả
+              {overdueCount > 0 && (
+                <span className="ml-1 text-red-500 font-semibold">· {overdueCount} quá hạn</span>
+              )}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {loading && <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />}
+          {!loading && (
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+        </div>
+      </button>
+
+      {error && (
+        <p className="px-5 pb-4 text-xs text-red-500">{error}</p>
+      )}
+
+      {/* Table */}
+      {open && schedule && schedule.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-left">
+                <th className="px-4 py-2 font-semibold w-10 text-center">Kỳ</th>
+                <th className="px-4 py-2 font-semibold">Ngày đáo hạn</th>
+                <th className="px-4 py-2 font-semibold text-right">Gốc</th>
+                <th className="px-4 py-2 font-semibold text-right">Lãi</th>
+                <th className="px-4 py-2 font-semibold text-right">Tổng</th>
+                <th className="px-4 py-2 font-semibold text-right">Đã trả</th>
+                <th className="px-4 py-2 font-semibold text-center">Trạng thái</th>
+                {schedule.some(r => r.dpd > 0) && (
+                  <th className="px-4 py-2 font-semibold text-center">DPD</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {schedule.map(r => (
+                <tr key={r.periodNumber}
+                  className={`border-t border-gray-100 dark:border-gray-700 ${STATUS_ROW_CLS[r.status]}`}>
+                  <td className="px-4 py-2.5 text-center font-bold text-gray-700 dark:text-gray-300">{r.periodNumber}</td>
+                  <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                    {new Date(r.dueDate).toLocaleDateString('vi-VN')}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
+                    {formatMoney(r.principalDue)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
+                    {formatMoney(r.interestDue)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-semibold text-gray-800 dark:text-gray-200">
+                    {formatMoney(r.totalDue)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400">
+                    {r.paidAmount > 0 ? formatMoney(r.paidAmount) : '—'}
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_BADGE_CLS[r.status]}`}>
+                      {STATUS_LABEL_SCH[r.status]}
+                    </span>
+                  </td>
+                  {schedule.some(r2 => r2.dpd > 0) && (
+                    <td className="px-4 py-2.5 text-center">
+                      {r.dpd > 0
+                        ? <span className="text-red-500 font-bold">{r.dpd}</span>
+                        : <span className="text-gray-300 dark:text-gray-600">—</span>
+                      }
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <td colSpan={2} className="px-4 py-2 text-xs text-gray-400 dark:text-gray-500 font-semibold">Tổng cộng</td>
+                <td className="px-4 py-2 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  {formatMoney(schedule.reduce((s, r) => s + r.principalDue, 0))}
+                </td>
+                <td className="px-4 py-2 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">
+                  {formatMoney(totalInterest)}
+                </td>
+                <td className="px-4 py-2 text-right text-xs font-bold text-gray-800 dark:text-gray-200">
+                  {formatMoney(schedule.reduce((s, r) => s + r.totalDue, 0))}
+                </td>
+                <td colSpan={2} className="px-4 py-2" />
+                {schedule.some(r => r.dpd > 0) && <td />}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {open && schedule && schedule.length === 0 && (
+        <p className="px-5 pb-4 text-xs text-gray-400 dark:text-gray-500">Lịch trả nợ chưa được tạo.</p>
+      )}
+    </div>
+  );
+}
+
 function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void }) {
   return (
     <div className="space-y-4">
@@ -486,6 +648,9 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
             }
           />
           <DetailRow label="Kỳ hạn" value={`${loan.termMonths} tháng`} />
+          {loan.repaymentDay != null && (
+            <DetailRow label="Ngày trả hàng tháng" value={`Ngày ${loan.repaymentDay} hàng tháng`} />
+          )}
           {loan.purpose && <DetailRow label="Mục đích" value={loan.purpose} />}
         </Section>
 
@@ -525,6 +690,9 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
 
       {/* Hỗ trợ thẩm định + phê duyệt 2 cấp */}
       <AppraisalPanel loan={loan} onActionDone={onActionDone} />
+
+      {/* Lịch trả nợ — hiển thị cho mọi trạng thái (tự ẩn nếu chưa có lịch) */}
+      <RepaymentScheduleSection loanId={loan.loanId} />
     </div>
   );
 }

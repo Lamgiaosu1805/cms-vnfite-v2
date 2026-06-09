@@ -304,6 +304,7 @@ export interface CmsLoan {
   proposedAt: string | null;
   appraisalNote: string | null;
   termMonths: number;
+  repaymentDay: number | null;
   purpose: string | null;
   occupation: string | null;
   workplace: string | null;
@@ -355,6 +356,24 @@ export async function rejectLoan(loanId: string, reason: string): Promise<void> 
     method: 'PUT',
     data: { reason },
   });
+}
+
+// ─── Lịch trả nợ ────────────────────────────────────────────────────────────
+
+export interface RepaymentScheduleItem {
+  periodNumber: number;
+  dueDate: string;        // 'YYYY-MM-DD'
+  principalDue: number;
+  interestDue: number;
+  totalDue: number;
+  paidAmount: number;
+  status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE';
+  dpd: number;
+  paidAt?: string | null;
+}
+
+export async function fetchRepaymentSchedule(loanId: string): Promise<RepaymentScheduleItem[]> {
+  return request(`/loans/${loanId}/repayments`);
 }
 
 // ─── Hỗ trợ thẩm định (appraisal suggestion) ────────────────────────────────────
