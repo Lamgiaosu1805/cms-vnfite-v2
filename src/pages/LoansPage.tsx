@@ -206,8 +206,11 @@ function analysisFindings(data: DocumentAnalysisResult['extractedData']): string
   return [];
 }
 
-function CreditScoreSection({ loan }: { loan: CmsLoan }) {
-  const [score, setScore] = useState<CreditScoreResult | null>(null);
+function CreditScoreSection({ loan, score, onScore }: {
+  loan: CmsLoan;
+  score: CreditScoreResult | null;
+  onScore: (score: CreditScoreResult) => void;
+}) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -215,7 +218,7 @@ function CreditScoreSection({ loan }: { loan: CmsLoan }) {
     setLoading(true);
     setError('');
     try {
-      setScore(await evaluateLoanCreditScore(loan.loanId));
+      onScore(await evaluateLoanCreditScore(loan.loanId));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -374,7 +377,11 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
   );
 }
 
-function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
+function AppraisalPanel({ loan, creditScore, onActionDone }: {
+  loan: CmsLoan;
+  creditScore: CreditScoreResult | null;
+  onActionDone: () => void;
+}) {
   const loanId = loan.loanId;
   const [data, setData] = useState<AppraisalSuggestion | null>(null);
   const [loading, setLoading] = useState(true);
@@ -448,6 +455,18 @@ function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: (
   const sp = data?.schedulePreview ?? null;
   const af = data?.affordability ?? null;
 
+  // Tổng hợp kết quả AI (điểm 300-850 + thẩm định chứng từ) để đối chiếu với engine
+  const docAnalyses = creditScore?.documentAnalyses ?? [];
+  const docTotal = docAnalyses.length;
+  const docOk = docAnalyses.filter(d => d.verdict === 'CONSISTENT').length;
+  const docIssues = docTotal - docOk;
+  const docSummary = !creditScore
+    ? null
+    : docTotal === 0
+      ? 'Không có chứng từ đính kèm'
+      : `${docOk}/${docTotal} nhất quán${docIssues > 0 ? ` · ${docIssues} cần kiểm tra` : ''}`;
+  const aiScoreText = creditScore ? `${creditScore.score}/850 · Hạng ${creditScore.grade}` : null;
+
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-5">
       {/* Header */}
@@ -484,14 +503,29 @@ function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: (
       {data && rec && (
         <>
           {/* Top metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Hạng tín nhiệm</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Hạng tín nhiệm — engine</p>
               <div className="flex items-center gap-2">
                 <span className={`text-lg font-bold px-2.5 py-0.5 rounded-lg ${bandTone(data.risk.band)}`}>{data.risk.band}</span>
                 <span className="text-sm text-gray-500 dark:text-gray-400">{data.risk.score}/100 điểm</span>
               </div>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Nhóm sản phẩm {data.productGroup ?? '—'}</p>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Biểu QĐ-LSGV · nhóm sản phẩm {data.productGroup ?? '—'}</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Điểm tín dụng AI</p>
+              {creditScore ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-lg font-bold px-2.5 py-0.5 rounded-lg ${creditGradeTone(creditScore.grade)}`}>{creditScore.grade}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{creditScore.score}/850 điểm</span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Chứng từ: {docSummary}</p>
+                </>
+              ) : (
+                <p className="text-xs text-gray-400 dark:text-gray-500">Chưa chấm — bấm "Chấm điểm tín dụng" ở khối trên để AI thẩm định chứng từ và cho điểm 300–850.</p>
+              )}
             </div>
 
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
@@ -571,13 +605,19 @@ function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: (
           </SubSection>
 
           {/* Auto warnings */}
-          {data.autoWarnings.length > 0 && (
+          {(data.autoWarnings.length > 0 || docIssues > 0) && (
             <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 p-3 space-y-1.5">
               {data.autoWarnings.map((w, i) => (
                 <p key={i} className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
                   <AlertTriangle size={13} className="shrink-0 mt-0.5" />{w}
                 </p>
               ))}
+              {docIssues > 0 && (
+                <p className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                  AI đánh dấu {docIssues}/{docTotal} chứng từ cần kiểm tra — xem chi tiết ở khối Điểm tín dụng tham khảo và xác minh thủ công trước khi trình.
+                </p>
+              )}
             </div>
           )}
 
@@ -617,6 +657,22 @@ function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: (
               <MiniRow label="Lãi suất đề xuất" value={loan.proposedInterestRate != null ? `${loan.proposedInterestRate}%/năm` : '—'} />
               <MiniRow label="Thẩm định viên" value={loan.proposedBy ?? '—'} />
               {loan.appraisalNote && <MiniRow label="Ghi chú" value={loan.appraisalNote} />}
+
+              {/* Căn cứ hỗ trợ cho ban lãnh đạo — đối chiếu đề xuất với engine + AI */}
+              <div className="mt-2 pt-2 border-t border-red-100/70 dark:border-red-900/30">
+                <MiniRow
+                  label="Engine (QĐ-LSGV)"
+                  value={rec
+                    ? `Hạng ${data?.risk.band} · ${dm?.label} · gợi ý ${formatMoney(rec.suggestedAmount)} @ ${rateText(rec.suggestedInterestRate)}`
+                    : 'Đang tải...'}
+                />
+                <MiniRow
+                  label="Điểm tín dụng AI"
+                  value={aiScoreText ?? <span className="text-amber-600 dark:text-amber-400">Chưa chấm — bấm "Chấm điểm tín dụng" ở khối trên</span>}
+                />
+                {creditScore && <MiniRow label="AI thẩm định chứng từ" value={docSummary} />}
+                {creditScore?.aiRecommendation && <MiniRow label="AI khuyến nghị" value={creditScore.aiRecommendation} />}
+              </div>
             </div>
           )}
 
@@ -625,6 +681,30 @@ function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: (
               <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-500">
                 <Send size={13} />Đề xuất trình ban lãnh đạo
               </p>
+
+              {/* Căn cứ đề xuất — tổng hợp engine + AI để thẩm định viên đối chiếu trước khi trình */}
+              <div className="rounded-lg bg-white/70 dark:bg-gray-900/40 border border-red-100/70 dark:border-red-900/30 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Căn cứ đề xuất</p>
+                <MiniRow
+                  label="Engine (QĐ-LSGV)"
+                  value={rec
+                    ? `Hạng ${data?.risk.band} · ${dm?.label} · gợi ý ${formatMoney(rec.suggestedAmount)} @ ${rateText(rec.suggestedInterestRate)}`
+                    : 'Đang tải...'}
+                />
+                <MiniRow
+                  label="Điểm tín dụng AI"
+                  value={aiScoreText ?? <span className="text-amber-600 dark:text-amber-400">Chưa chấm điểm</span>}
+                />
+                <MiniRow label="AI thẩm định chứng từ" value={creditScore ? docSummary : '—'} />
+                {creditScore?.aiRecommendation && <MiniRow label="AI khuyến nghị" value={creditScore.aiRecommendation} />}
+              </div>
+              {!creditScore && (
+                <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 flex gap-1.5">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                  Chưa chấm điểm tín dụng — nên bấm "Chấm điểm tín dụng" ở khối trên để AI thẩm định chứng từ trước khi trình ban lãnh đạo.
+                </p>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="text-xs text-gray-500 dark:text-gray-400">
                   Số tiền đề xuất (VND)
@@ -659,6 +739,9 @@ function AppraisalPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: (
                 Ghi chú / lý do (bắt buộc khi từ chối)
                 <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} rows={2} className={inputCls} />
               </label>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                Phê duyệt xong, khoản chuyển sang "Chờ xác nhận" — người gọi vốn phải đồng ý số tiền và lãi suất được duyệt thì khoản mới lên sàn cho nhà đầu tư.
+              </p>
               <div className="flex gap-2">
                 <button disabled={acting} onClick={handleApprove} className={btnPrimary}>
                   <Check size={14} />Phê duyệt
@@ -1026,6 +1109,8 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
 }
 
 function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void }) {
+  // Kết quả chấm điểm AI dùng chung cho khối Điểm tín dụng và panel Hỗ trợ thẩm định
+  const [creditScore, setCreditScore] = useState<CreditScoreResult | null>(null);
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -1112,8 +1197,8 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
 
       {/* Chứng từ + điểm tín dụng + hỗ trợ thẩm định */}
       <LoanDocumentsSection loan={loan} />
-      <CreditScoreSection loan={loan} />
-      <AppraisalPanel loan={loan} onActionDone={onActionDone} />
+      <CreditScoreSection loan={loan} score={creditScore} onScore={setCreditScore} />
+      <AppraisalPanel loan={loan} creditScore={creditScore} onActionDone={onActionDone} />
 
       {/* Giải ngân — chỉ hiện khi khoản ở trạng thái chờ giải ngân */}
       <DisbursementPanel loan={loan} onActionDone={onActionDone} />
