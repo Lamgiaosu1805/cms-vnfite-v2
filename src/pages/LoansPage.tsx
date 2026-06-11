@@ -7,7 +7,7 @@ import {
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
-  fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, analyzeLoanDocument,
+  fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore,
   type CmsLoan, type AppraisalSuggestion, type RecommendedDecision,
   type FactorImpact, type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
@@ -187,6 +187,7 @@ function verdictLabel(verdict: string): string {
   if (verdict === 'SUSPICIOUS') return 'Cần kiểm tra';
   if (verdict === 'HIGH_RISK') return 'Rủi ro cao';
   if (verdict === 'UNREADABLE') return 'Không đọc được';
+  if (verdict === 'ERROR') return 'Lỗi phân tích';
   return verdict || 'Chưa rõ';
 }
 
@@ -242,7 +243,8 @@ function CreditScoreSection({ loan }: { loan: CmsLoan }) {
       </div>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
-      {!score && !error && <p className="text-sm text-gray-500 dark:text-gray-400">Bấm chấm điểm để lấy score 300-850 từ credit-service. Kết quả chỉ hỗ trợ thẩm định, không tự động duyệt hoặc từ chối khoản gọi vốn.</p>}
+      {!score && !error && !loading && <p className="text-sm text-gray-500 dark:text-gray-400">Bấm chấm điểm để lấy score 300-850 từ credit-service — AI sẽ tự phân tích toàn bộ chứng từ đính kèm và gộp vào đánh giá. Kết quả chỉ hỗ trợ thẩm định, không tự động duyệt hoặc từ chối khoản gọi vốn.</p>}
+      {loading && <p className="text-sm text-gray-500 dark:text-gray-400">Đang chấm điểm và AI phân tích chứng từ — có thể mất 1-2 phút nếu khoản có nhiều file...</p>}
 
       {score && (
         <div className="space-y-4">
@@ -269,6 +271,29 @@ function CreditScoreSection({ loan }: { loan: CmsLoan }) {
               {score.aiRecommendation && <p className="text-xs text-gray-500 dark:text-gray-400">Khuyến nghị: {score.aiRecommendation}</p>}
             </div>
           </div>
+
+          {score.documentAnalyses && score.documentAnalyses.length > 0 && (
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4 space-y-3">
+              <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">AI thẩm định chứng từ ({score.documentAnalyses.length} file)</p>
+              {score.documentAnalyses.map((analysis, idx) => {
+                const findings = analysisFindings(analysis.extractedData);
+                return (
+                  <div key={analysis.id ?? analysis.fileId ?? idx} className="rounded-lg bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 p-3 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" title={analysis.fileName ?? analysis.fileId ?? ''}>{analysis.fileName ?? analysis.fileId}</span>
+                      <span className={'px-2 py-0.5 rounded-full text-[11px] font-semibold ' + verdictTone(analysis.verdict)}>{verdictLabel(analysis.verdict)}</span>
+                      {analysis.trustScore != null && <span className="text-xs text-gray-500 dark:text-gray-400">Độ tin cậy {analysis.trustScore}/100</span>}
+                    </div>
+                    {analysis.summary && <p className="text-sm text-gray-600 dark:text-gray-300">{analysis.summary}</p>}
+                    {findings.length > 0 && <ul className="list-disc pl-5 space-y-1 text-xs text-gray-500 dark:text-gray-400">{findings.map(item => <li key={item}>{item}</li>)}</ul>}
+                    {(analysis.verdict === 'SUSPICIOUS' || analysis.verdict === 'HIGH_RISK' || analysis.verdict === 'ERROR') && (
+                      <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 flex gap-1.5"><AlertTriangle size={13} className="shrink-0 mt-0.5" />Chứng từ cần kiểm tra thủ công trước khi ra quyết định.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {grouped && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -300,8 +325,6 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
   const [documents, setDocuments] = useState<LoanDocument[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [analyses, setAnalyses] = useState<Record<string, DocumentAnalysisResult>>({});
-  const [analyzingId, setAnalyzingId] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -312,16 +335,6 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
   };
 
   useEffect(() => { load(); }, [loan.loanId]);
-
-  const runAnalyze = async (documentId: string) => {
-    setAnalyzingId(documentId);
-    setError('');
-    try {
-      const result = await analyzeLoanDocument(loan.loanId, documentId);
-      setAnalyses(prev => ({ ...prev, [documentId]: result }));
-    } catch (e) { setError((e as Error).message); }
-    finally { setAnalyzingId(''); }
-  };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-4">
@@ -338,11 +351,9 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
       {documents && documents.length > 0 && (
         <div className="space-y-3">
           {documents.map(doc => {
-            const analysis = analyses[doc.id];
-            const findings = analysisFindings(analysis?.extractedData ?? null);
             const fileUrl = FILE_MANAGER_BASE + '/' + doc.fileId;
             return (
-              <div key={doc.id} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4 space-y-3">
+              <div key={doc.id} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" title={doc.fileName ?? doc.fileId}>{doc.fileName ?? doc.fileId}</p>
@@ -351,26 +362,12 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
                   <div className="flex items-center gap-2">
                     <a href={fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"><ExternalLink size={13} />Xem</a>
                     <a href={fileUrl} download className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"><Download size={13} />Tải</a>
-                    <button onClick={() => runAnalyze(doc.id)} disabled={analyzingId === doc.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium disabled:opacity-50">
-                      {analyzingId === doc.id ? <RefreshCw size={13} className="animate-spin" /> : <Brain size={13} />}Phân tích AI
-                    </button>
                   </div>
                 </div>
-
-                {analysis && (
-                  <div className="rounded-lg bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 p-3 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={'px-2 py-0.5 rounded-full text-[11px] font-semibold ' + verdictTone(analysis.verdict)}>{verdictLabel(analysis.verdict)}</span>
-                      {analysis.trustScore != null && <span className="text-xs text-gray-500 dark:text-gray-400">Độ tin cậy {analysis.trustScore}/100</span>}
-                    </div>
-                    {analysis.summary && <p className="text-sm text-gray-600 dark:text-gray-300">{analysis.summary}</p>}
-                    {findings.length > 0 && <ul className="list-disc pl-5 space-y-1 text-xs text-gray-500 dark:text-gray-400">{findings.map(item => <li key={item}>{item}</li>)}</ul>}
-                    {(analysis.verdict === 'SUSPICIOUS' || analysis.verdict === 'HIGH_RISK') && <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 flex gap-1.5"><AlertTriangle size={13} className="shrink-0 mt-0.5" />Chứng từ có tín hiệu cần kiểm tra thủ công trước khi ra quyết định.</p>}
-                  </div>
-                )}
               </div>
             );
           })}
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">AI thẩm định chứng từ chạy tự động khi bấm "Chấm điểm tín dụng" — kết quả hiển thị ở khối Điểm tín dụng tham khảo.</p>
         </div>
       )}
     </div>

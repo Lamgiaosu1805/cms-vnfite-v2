@@ -438,6 +438,8 @@ export interface CreditScoreResult {
   aiSummary: string | null;
   aiRiskFlags: string[] | null;
   aiRecommendation: string | null;
+  /** Kết quả AI phân tích từng chứng từ — credit-service tự chạy khi chấm điểm */
+  documentAnalyses: DocumentAnalysisResult[] | null;
   expiresAt: string | null;
   createdAt: string | null;
 }
