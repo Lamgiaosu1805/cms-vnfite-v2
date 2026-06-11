@@ -147,9 +147,18 @@ const FILE_MANAGER_BASE = 'https://service.vnfite.com.vn/file-manager/v2/file';
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   SALARY_STATEMENT: 'Sao kê lương',
+  PAYSLIP: 'Bảng lương / phiếu lương',
   BANK_STATEMENT: 'Sao kê ngân hàng',
   LABOR_CONTRACT: 'Hợp đồng lao động',
+  EMPLOYMENT_CONTRACT: 'Hợp đồng lao động',
   BUSINESS_LICENSE: 'Đăng ký kinh doanh',
+  SALES_LEDGER: 'Sổ bán hàng / ghi chép doanh thu',
+  INVOICE: 'Hóa đơn / chứng từ bán hàng',
+  POS_STATEMENT: 'Sao kê POS / ví điện tử',
+  PLATFORM_SALES_REPORT: 'Báo cáo doanh thu nền tảng',
+  TAX_DOCUMENT: 'Chứng từ thuế',
+  SHOP_PHOTO: 'Ảnh cửa hàng / hàng hóa',
+  OTHER_INCOME_PROOF: 'Chứng từ chứng minh thu nhập khác',
   OTHER: 'Chứng từ khác',
 };
 
@@ -480,7 +489,7 @@ function CreditScoreSection({ loan, score, onScore }: {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {score.explanation?.documents && !score.explanation.documents.aiEnabled
                   ? 'AI thẩm định chứng từ đang tắt trên máy chủ — vui lòng đối chiếu chứng từ thủ công ở khối "Chứng từ người gọi vốn".'
-                  : 'Khoản gọi vốn này chưa có chứng từ thu nhập để AI thẩm định.'}
+                  : (score.explanation?.documents?.summary ?? 'Chưa có kết quả AI thẩm định chứng từ. Nếu khối chứng từ bên dưới đã có file, hãy bấm chấm điểm lại hoặc kiểm tra log credit-service/file-manager.')}
               </p>
             )}
           </div>
@@ -536,7 +545,7 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
 
       {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
       {loading && !documents && <p className="text-sm text-gray-400 dark:text-gray-500">Đang tải chứng từ...</p>}
-      {documents && documents.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Người gọi vốn chưa bổ sung chứng từ thu nhập.</p>}
+      {documents && documents.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Người gọi vốn chưa bổ sung chứng từ tài chính/thu nhập.</p>}
 
       {documents && documents.length > 0 && (
         <div className="space-y-3">
