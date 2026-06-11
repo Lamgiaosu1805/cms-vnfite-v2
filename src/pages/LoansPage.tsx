@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react';
 import {
   ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw,
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
-  Send, Check, X, ShieldCheck, Search,
+  Send, Check, X, ShieldCheck, Search, FileText, Download, Brain, ExternalLink,
 } from 'lucide-react';
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
-  fetchLoanContracts, disburseLoan,
+  fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, analyzeLoanDocument,
   type CmsLoan, type AppraisalSuggestion, type RecommendedDecision,
   type FactorImpact, type RepaymentScheduleItem, type LoanContract,
+  type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
 } from '../api/client';
 import { Badge } from '../components/Badge';
 import {
@@ -136,6 +137,242 @@ function MiniRow({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex justify-between items-start gap-3 py-1.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
       <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{label}</span>
       <span className="text-xs text-gray-800 dark:text-gray-200 text-right font-medium">{value}</span>
+    </div>
+  );
+}
+
+const FILE_MANAGER_BASE = 'https://service.vnfite.com.vn/file-manager/v2/file';
+
+const DOC_TYPE_LABEL: Record<string, string> = {
+  SALARY_STATEMENT: 'Sao kê lương',
+  BANK_STATEMENT: 'Sao kê ngân hàng',
+  LABOR_CONTRACT: 'Hợp đồng lao động',
+  BUSINESS_LICENSE: 'Đăng ký kinh doanh',
+  OTHER: 'Chứng từ khác',
+};
+
+const CREDIT_COMPONENT_LABEL: Record<string, string> = {
+  DEMOGRAPHIC: 'Nhân khẩu học',
+  INCOME: 'Thu nhập',
+  CREDIT_HISTORY: 'Lịch sử tín dụng',
+  PLATFORM: 'Nền tảng VNFITE',
+  LOAN: 'Khoản gọi vốn',
+};
+
+function creditGradeTone(grade: string): string {
+  if (grade === 'A') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+  if (grade === 'B') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
+  if (grade === 'C') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+  if (grade === 'D') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+  return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+}
+
+function creditBarColor(grade: string): string {
+  if (grade === 'A') return 'bg-green-500';
+  if (grade === 'B') return 'bg-emerald-500';
+  if (grade === 'C') return 'bg-amber-500';
+  if (grade === 'D') return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
+function verdictTone(verdict: string): string {
+  if (verdict === 'CONSISTENT') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+  if (verdict === 'SUSPICIOUS') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+  if (verdict === 'HIGH_RISK') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+  return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300';
+}
+
+function verdictLabel(verdict: string): string {
+  if (verdict === 'CONSISTENT') return 'Nhất quán';
+  if (verdict === 'SUSPICIOUS') return 'Cần kiểm tra';
+  if (verdict === 'HIGH_RISK') return 'Rủi ro cao';
+  if (verdict === 'UNREADABLE') return 'Không đọc được';
+  return verdict || 'Chưa rõ';
+}
+
+function analysisFindings(data: DocumentAnalysisResult['extractedData']): string[] {
+  if (!data) return [];
+  let parsed: unknown = data;
+  if (typeof data === 'string') {
+    try { parsed = JSON.parse(data); } catch { return []; }
+  }
+  if (!parsed || typeof parsed !== 'object') return [];
+  const obj = parsed as Record<string, unknown>;
+  const findings = obj.findings;
+  if (Array.isArray(findings)) return findings.map(String).filter(Boolean);
+  const riskFlags = obj.riskFlags ?? obj.risk_flags;
+  if (Array.isArray(riskFlags)) return riskFlags.map(String).filter(Boolean);
+  return [];
+}
+
+function CreditScoreSection({ loan }: { loan: CmsLoan }) {
+  const [score, setScore] = useState<CreditScoreResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const runEvaluate = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      setScore(await evaluateLoanCreditScore(loan.loanId));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pct = score ? Math.max(0, Math.min(100, ((score.score - 300) / 550) * 100)) : 0;
+  const grouped = score?.details.reduce<Record<string, typeof score.details>>((acc, item) => {
+    const key = item.component || 'OTHER';
+    acc[key] = acc[key] ?? [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-4">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Brain size={16} className="text-red-500" />
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Điểm tín dụng tham khảo</p>
+        <button onClick={runEvaluate} disabled={loading} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium disabled:opacity-50">
+          {loading ? <RefreshCw size={13} className="animate-spin" /> : <Gauge size={13} />}
+          Chấm điểm tín dụng
+        </button>
+      </div>
+
+      {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
+      {!score && !error && <p className="text-sm text-gray-500 dark:text-gray-400">Bấm chấm điểm để lấy score 300-850 từ credit-service. Kết quả chỉ hỗ trợ thẩm định, không tự động duyệt hoặc từ chối khoản gọi vốn.</p>}
+
+      {score && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-3xl font-bold text-gray-900 dark:text-white">{score.score}</span>
+                <span className={'px-2.5 py-1 rounded-lg text-sm font-bold ' + creditGradeTone(score.grade)}>Hạng {score.grade}</span>
+              </div>
+              <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div className={'h-full rounded-full ' + creditBarColor(score.grade)} style={{ width: pct + '%' }} />
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{score.gradePolicy ?? 'Chưa có mô tả hạng.'}</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4 space-y-2">
+              <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">AI advisory</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{score.aiSummary ?? 'AI chưa có nhận xét cho lần chấm điểm này.'}</p>
+              {score.aiRiskFlags && score.aiRiskFlags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {score.aiRiskFlags.map(flag => <span key={flag} className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-[11px] font-medium">{flag}</span>)}
+                </div>
+              )}
+              {score.aiRecommendation && <p className="text-xs text-gray-500 dark:text-gray-400">Khuyến nghị: {score.aiRecommendation}</p>}
+            </div>
+          </div>
+
+          {grouped && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {Object.entries(grouped).map(([component, items]) => (
+                <div key={component} className="rounded-lg border border-gray-100 dark:border-gray-700 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">{CREDIT_COMPONENT_LABEL[component] ?? component}</p>
+                  <div className="space-y-1.5">
+                    {items.map(item => (
+                      <div key={item.criteriaCode} className="flex items-start justify-between gap-3 text-xs">
+                        <span className="text-gray-600 dark:text-gray-300">{item.criteriaName}</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-100 whitespace-nowrap">{item.points}/{item.maxPoints}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {score.missingData && score.missingData.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2">Thiếu dữ liệu: {score.missingData.join(', ')}</p>}
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 italic border-t border-gray-100 dark:border-gray-800 pt-3">Điểm tín dụng chỉ mang tính tham khảo — quyết định thuộc về thẩm định viên.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
+  const [documents, setDocuments] = useState<LoanDocument[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [analyses, setAnalyses] = useState<Record<string, DocumentAnalysisResult>>({});
+  const [analyzingId, setAnalyzingId] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    try { setDocuments(await fetchLoanDocuments(loan.loanId)); }
+    catch (e) { setError((e as Error).message); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [loan.loanId]);
+
+  const runAnalyze = async (documentId: string) => {
+    setAnalyzingId(documentId);
+    setError('');
+    try {
+      const result = await analyzeLoanDocument(loan.loanId, documentId);
+      setAnalyses(prev => ({ ...prev, [documentId]: result }));
+    } catch (e) { setError((e as Error).message); }
+    finally { setAnalyzingId(''); }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <FileText size={16} className="text-red-500" />
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Chứng từ người gọi vốn</p>
+        <button onClick={load} className="ml-auto p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Tải lại"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /></button>
+      </div>
+
+      {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
+      {loading && !documents && <p className="text-sm text-gray-400 dark:text-gray-500">Đang tải chứng từ...</p>}
+      {documents && documents.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Người gọi vốn chưa bổ sung chứng từ thu nhập.</p>}
+
+      {documents && documents.length > 0 && (
+        <div className="space-y-3">
+          {documents.map(doc => {
+            const analysis = analyses[doc.id];
+            const findings = analysisFindings(analysis?.extractedData ?? null);
+            const fileUrl = FILE_MANAGER_BASE + '/' + doc.fileId;
+            return (
+              <div key={doc.id} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" title={doc.fileName ?? doc.fileId}>{doc.fileName ?? doc.fileId}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{DOC_TYPE_LABEL[doc.docType] ?? doc.docType} · {doc.createdAt ? formatDate(doc.createdAt) : 'Chưa rõ ngày'}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a href={fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"><ExternalLink size={13} />Xem</a>
+                    <a href={fileUrl} download className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"><Download size={13} />Tải</a>
+                    <button onClick={() => runAnalyze(doc.id)} disabled={analyzingId === doc.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium disabled:opacity-50">
+                      {analyzingId === doc.id ? <RefreshCw size={13} className="animate-spin" /> : <Brain size={13} />}Phân tích AI
+                    </button>
+                  </div>
+                </div>
+
+                {analysis && (
+                  <div className="rounded-lg bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 p-3 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={'px-2 py-0.5 rounded-full text-[11px] font-semibold ' + verdictTone(analysis.verdict)}>{verdictLabel(analysis.verdict)}</span>
+                      {analysis.trustScore != null && <span className="text-xs text-gray-500 dark:text-gray-400">Độ tin cậy {analysis.trustScore}/100</span>}
+                    </div>
+                    {analysis.summary && <p className="text-sm text-gray-600 dark:text-gray-300">{analysis.summary}</p>}
+                    {findings.length > 0 && <ul className="list-disc pl-5 space-y-1 text-xs text-gray-500 dark:text-gray-400">{findings.map(item => <li key={item}>{item}</li>)}</ul>}
+                    {(analysis.verdict === 'SUSPICIOUS' || analysis.verdict === 'HIGH_RISK') && <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 flex gap-1.5"><AlertTriangle size={13} className="shrink-0 mt-0.5" />Chứng từ có tín hiệu cần kiểm tra thủ công trước khi ra quyết định.</p>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -876,7 +1113,9 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         </Section>
       </div>
 
-      {/* Hỗ trợ thẩm định + phê duyệt 2 cấp */}
+      {/* Chứng từ + điểm tín dụng + hỗ trợ thẩm định */}
+      <LoanDocumentsSection loan={loan} />
+      <CreditScoreSection loan={loan} />
       <AppraisalPanel loan={loan} onActionDone={onActionDone} />
 
       {/* Giải ngân — chỉ hiện khi khoản ở trạng thái chờ giải ngân */}

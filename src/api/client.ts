@@ -403,6 +403,71 @@ export async function fetchLoanContracts(loanId: string): Promise<LoanContract[]
   return request(`/loans/${loanId}/contracts`);
 }
 
+// ─── Chứng từ & điểm tín dụng ────────────────────────────────────────────────
+
+export interface LoanDocument {
+  id: string;
+  docType: string;
+  fileId: string;
+  fileName: string | null;
+  createdAt: string | null;
+}
+
+export interface CreditScoreDetail {
+  criteriaCode: string;
+  criteriaName: string;
+  component: 'DEMOGRAPHIC' | 'INCOME' | 'CREDIT_HISTORY' | 'PLATFORM' | 'LOAN' | string;
+  rawValue: string | null;
+  points: number;
+  maxPoints: number;
+}
+
+export interface CreditScoreResult {
+  id: string;
+  userId: string;
+  loanRequestId: string | null;
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'E' | string;
+  gradePolicy: string | null;
+  rawPoints: number;
+  maxPoints: number;
+  modelVersion: string;
+  status: string;
+  missingData: string[] | null;
+  details: CreditScoreDetail[];
+  aiSummary: string | null;
+  aiRiskFlags: string[] | null;
+  aiRecommendation: string | null;
+  expiresAt: string | null;
+  createdAt: string | null;
+}
+
+export interface DocumentAnalysisResult {
+  id: string;
+  userId: string;
+  loanRequestId: string | null;
+  docType: string;
+  fileName: string | null;
+  fileId: string | null;
+  verdict: 'CONSISTENT' | 'SUSPICIOUS' | 'HIGH_RISK' | 'UNREADABLE' | string;
+  trustScore: number | null;
+  extractedData: string | Record<string, unknown> | null;
+  summary: string | null;
+  createdAt: string | null;
+}
+
+export async function fetchLoanDocuments(loanId: string): Promise<LoanDocument[]> {
+  return request(`/loans/${loanId}/documents`);
+}
+
+export async function evaluateLoanCreditScore(loanId: string): Promise<CreditScoreResult> {
+  return request(`/loans/${loanId}/credit-score`, { method: 'POST' });
+}
+
+export async function analyzeLoanDocument(loanId: string, documentId: string): Promise<DocumentAnalysisResult> {
+  return request(`/loans/${loanId}/documents/${documentId}/analyze`, { method: 'POST' });
+}
+
 /** OPS giải ngân vốn cho người gọi vốn: AWAITING_DISBURSEMENT → DISBURSED. */
 export async function disburseLoan(loanId: string): Promise<CmsLoan> {
   return request(`/loans/${loanId}/disburse`, { method: 'POST' });
