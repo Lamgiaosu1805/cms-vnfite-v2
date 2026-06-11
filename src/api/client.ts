@@ -440,8 +440,50 @@ export interface CreditScoreResult {
   aiRecommendation: string | null;
   /** Kết quả AI phân tích từng chứng từ — credit-service tự chạy khi chấm điểm */
   documentAnalyses: DocumentAnalysisResult[] | null;
+  /** Diễn giải nguyên nhân điểm số — luôn có kể cả khi AI tắt */
+  explanation: ScoreExplanation | null;
   expiresAt: string | null;
   createdAt: string | null;
+}
+
+export interface ScoreDriver {
+  criteriaName: string;
+  component: string | null;
+  points: number;
+  maxPoints: number;
+  reason: string;
+}
+
+export interface MissingDataItem {
+  criteriaName: string;
+  potentialPoints: number;
+  howToObtain: string;
+}
+
+export interface DocumentInsight {
+  aiEnabled: boolean;
+  total: number;
+  consistent: number;
+  suspicious: number;
+  highRisk: number;
+  unreadable: number;
+  errored: number;
+  alerts: string[] | null;
+  summary: string | null;
+}
+
+export interface ScoreExplanation {
+  headline: string;
+  suggestedAction: string;
+  criteriaWithData: number;
+  criteriaTotal: number;
+  pointsLostToMissingData: number;
+  pointsLostToWeakSignals: number;
+  maxPotentialScoreUplift: number;
+  negativeDrivers: ScoreDriver[] | null;
+  positiveDrivers: ScoreDriver[] | null;
+  missingData: MissingDataItem[] | null;
+  documents: DocumentInsight | null;
 }
 
 export interface DocumentAnalysisResult {

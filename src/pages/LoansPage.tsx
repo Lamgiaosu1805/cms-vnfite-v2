@@ -3,6 +3,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw,
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
   Send, Check, X, ShieldCheck, Search, FileText, Download, Brain, ExternalLink,
+  TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch,
 } from 'lucide-react';
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
@@ -11,6 +12,7 @@ import {
   type CmsLoan, type AppraisalSuggestion, type RecommendedDecision,
   type FactorImpact, type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
+  type ScoreExplanation,
 } from '../api/client';
 import { Badge } from '../components/Badge';
 import {
@@ -191,19 +193,155 @@ function verdictLabel(verdict: string): string {
   return verdict || 'Chưa rõ';
 }
 
-function analysisFindings(data: DocumentAnalysisResult['extractedData']): string[] {
-  if (!data) return [];
+interface ParsedDocData {
+  detectedType: string | null;
+  ownerName: string | null;
+  organizationName: string | null;
+  extractedIncome: string | null;
+  findings: string[];
+  consistencyIssues: string[];
+}
+
+function parseDocData(data: DocumentAnalysisResult['extractedData']): ParsedDocData {
+  const empty: ParsedDocData = {
+    detectedType: null, ownerName: null, organizationName: null,
+    extractedIncome: null, findings: [], consistencyIssues: [],
+  };
+  if (!data) return empty;
   let parsed: unknown = data;
   if (typeof data === 'string') {
-    try { parsed = JSON.parse(data); } catch { return []; }
+    try { parsed = JSON.parse(data); } catch { return empty; }
   }
-  if (!parsed || typeof parsed !== 'object') return [];
-  const obj = parsed as Record<string, unknown>;
-  const findings = obj.findings;
-  if (Array.isArray(findings)) return findings.map(String).filter(Boolean);
-  const riskFlags = obj.riskFlags ?? obj.risk_flags;
-  if (Array.isArray(riskFlags)) return riskFlags.map(String).filter(Boolean);
-  return [];
+  if (!parsed || typeof parsed !== 'object') return empty;
+  const o = parsed as Record<string, unknown>;
+  const arr = (v: unknown): string[] => (Array.isArray(v) ? v.map(String).map(s => s.trim()).filter(s => s && s.toLowerCase() !== 'null') : []);
+  const str = (v: unknown): string | null => {
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'string' && v.trim() && v.toLowerCase() !== 'null') return v.trim();
+    return null;
+  };
+  return {
+    detectedType: str(o.docTypeDetected),
+    ownerName: str(o.ownerName),
+    organizationName: str(o.organizationName),
+    extractedIncome: str(o.extractedMonthlyIncome),
+    findings: arr(o.findings ?? o.riskFlags ?? o.risk_flags),
+    consistencyIssues: arr(o.consistencyIssues ?? o.consistency_issues),
+  };
+}
+
+function formatIncomeText(raw: string | null): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/[^\d]/g, '');
+  if (digits.length >= 4) return formatMoney(Number(digits));
+  return raw;
+}
+
+// ─── Khối giải thích nguyên nhân điểm (deterministic, luôn có) ──────────────────
+
+function ExplanationStat({ label, value, tone }: { label: string; value: string; tone?: 'amber' | 'green' | 'red' }) {
+  const toneCls =
+    tone === 'amber' ? 'text-amber-600 dark:text-amber-400'
+    : tone === 'green' ? 'text-green-600 dark:text-green-400'
+    : tone === 'red' ? 'text-red-600 dark:text-red-400'
+    : 'text-gray-800 dark:text-gray-100';
+  return (
+    <div className="rounded-lg border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-900 p-2.5">
+      <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</p>
+      <p className={`text-sm font-semibold ${toneCls}`}>{value}</p>
+    </div>
+  );
+}
+
+function ScoreExplanationBlock({ ex }: { ex: ScoreExplanation }) {
+  const neg = ex.negativeDrivers ?? [];
+  const pos = ex.positiveDrivers ?? [];
+  const missing = ex.missingData ?? [];
+  const completeness = ex.criteriaTotal > 0 ? Math.round((ex.criteriaWithData / ex.criteriaTotal) * 100) : 0;
+
+  return (
+    <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4 space-y-3">
+      <div className="flex items-center gap-1.5">
+        <FileSearch size={14} className="text-red-500" />
+        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Vì sao có mức điểm này</p>
+      </div>
+
+      <p className="text-sm text-gray-700 dark:text-gray-200 leading-snug">{ex.headline}</p>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <ExplanationStat label="Độ đầy đủ hồ sơ" value={`${ex.criteriaWithData}/${ex.criteriaTotal} (${completeness}%)`} />
+        {ex.pointsLostToMissingData > 0 && (
+          <ExplanationStat label="Mất do thiếu dữ liệu" value={`${ex.pointsLostToMissingData} điểm thô`} tone="amber" />
+        )}
+        {ex.maxPotentialScoreUplift > 0 && (
+          <ExplanationStat label="Bổ sung có thể +" value={`~${ex.maxPotentialScoreUplift} điểm`} tone="green" />
+        )}
+        {ex.pointsLostToWeakSignals > 0 && (
+          <ExplanationStat label="Mất do tín hiệu yếu" value={`${ex.pointsLostToWeakSignals} điểm thô`} tone="red" />
+        )}
+      </div>
+
+      {neg.length > 0 && (
+        <div>
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-500 mb-1.5">
+            <TrendingDown size={13} />Yếu tố kéo điểm xuống
+          </p>
+          <div className="space-y-1">
+            {neg.map(d => (
+              <div key={d.criteriaName} className="flex items-start gap-2 text-xs">
+                <span className="font-semibold text-red-600 dark:text-red-400 w-12 text-right shrink-0">{d.points}/{d.maxPoints}</span>
+                <div className="leading-snug">
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">{d.criteriaName}</span>
+                  <span className="text-gray-500 dark:text-gray-400"> — {d.reason}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pos.length > 0 && (
+        <div>
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-green-600 dark:text-green-400 mb-1.5">
+            <TrendingUp size={13} />Điểm mạnh
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {pos.map(d => (
+              <span key={d.criteriaName} className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-[11px] font-medium">
+                {d.criteriaName} {d.points}/{d.maxPoints}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {missing.length > 0 && (
+        <div>
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400 mb-1.5">
+            <PlusCircle size={13} />Cần bổ sung để nâng điểm
+          </p>
+          <div className="space-y-1">
+            {missing.map(m => (
+              <div key={m.criteriaName} className="flex items-start gap-2 text-xs">
+                <span className="font-semibold text-amber-600 dark:text-amber-400 w-10 text-right shrink-0">+{m.potentialPoints}</span>
+                <div className="leading-snug">
+                  <span className="text-gray-700 dark:text-gray-200 font-medium">{m.criteriaName}</span>
+                  <span className="text-gray-500 dark:text-gray-400"> — {m.howToObtain}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {ex.suggestedAction && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40 px-3 py-2 flex gap-1.5">
+          <Lightbulb size={14} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-gray-700 dark:text-gray-200">{ex.suggestedAction}</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CreditScoreSection({ loan, score, onScore }: {
@@ -264,22 +402,45 @@ function CreditScoreSection({ loan, score, onScore }: {
             </div>
 
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4 space-y-2">
-              <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">AI advisory</p>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{score.aiSummary ?? 'AI chưa có nhận xét cho lần chấm điểm này.'}</p>
+              <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">{score.aiSummary ? 'AI advisory' : 'Nhận xét tự động'}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{score.aiSummary ?? score.explanation?.headline ?? 'Chưa có nhận xét cho lần chấm điểm này.'}</p>
               {score.aiRiskFlags && score.aiRiskFlags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {score.aiRiskFlags.map(flag => <span key={flag} className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-[11px] font-medium">{flag}</span>)}
                 </div>
               )}
-              {score.aiRecommendation && <p className="text-xs text-gray-500 dark:text-gray-400">Khuyến nghị: {score.aiRecommendation}</p>}
+              {(score.aiRecommendation ?? score.explanation?.suggestedAction) && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">Khuyến nghị: {score.aiRecommendation ?? score.explanation?.suggestedAction}</p>
+              )}
+              {!score.aiSummary && <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">Nhận xét sinh tự động từ breakdown điểm (AI tư vấn chưa bật hoặc không phản hồi).</p>}
             </div>
           </div>
 
-          {score.documentAnalyses && score.documentAnalyses.length > 0 && (
-            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4 space-y-3">
-              <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">AI thẩm định chứng từ ({score.documentAnalyses.length} file)</p>
-              {score.documentAnalyses.map((analysis, idx) => {
-                const findings = analysisFindings(analysis.extractedData);
+          {/* Vì sao có mức điểm này — luôn hiển thị */}
+          {score.explanation && <ScoreExplanationBlock ex={score.explanation} />}
+
+          {/* AI thẩm định chứng từ — luôn có dòng trạng thái, kèm chi tiết từng file */}
+          <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4 space-y-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <FileSearch size={14} className="text-red-500" />
+              <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">AI thẩm định chứng từ</p>
+              {score.explanation?.documents?.summary && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">· {score.explanation.documents.summary}</span>
+              )}
+            </div>
+
+            {score.explanation?.documents?.alerts && score.explanation.documents.alerts.length > 0 && (
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 p-3 space-y-1">
+                {score.explanation.documents.alerts.map((a, i) => (
+                  <p key={i} className="text-xs text-amber-700 dark:text-amber-300 flex gap-1.5"><AlertTriangle size={13} className="shrink-0 mt-0.5" />{a}</p>
+                ))}
+              </div>
+            )}
+
+            {score.documentAnalyses && score.documentAnalyses.length > 0 ? (
+              score.documentAnalyses.map((analysis, idx) => {
+                const d = parseDocData(analysis.extractedData);
+                const extractedIncome = formatIncomeText(d.extractedIncome);
                 return (
                   <div key={analysis.id ?? analysis.fileId ?? idx} className="rounded-lg bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-700 p-3 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -287,16 +448,42 @@ function CreditScoreSection({ loan, score, onScore }: {
                       <span className={'px-2 py-0.5 rounded-full text-[11px] font-semibold ' + verdictTone(analysis.verdict)}>{verdictLabel(analysis.verdict)}</span>
                       {analysis.trustScore != null && <span className="text-xs text-gray-500 dark:text-gray-400">Độ tin cậy {analysis.trustScore}/100</span>}
                     </div>
+
+                    {(d.detectedType || d.ownerName || d.organizationName || extractedIncome) && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+                        {d.detectedType && <MiniRow label="AI nhận diện" value={d.detectedType} />}
+                        {d.ownerName && <MiniRow label="Chủ chứng từ" value={d.ownerName} />}
+                        {d.organizationName && <MiniRow label="Đơn vị phát hành" value={d.organizationName} />}
+                        {extractedIncome && <MiniRow label="Thu nhập trên chứng từ" value={extractedIncome} />}
+                      </div>
+                    )}
+
                     {analysis.summary && <p className="text-sm text-gray-600 dark:text-gray-300">{analysis.summary}</p>}
-                    {findings.length > 0 && <ul className="list-disc pl-5 space-y-1 text-xs text-gray-500 dark:text-gray-400">{findings.map(item => <li key={item}>{item}</li>)}</ul>}
+
+                    {d.consistencyIssues.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">Điểm chưa khớp khai báo:</p>
+                        <ul className="list-disc pl-5 space-y-0.5 text-xs text-amber-700 dark:text-amber-300">{d.consistencyIssues.map(item => <li key={item}>{item}</li>)}</ul>
+                      </div>
+                    )}
+                    {d.findings.length > 0 && (
+                      <ul className="list-disc pl-5 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">{d.findings.map(item => <li key={item}>{item}</li>)}</ul>
+                    )}
+
                     {(analysis.verdict === 'SUSPICIOUS' || analysis.verdict === 'HIGH_RISK' || analysis.verdict === 'ERROR') && (
                       <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 flex gap-1.5"><AlertTriangle size={13} className="shrink-0 mt-0.5" />Chứng từ cần kiểm tra thủ công trước khi ra quyết định.</p>
                     )}
                   </div>
                 );
-              })}
-            </div>
-          )}
+              })
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {score.explanation?.documents && !score.explanation.documents.aiEnabled
+                  ? 'AI thẩm định chứng từ đang tắt trên máy chủ — vui lòng đối chiếu chứng từ thủ công ở khối "Chứng từ người gọi vốn".'
+                  : 'Khoản gọi vốn này chưa có chứng từ thu nhập để AI thẩm định.'}
+              </p>
+            )}
+          </div>
 
           {grouped && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -456,15 +643,15 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
   const af = data?.affordability ?? null;
 
   // Tổng hợp kết quả AI (điểm 300-850 + thẩm định chứng từ) để đối chiếu với engine
+  const docInsight = creditScore?.explanation?.documents ?? null;
   const docAnalyses = creditScore?.documentAnalyses ?? [];
-  const docTotal = docAnalyses.length;
-  const docOk = docAnalyses.filter(d => d.verdict === 'CONSISTENT').length;
-  const docIssues = docTotal - docOk;
+  const docTotal = docInsight?.total ?? docAnalyses.length;
+  const docIssues = docInsight
+    ? docInsight.suspicious + docInsight.highRisk + docInsight.errored
+    : docAnalyses.filter(d => d.verdict !== 'CONSISTENT').length;
   const docSummary = !creditScore
     ? null
-    : docTotal === 0
-      ? 'Không có chứng từ đính kèm'
-      : `${docOk}/${docTotal} nhất quán${docIssues > 0 ? ` · ${docIssues} cần kiểm tra` : ''}`;
+    : (docInsight?.summary ?? (docTotal === 0 ? 'Không có chứng từ đính kèm' : `${docTotal} chứng từ`));
   const aiScoreText = creditScore ? `${creditScore.score}/850 · Hạng ${creditScore.grade}` : null;
 
   return (
