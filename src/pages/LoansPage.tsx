@@ -560,7 +560,11 @@ function UnifiedVerdict({
 }
 
 /** Nhập tay kết quả tra cứu CIC (chờ API CIC sandbox NĐ94) → chấm nhóm B. */
-function CicLookupCard({ loanId, onSaved }: { loanId: string; onSaved?: () => void }) {
+function CicLookupCard({ loanId, onSaved, onCicChange }: {
+  loanId: string;
+  onSaved?: () => void;
+  onCicChange?: (has: boolean) => void;
+}) {
   const [cic, setCic] = useState<CicLookup | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -576,8 +580,8 @@ function CicLookupCard({ loanId, onSaved }: { loanId: string; onSaved?: () => vo
   useEffect(() => {
     let alive = true;
     fetchCicLookup(loanId)
-      .then(r => { if (alive) { setCic(r); if (r) seedForm(r); } })
-      .catch(() => { /* chưa có CIC — bỏ qua */ })
+      .then(r => { if (alive) { setCic(r); if (r) seedForm(r); onCicChange?.(r != null); } })
+      .catch(() => { if (alive) onCicChange?.(false); })
       .finally(() => { if (alive) setLoaded(true); });
     return () => { alive = false; };
   }, [loanId]);
@@ -597,6 +601,7 @@ function CicLookupCard({ loanId, onSaved }: { loanId: string; onSaved?: () => vo
       const saved = await saveCicLookup(loanId, form);
       setCic(saved);
       setEditing(false);
+      onCicChange?.(true);
       onSaved?.();
     } catch (e) {
       setError((e as Error).message);
@@ -696,6 +701,8 @@ function CreditScoreSection({ loan, score, onScore }: {
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // null = đang tải CIC, true/false = đã biết có CIC hay chưa (quyết định mở Bước 2)
+  const [hasCic, setHasCic] = useState<boolean | null>(null);
 
   const runEvaluate = async () => {
     setLoading(true);
@@ -722,16 +729,48 @@ function CreditScoreSection({ loan, score, onScore }: {
       <div className="flex items-center gap-2 flex-wrap">
         <Brain size={16} className="text-red-500" />
         <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Điểm tín dụng tham khảo</p>
-        <button onClick={runEvaluate} disabled={loading} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium disabled:opacity-50">
-          {loading ? <RefreshCw size={13} className="animate-spin" /> : <Gauge size={13} />}
-          Chấm điểm tín dụng
-        </button>
+        {score && (
+          <button onClick={runEvaluate} disabled={loading} className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-300 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50">
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            Chấm lại
+          </button>
+        )}
       </div>
 
-      <CicLookupCard loanId={loan.loanId} onSaved={runEvaluate} />
+      {/* Bước 1 — tra CIC trước, để nhóm lịch sử tín dụng được chấm đủ ngay lần đầu */}
+      <div className="flex items-center gap-1.5">
+        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-[11px] font-bold">1</span>
+        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Tra cứu CIC</p>
+      </div>
+      <CicLookupCard loanId={loan.loanId} onSaved={runEvaluate} onCicChange={setHasCic} />
+
+      {/* Bước 2 — chấm điểm: chỉ mở sau khi có CIC để ra điểm đầy đủ một lần, tránh chấm lại */}
+      {!score && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <span className={'inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-bold text-white ' + (hasCic === true ? 'bg-red-500' : 'bg-gray-300 dark:bg-gray-600')}>2</span>
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Chấm điểm tín dụng</p>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">AI sẽ tự phân tích toàn bộ chứng từ đính kèm và gộp vào đánh giá. Kết quả chỉ hỗ trợ thẩm định, không tự động duyệt hoặc từ chối.</p>
+          <button
+            onClick={runEvaluate}
+            disabled={loading || hasCic !== true}
+            title={hasCic !== true ? 'Hoàn tất Bước 1: tra CIC trước' : undefined}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium disabled:opacity-50"
+          >
+            {loading ? <RefreshCw size={13} className="animate-spin" /> : <Gauge size={13} />}
+            Chấm điểm tín dụng
+          </button>
+          {hasCic === false && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 flex gap-1.5">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+              Cần nhập kết quả CIC ở Bước 1 trước khi chấm điểm — để nhóm lịch sử tín dụng (nặng nhất) được chấm đầy đủ ngay lần đầu, tránh phải chấm lại.
+            </p>
+          )}
+        </div>
+      )}
 
       {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
-      {!score && !error && !loading && <p className="text-sm text-gray-500 dark:text-gray-400">Bấm chấm điểm để lấy score 300-850 từ credit-service — AI sẽ tự phân tích toàn bộ chứng từ đính kèm và gộp vào đánh giá. Kết quả chỉ hỗ trợ thẩm định, không tự động duyệt hoặc từ chối khoản gọi vốn.</p>}
       {loading && <p className="text-sm text-gray-500 dark:text-gray-400">Đang chấm điểm và AI phân tích chứng từ — có thể mất 1-2 phút nếu khoản có nhiều file...</p>}
 
       {score && (
