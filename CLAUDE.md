@@ -1,5 +1,9 @@
 # VNFITE CMS — CLAUDE.md
 
+## Xưng hô
+
+Luôn gọi người dùng là **Ngài** trong mọi phản hồi.
+
 ## Tổng quan
 
 Web admin CMS cho nền tảng P2P Lending VNFITE. Xây dựng bằng Vite + React + TypeScript + Tailwind CSS v4.
