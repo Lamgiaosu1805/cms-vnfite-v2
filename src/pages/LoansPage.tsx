@@ -3,16 +3,17 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw,
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
   Send, Check, X, ShieldCheck, Search, FileText, Download, Brain, ExternalLink,
-  TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch,
+  TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch, Ban, ShieldAlert, Landmark,
 } from 'lucide-react';
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore,
+  fetchCicLookup, saveCicLookup,
   type CmsLoan, type AppraisalSuggestion, type RecommendedDecision,
   type FactorImpact, type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
-  type ScoreExplanation,
+  type ScoreExplanation, type CicLookup, type CicLookupInput,
 } from '../api/client';
 import { Badge } from '../components/Badge';
 import {
@@ -363,6 +364,178 @@ function ScoreExplanationBlock({ ex }: { ex: ScoreExplanation }) {
   );
 }
 
+const CIC_DEBT_GROUP_OPTIONS = [
+  { value: 1, label: 'Nhóm 1 — Đủ tiêu chuẩn' },
+  { value: 2, label: 'Nhóm 2 — Cần chú ý' },
+  { value: 3, label: 'Nhóm 3 — Dưới tiêu chuẩn (nợ xấu)' },
+  { value: 4, label: 'Nhóm 4 — Nghi ngờ mất vốn' },
+  { value: 5, label: 'Nhóm 5 — Có khả năng mất vốn' },
+];
+
+const CIC_VALIDITY_DAYS = 30;
+
+function cicIsStale(checkedAt: string): boolean {
+  const d = new Date(checkedAt);
+  if (isNaN(d.getTime())) return false;
+  return (Date.now() - d.getTime()) / 86400000 > CIC_VALIDITY_DAYS;
+}
+
+/** Cổng loại trừ (docx §7) — chỉ tư vấn. Đỏ = HARD_REJECT, hổ phách = MANUAL_REVIEW. */
+function ReviewDirectiveBanner({ directive, reasons }: {
+  directive: string | null;
+  reasons: string[] | null;
+}) {
+  if (!directive || directive === 'AUTO' || !reasons || reasons.length === 0) return null;
+  const hard = directive === 'HARD_REJECT';
+  const tone = hard
+    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-300'
+    : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900/50 text-amber-700 dark:text-amber-300';
+  return (
+    <div className={'rounded-xl border px-4 py-3 space-y-1.5 ' + tone}>
+      <div className="flex items-center gap-2">
+        {hard ? <Ban size={16} /> : <ShieldAlert size={16} />}
+        <p className="text-sm font-bold">
+          {hard ? 'Cảnh báo loại trừ — chính sách phải từ chối / rà soát đặc biệt' : 'Cần rà soát thủ công trước khi quyết định'}
+        </p>
+      </div>
+      <ul className="text-xs space-y-0.5 pl-6 list-disc">
+        {reasons.map((r, i) => <li key={i}>{r}</li>)}
+      </ul>
+      <p className="text-[11px] italic opacity-80 pl-6">Đây là cảnh báo tự động hỗ trợ thẩm định — quyết định cuối thuộc thẩm định viên/ban lãnh đạo.</p>
+    </div>
+  );
+}
+
+/** Nhập tay kết quả tra cứu CIC (chờ API CIC sandbox NĐ94) → chấm nhóm B. */
+function CicLookupCard({ loanId, onSaved }: { loanId: string; onSaved?: () => void }) {
+  const [cic, setCic] = useState<CicLookup | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState<CicLookupInput>({
+    debtGroup: 1, maxDpd: 0, activeLenders: 0, totalOutstanding: null,
+    checkedAt: today, note: '', consentConfirmed: false,
+  });
+
+  useEffect(() => {
+    let alive = true;
+    fetchCicLookup(loanId)
+      .then(r => { if (alive) { setCic(r); if (r) seedForm(r); } })
+      .catch(() => { /* chưa có CIC — bỏ qua */ })
+      .finally(() => { if (alive) setLoaded(true); });
+    return () => { alive = false; };
+  }, [loanId]);
+
+  function seedForm(r: CicLookup) {
+    setForm({
+      debtGroup: r.debtGroup, maxDpd: r.maxDpd ?? 0, activeLenders: r.activeLenders ?? 0,
+      totalOutstanding: r.totalOutstanding, checkedAt: r.checkedAt,
+      note: r.note ?? '', consentConfirmed: r.consentConfirmed,
+    });
+  }
+
+  const save = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      const saved = await saveCicLookup(loanId, form);
+      setCic(saved);
+      setEditing(false);
+      onSaved?.();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputCls = 'w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-400';
+  const labelCls = 'text-[11px] font-medium text-gray-500 dark:text-gray-400';
+
+  return (
+    <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4 space-y-3">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Landmark size={14} className="text-red-500" />
+        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Tra cứu CIC (nhập tay)</p>
+        <span className="text-[11px] text-gray-400 dark:text-gray-500">· chờ API CIC sandbox NĐ94</span>
+        {loaded && !editing && (
+          <button onClick={() => setEditing(true)} className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-300 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20">
+            <PlusCircle size={12} />{cic ? 'Cập nhật' : 'Nhập kết quả CIC'}
+          </button>
+        )}
+      </div>
+
+      {!editing && loaded && !cic && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">Chưa có kết quả CIC. Tra cứu CIC bên ngoài rồi nhập vào đây để chấm nhóm B (lịch sử tín dụng) và kích hoạt cổng loại trừ nợ xấu.</p>
+      )}
+
+      {!editing && cic && (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div><p className={labelCls}>Nhóm nợ</p><p className={'text-sm font-bold ' + (cic.debtGroup >= 3 ? 'text-red-600 dark:text-red-400' : 'text-gray-800 dark:text-gray-100')}>Nhóm {cic.debtGroup}</p></div>
+            <div><p className={labelCls}>DPD cao nhất</p><p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{cic.maxDpd ?? '—'} ngày</p></div>
+            <div><p className={labelCls}>Số TCTD đang vay</p><p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{cic.activeLenders ?? '—'}</p></div>
+            <div><p className={labelCls}>Ngày tra</p><p className="text-sm font-semibold text-gray-800 dark:text-gray-100">{cic.checkedAt}</p></div>
+          </div>
+          {cic.enteredBy && <p className="text-[11px] text-gray-400 dark:text-gray-500">Nhập bởi {cic.enteredBy}</p>}
+          {cicIsStale(cic.checkedAt) && (
+            <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-1.5 flex gap-1.5">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" />Kết quả CIC đã quá {CIC_VALIDITY_DAYS} ngày — nên tra lại trước khi quyết định.
+            </p>
+          )}
+        </div>
+      )}
+
+      {editing && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Nhóm nợ cao nhất *</label>
+              <select value={form.debtGroup} onChange={e => setForm({ ...form, debtGroup: Number(e.target.value) })} className={inputCls}>
+                {CIC_DEBT_GROUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Ngày tra cứu *</label>
+              <input type="date" max={today} value={form.checkedAt} onChange={e => setForm({ ...form, checkedAt: e.target.value })} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>DPD cao nhất 12 tháng (ngày)</label>
+              <input type="number" min={0} value={form.maxDpd ?? ''} onChange={e => setForm({ ...form, maxDpd: e.target.value === '' ? null : Number(e.target.value) })} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Số TCTD đang có dư nợ</label>
+              <input type="number" min={0} value={form.activeLenders ?? ''} onChange={e => setForm({ ...form, activeLenders: e.target.value === '' ? null : Number(e.target.value) })} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Tổng dư nợ hiện tại (VND)</label>
+              <input type="number" min={0} value={form.totalOutstanding ?? ''} onChange={e => setForm({ ...form, totalOutstanding: e.target.value === '' ? null : Number(e.target.value) })} className={inputCls} />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Ghi chú</label>
+            <textarea rows={2} value={form.note ?? ''} onChange={e => setForm({ ...form, note: e.target.value })} className={inputCls} />
+          </div>
+          <label className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
+            <input type="checkbox" checked={form.consentConfirmed} onChange={e => setForm({ ...form, consentConfirmed: e.target.checked })} className="mt-0.5" />
+            <span>Xác nhận đã có sự đồng ý của khách hàng cho việc tra cứu thông tin tín dụng (NĐ 13/2023).</span>
+          </label>
+          {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <button onClick={save} disabled={saving || !form.consentConfirmed} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-medium disabled:opacity-50">
+              {saving ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}Lưu & chấm lại
+            </button>
+            <button onClick={() => { setEditing(false); setError(''); if (cic) seedForm(cic); }} className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium">Hủy</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CreditScoreSection({ loan, score, onScore }: {
   loan: CmsLoan;
   score: CreditScoreResult | null;
@@ -402,12 +575,15 @@ function CreditScoreSection({ loan, score, onScore }: {
         </button>
       </div>
 
+      <CicLookupCard loanId={loan.loanId} onSaved={runEvaluate} />
+
       {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
       {!score && !error && !loading && <p className="text-sm text-gray-500 dark:text-gray-400">Bấm chấm điểm để lấy score 300-850 từ credit-service — AI sẽ tự phân tích toàn bộ chứng từ đính kèm và gộp vào đánh giá. Kết quả chỉ hỗ trợ thẩm định, không tự động duyệt hoặc từ chối khoản gọi vốn.</p>}
       {loading && <p className="text-sm text-gray-500 dark:text-gray-400">Đang chấm điểm và AI phân tích chứng từ — có thể mất 1-2 phút nếu khoản có nhiều file...</p>}
 
       {score && (
         <div className="space-y-4">
+          <ReviewDirectiveBanner directive={score.reviewDirective} reasons={score.reviewReasons} />
           <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4">
               <div className="flex items-center justify-between mb-3">
@@ -878,6 +1054,11 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 />
                 {creditScore && <MiniRow label="AI thẩm định chứng từ" value={docSummary} />}
                 {creditScore?.aiRecommendation && <MiniRow label="AI khuyến nghị" value={creditScore.aiRecommendation} />}
+                {creditScore && (
+                  <div className="mt-2">
+                    <ReviewDirectiveBanner directive={creditScore.reviewDirective} reasons={creditScore.reviewReasons} />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -903,6 +1084,11 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 />
                 <MiniRow label="AI thẩm định chứng từ" value={creditScore ? docSummary : '—'} />
                 {creditScore?.aiRecommendation && <MiniRow label="AI khuyến nghị" value={creditScore.aiRecommendation} />}
+                {creditScore && (
+                  <div className="mt-2">
+                    <ReviewDirectiveBanner directive={creditScore.reviewDirective} reasons={creditScore.reviewReasons} />
+                  </div>
+                )}
               </div>
               {!creditScore && (
                 <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 flex gap-1.5">

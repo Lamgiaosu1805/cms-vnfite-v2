@@ -442,6 +442,9 @@ export interface CreditScoreResult {
   documentAnalyses: DocumentAnalysisResult[] | null;
   /** Diễn giải nguyên nhân điểm số — luôn có kể cả khi AI tắt */
   explanation: ScoreExplanation | null;
+  /** Cổng loại trừ (chỉ tư vấn): AUTO | MANUAL_REVIEW | HARD_REJECT */
+  reviewDirective: 'AUTO' | 'MANUAL_REVIEW' | 'HARD_REJECT' | string | null;
+  reviewReasons: string[] | null;
   expiresAt: string | null;
   createdAt: string | null;
 }
@@ -506,6 +509,45 @@ export async function fetchLoanDocuments(loanId: string): Promise<LoanDocument[]
 
 export async function evaluateLoanCreditScore(loanId: string): Promise<CreditScoreResult> {
   return request(`/loans/${loanId}/credit-score`, { method: 'POST' });
+}
+
+// ─── CIC nhập tay (chờ API CIC sandbox NĐ94) ────────────────────────────────
+
+export interface CicLookup {
+  id: string;
+  loanId: string;
+  debtGroup: number;
+  maxDpd: number | null;
+  activeLenders: number | null;
+  totalOutstanding: number | null;
+  inquiriesRecent: number | null;
+  checkedAt: string;            // 'YYYY-MM-DD'
+  attachmentFileId: string | null;
+  note: string | null;
+  consentConfirmed: boolean;
+  enteredBy: string | null;
+  createdAt: string | null;
+}
+
+export interface CicLookupInput {
+  debtGroup: number;
+  maxDpd?: number | null;
+  activeLenders?: number | null;
+  totalOutstanding?: number | null;
+  inquiriesRecent?: number | null;
+  checkedAt: string;
+  note?: string | null;
+  consentConfirmed: boolean;
+}
+
+/** Kết quả tra CIC mới nhất của khoản — null nếu chưa nhập. */
+export async function fetchCicLookup(loanId: string): Promise<CicLookup | null> {
+  return request(`/loans/${loanId}/cic`);
+}
+
+/** Thẩm định viên nhập kết quả tra CIC ngoài. */
+export async function saveCicLookup(loanId: string, data: CicLookupInput): Promise<CicLookup> {
+  return request(`/loans/${loanId}/cic`, { method: 'POST', data });
 }
 
 export async function analyzeLoanDocument(loanId: string, documentId: string): Promise<DocumentAnalysisResult> {
