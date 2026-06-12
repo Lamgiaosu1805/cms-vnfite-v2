@@ -163,6 +163,16 @@ const DOC_TYPE_LABEL: Record<string, string> = {
 };
 
 const CREDIT_COMPONENT_LABEL: Record<string, string> = {
+  // Khung Credit Score 360 (nhóm A–H)
+  A_KYC: 'A · KYC & Định danh',
+  B_CREDIT_HISTORY: 'B · Lịch sử tín dụng nội bộ',
+  C_AFFORDABILITY: 'C · Khả năng trả nợ',
+  D_CASHFLOW: 'D · Dòng tiền',
+  E_OCCUPATION: 'E · Nghề nghiệp & thu nhập',
+  F_LOAN: 'F · Đặc điểm khoản vay',
+  G_DEVICE: 'G · Thiết bị & hành vi số',
+  H_FRAUD: 'H · Gian lận & bất thường',
+  // Nhóm cũ (điểm đã chấm trước khi tái cấu trúc) — giữ để hiển thị lịch sử
   DEMOGRAPHIC: 'Nhân khẩu học',
   INCOME: 'Thu nhập',
   CREDIT_HISTORY: 'Lịch sử tín dụng',
@@ -171,7 +181,7 @@ const CREDIT_COMPONENT_LABEL: Record<string, string> = {
 };
 
 function creditGradeTone(grade: string): string {
-  if (grade === 'A') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+  if (grade === 'A+' || grade === 'A') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
   if (grade === 'B') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
   if (grade === 'C') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
   if (grade === 'D') return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
@@ -179,7 +189,7 @@ function creditGradeTone(grade: string): string {
 }
 
 function creditBarColor(grade: string): string {
-  if (grade === 'A') return 'bg-green-500';
+  if (grade === 'A+' || grade === 'A') return 'bg-green-500';
   if (grade === 'B') return 'bg-emerald-500';
   if (grade === 'C') return 'bg-amber-500';
   if (grade === 'D') return 'bg-orange-500';
@@ -496,7 +506,7 @@ function CreditScoreSection({ loan, score, onScore }: {
 
           {grouped && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {Object.entries(grouped).map(([component, items]) => (
+              {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([component, items]) => (
                 <div key={component} className="rounded-lg border border-gray-100 dark:border-gray-700 p-3">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">{CREDIT_COMPONENT_LABEL[component] ?? component}</p>
                   <div className="space-y-1.5">
