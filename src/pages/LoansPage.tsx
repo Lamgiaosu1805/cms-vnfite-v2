@@ -9,7 +9,7 @@ import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore,
-  fetchCicLookup, saveCicLookup,
+  fetchCicLookup, saveCicLookup, analyzeLoanDocument,
   type CmsLoan, type AppraisalSuggestion, type RecommendedDecision,
   type FactorImpact, type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
@@ -710,6 +710,10 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
   const [documents, setDocuments] = useState<LoanDocument[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // analyses: docId → kết quả AI phân tích
+  const [analyses, setAnalyses] = useState<Record<string, DocumentAnalysisResult>>({});
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState('');
 
   const load = async () => {
     setLoading(true);
@@ -721,15 +725,50 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
 
   useEffect(() => { load(); }, [loan.loanId]);
 
+  const analyzeAll = async () => {
+    if (!documents || documents.length === 0) return;
+    setAnalyzing(true);
+    setAnalyzeError('');
+    try {
+      const results = await Promise.all(
+        documents.map(doc => analyzeLoanDocument(loan.loanId, doc.id).then(r => ({ id: doc.id, r }))),
+      );
+      const map: Record<string, DocumentAnalysisResult> = {};
+      results.forEach(({ id, r }) => { map[id] = r; });
+      setAnalyses(map);
+    } catch (e) {
+      setAnalyzeError((e as Error).message);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const allAnalyzed = documents != null && documents.length > 0 && documents.every(d => analyses[d.id]);
+
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <FileText size={16} className="text-red-500" />
         <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Chứng từ người gọi vốn</p>
-        <button onClick={load} className="ml-auto p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Tải lại"><RefreshCw size={14} className={loading ? 'animate-spin' : ''} /></button>
+        <div className="ml-auto flex items-center gap-2">
+          {documents && documents.length > 0 && (
+            <button
+              onClick={analyzeAll}
+              disabled={analyzing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-300 text-xs font-medium hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50"
+            >
+              <Brain size={13} className={analyzing ? 'animate-pulse' : ''} />
+              {analyzing ? 'Đang phân tích...' : allAnalyzed ? 'Phân tích lại tất cả' : 'Phân tích AI tất cả'}
+            </button>
+          )}
+          <button onClick={load} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Tải lại">
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
+      {analyzeError && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{analyzeError}</p>}
       {loading && !documents && <p className="text-sm text-gray-400 dark:text-gray-500">Đang tải chứng từ...</p>}
       {documents && documents.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Người gọi vốn chưa bổ sung chứng từ tài chính/thu nhập.</p>}
 
@@ -737,24 +776,78 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
         <div className="space-y-3">
           {documents.map(doc => {
             const fileUrl = FILE_MANAGER_BASE + '/' + doc.fileId;
+            const analysis = analyses[doc.id] ?? null;
+            const d = analysis ? parseDocData(analysis.extractedData) : null;
             return (
-              <div key={doc.id} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
+              <div key={doc.id} className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4 space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" title={doc.fileName ?? doc.fileId}>{doc.fileName ?? doc.fileId}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{DOC_TYPE_LABEL[doc.docType] ?? doc.docType} · {doc.createdAt ? formatDate(doc.createdAt) : 'Chưa rõ ngày'}</p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {analysis && (
+                      <span className={'px-2 py-0.5 rounded-full text-[11px] font-semibold ' + verdictTone(analysis.verdict)}>
+                        {verdictLabel(analysis.verdict)}
+                      </span>
+                    )}
                     <a href={fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"><ExternalLink size={13} />Xem</a>
                     <a href={fileUrl} download className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"><Download size={13} />Tải</a>
                   </div>
                 </div>
+
+                {analysis && d && (
+                  <div className="pt-1 space-y-1.5">
+                    {analysis.summary && <p className="text-xs text-gray-600 dark:text-gray-300">{analysis.summary}</p>}
+                    {(d.detectedType || d.ownerName || d.extractedIncome) && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-0.5">
+                        {d.detectedType && <MiniRow label="AI nhận diện" value={d.detectedType} />}
+                        {d.ownerName && <MiniRow label="Chủ chứng từ" value={d.ownerName} />}
+                        {d.extractedIncome && <MiniRow label="Thu nhập trên CT" value={formatIncomeText(d.extractedIncome) ?? d.extractedIncome} />}
+                      </div>
+                    )}
+                    {d.consistencyIssues.length > 0 && (
+                      <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2">
+                        <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 mb-0.5">Điểm chưa khớp khai báo:</p>
+                        <ul className="list-disc pl-4 space-y-0.5 text-xs text-amber-700 dark:text-amber-300">{d.consistencyIssues.map(item => <li key={item}>{item}</li>)}</ul>
+                      </div>
+                    )}
+                    {d.findings.length > 0 && (
+                      <ul className="list-disc pl-4 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">{d.findings.map(item => <li key={item}>{item}</li>)}</ul>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">AI thẩm định chứng từ chạy tự động khi bấm "Chấm điểm tín dụng" — kết quả hiển thị ở khối Điểm tín dụng tham khảo.</p>
+          {!allAnalyzed && (
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">
+              Bấm <span className="font-semibold text-gray-500 dark:text-gray-400">Phân tích AI tất cả</span> để AI đọc và đánh giá từng chứng từ ngay tại đây.
+              Kết quả cũng chạy tự động khi bấm "Chấm điểm tín dụng" ở khối bên dưới.
+            </p>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+function WorkflowStep({ done, loading: stepLoading, label, note }: {
+  done: boolean;
+  loading?: boolean;
+  label: string;
+  note?: string;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <span className={`mt-0.5 w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold
+        ${done ? 'bg-green-500 text-white' : stepLoading ? 'bg-gray-200 dark:bg-gray-700 text-gray-400' : 'border-2 border-gray-300 dark:border-gray-600'}`}>
+        {done ? '✓' : stepLoading ? '…' : ''}
+      </span>
+      <div>
+        <p className={`text-xs font-medium ${done ? 'text-gray-600 dark:text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}>{label}</p>
+        {note && <p className="text-[11px] text-amber-600 dark:text-amber-400">{note}</p>}
+      </div>
     </div>
   );
 }
@@ -770,6 +863,18 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
   const [error, setError] = useState('');
   const [discouraged, setDiscouraged] = useState(false);
   const [tick, setTick] = useState(0);
+
+  // Trạng thái CIC: null = đang load, true = đã nhập, false = chưa nhập
+  const [hasCic, setHasCic] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    setHasCic(null);
+    fetchCicLookup(loanId)
+      .then(r => { if (alive) setHasCic(r !== null && r !== undefined); })
+      .catch(() => { if (alive) setHasCic(false); });
+    return () => { alive = false; };
+  }, [loanId, tick]);
 
   // Phê duyệt 2 cấp
   const admin = getStoredAdmin();
@@ -814,6 +919,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
   };
 
   const handlePropose = () => {
+    if (hasCic === false) { setActError('Cần nhập kết quả tra CIC trước khi trình ban lãnh đạo.'); return; }
     const amt = Number(amountInput);
     const rate = Number(rateInput);
     if (!(amt > 0)) { setActError('Số tiền đề xuất không hợp lệ.'); return; }
@@ -1069,6 +1175,30 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 <Send size={13} />Đề xuất trình ban lãnh đạo
               </p>
 
+              {/* Checklist quy trình — thẩm định viên biết còn thiếu bước nào */}
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 p-3 space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Quy trình thẩm định</p>
+                <WorkflowStep
+                  done={true}
+                  label="Xem & kiểm tra chứng từ"
+                />
+                <WorkflowStep
+                  done={hasCic === true}
+                  loading={hasCic === null}
+                  label="Tra CIC & nhập kết quả"
+                  note={hasCic === false ? 'Bắt buộc — kéo lên khối Điểm tín dụng để nhập' : undefined}
+                />
+                <WorkflowStep
+                  done={creditScore !== null}
+                  label="Chấm điểm tín dụng"
+                  note={!creditScore ? 'Khuyến nghị — kéo lên bấm "Chấm điểm tín dụng"' : undefined}
+                />
+                <WorkflowStep
+                  done={false}
+                  label="Điền đề xuất và trình ban lãnh đạo"
+                />
+              </div>
+
               {/* Căn cứ đề xuất — tổng hợp engine + AI để thẩm định viên đối chiếu trước khi trình */}
               <div className="rounded-lg bg-white/70 dark:bg-gray-900/40 border border-red-100/70 dark:border-red-900/30 p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Căn cứ đề xuất</p>
@@ -1090,12 +1220,6 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                   </div>
                 )}
               </div>
-              {!creditScore && (
-                <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 flex gap-1.5">
-                  <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-                  Chưa chấm điểm tín dụng — nên bấm "Chấm điểm tín dụng" ở khối trên để AI thẩm định chứng từ trước khi trình ban lãnh đạo.
-                </p>
-              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label className="text-xs text-gray-500 dark:text-gray-400">
@@ -1112,9 +1236,19 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} rows={2} className={inputCls} />
               </label>
               <p className="text-[11px] text-gray-400 dark:text-gray-500">Số liệu điền sẵn từ gợi ý engine — chỉnh nếu cần.</p>
-              <button disabled={acting} onClick={handlePropose} className={btnPrimary}>
+              <button
+                disabled={acting || hasCic === false}
+                onClick={handlePropose}
+                className={btnPrimary}
+                title={hasCic === false ? 'Cần nhập CIC trước' : undefined}
+              >
                 <Send size={14} />Trình ban lãnh đạo
               </button>
+              {hasCic === false && (
+                <p className="text-xs text-red-600 dark:text-red-400 flex gap-1.5">
+                  <Ban size={13} className="shrink-0 mt-0.5" />Cần nhập kết quả tra CIC trước khi trình ban lãnh đạo — kéo lên khối Điểm tín dụng.
+                </p>
+              )}
             </>
           )}
 
