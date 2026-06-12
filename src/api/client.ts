@@ -560,17 +560,9 @@ export async function disburseLoan(loanId: string): Promise<CmsLoan> {
 }
 
 // ─── Hỗ trợ thẩm định (appraisal suggestion) ────────────────────────────────────
-
-export type FactorImpact = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
-export type RecommendedDecision = 'APPROVE' | 'REVIEW' | 'REJECT';
-
-export interface AppraisalScoreFactor {
-  code: string;
-  label: string;
-  impact: FactorImpact;
-  points: number;
-  detail: string;
-}
+// Engine QĐ-LSGV không còn tự đánh giá tín nhiệm — Credit Score 360 là chuẩn duy nhất.
+// Service này chỉ còn: định giá lãi suất/hạn mức (theo hạng Credit 360), năng lực trả nợ,
+// lịch trả nợ, checklist thẩm định thủ công.
 
 export interface AppraisalChecklistItem {
   code: string;
@@ -588,11 +580,6 @@ export interface AppraisalSuggestion {
   termMonths: number;
   productGroup: number | null;
   productName: string | null;
-  risk: {
-    score: number;
-    band: string; // A1..C3
-    factors: AppraisalScoreFactor[];
-  };
   affordability: {
     incomeProvided: boolean;
     monthlyIncome: number | null;
@@ -612,7 +599,6 @@ export interface AppraisalSuggestion {
     connectionFee: number | null;
     serviceAvailable: boolean;
     rateNote: string;
-    decision: RecommendedDecision;
   };
   schedulePreview: {
     method: string;
@@ -630,8 +616,11 @@ export interface AppraisalSuggestion {
 export async function fetchAppraisalSuggestion(
   loanId: string,
   discouraged = false,
+  creditGrade?: string | null,
 ): Promise<AppraisalSuggestion> {
-  return request(`/loans/${loanId}/appraisal-suggestion?discouraged=${discouraged}`);
+  const q = new URLSearchParams({ discouraged: String(discouraged) });
+  if (creditGrade) q.set('creditGrade', creditGrade);
+  return request(`/loans/${loanId}/appraisal-suggestion?${q}`);
 }
 
 // ─── Audit Log ───────────────────────────────────────────────────────────────

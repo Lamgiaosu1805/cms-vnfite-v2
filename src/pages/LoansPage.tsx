@@ -10,8 +10,8 @@ import {
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument,
-  type CmsLoan, type AppraisalSuggestion, type RecommendedDecision,
-  type FactorImpact, type RepaymentScheduleItem, type LoanContract,
+  type CmsLoan, type AppraisalSuggestion,
+  type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
   type ScoreExplanation, type CicLookup, type CicLookupInput,
 } from '../api/client';
@@ -86,25 +86,6 @@ const METHOD_LABEL: Record<string, string> = {
   EMI_MONTHLY: 'Gốc + lãi đều hàng tháng',
   INTEREST_MONTHLY_PRINCIPAL_QUARTERLY: 'Lãi tháng · gốc theo quý',
 };
-
-function bandTone(band: string): string {
-  const c = (band || '')[0];
-  if (c === 'A') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
-  if (c === 'B') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
-  return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300';
-}
-
-function decisionMeta(d: RecommendedDecision): { label: string; cls: string } {
-  if (d === 'APPROVE') return { label: 'Nghiêng DUYỆT', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' };
-  if (d === 'REVIEW') return { label: 'CẦN THẨM ĐỊNH KỸ', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' };
-  return { label: 'Nghiêng TỪ CHỐI', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' };
-}
-
-function impactTone(impact: FactorImpact): string {
-  if (impact === 'POSITIVE') return 'text-green-600 dark:text-green-400';
-  if (impact === 'NEGATIVE') return 'text-red-600 dark:text-red-400';
-  return 'text-gray-400 dark:text-gray-500';
-}
 
 function ratioPct(x: number | null | undefined): string {
   return x == null ? '—' : `${Math.round(x * 100)}%`;
@@ -407,20 +388,17 @@ function ReviewDirectiveBanner({ directive, reasons }: {
 }
 
 /**
- * Kết luận thẩm định thống nhất — gộp 3 nguồn để thẩm định viên không thấy "mâu thuẫn".
- * Mỗi nguồn trả lời MỘT câu hỏi khác nhau, không cạnh tranh nhau:
- *  - Credit Score 360 → rủi ro của khách (có nên cho vay không)
- *  - Biểu QĐ-LSGV     → nếu cho vay thì lãi suất & hạn mức bao nhiêu
+ * Kết luận thẩm định thống nhất — Credit Score 360 là chuẩn đánh giá DUY NHẤT.
+ * Ba ô trả lời ba câu hỏi khác nhau, không cạnh tranh:
+ *  - Credit Score 360 → rủi ro của khách (có nên cho vay không) — quyết định lập trường
+ *  - Biểu QĐ-LSGV     → nếu cho vay thì lãi suất & hạn mức bao nhiêu (định giá theo hạng Credit 360)
  *  - AI chứng từ       → hồ sơ có đáng tin không
  *  - Cổng loại trừ     → chốt chặn theo chính sách (rule-based)
  */
 function UnifiedVerdict({
-  engineBand, engineDecision, engineDecisionLabel, suggestedAmount, suggestedRate, serviceAvailable,
+  suggestedAmount, suggestedRate, serviceAvailable,
   creditScore, docSummary, docIssues, docTotal,
 }: {
-  engineBand: string | null;
-  engineDecision: RecommendedDecision | null;
-  engineDecisionLabel: string | null;
   suggestedAmount: number | null;
   suggestedRate: number | null;
   serviceAvailable: boolean;
@@ -432,31 +410,16 @@ function UnifiedVerdict({
   const directive = creditScore?.reviewDirective ?? null;
   const grade = creditScore?.grade ?? null;
   const creditGood = grade ? ['A+', 'A', 'B', 'C'].includes(grade) : false;
-  const creditWeak = grade ? ['D', 'E'].includes(grade) : false;
 
-  // Lập trường tổng hợp — cổng loại trừ ưu tiên cao nhất, rồi tới sự đồng thuận 2 mô hình
+  // Lập trường tổng hợp — cổng loại trừ ưu tiên cao nhất, rồi tới hạng Credit 360
   type Stance = 'REJECT' | 'REVIEW' | 'OK' | 'PENDING';
   let stance: Stance;
   let title: string;
   if (!creditScore) { stance = 'PENDING'; title = 'Chưa đủ căn cứ — cần chấm điểm tín dụng'; }
   else if (directive === 'HARD_REJECT') { stance = 'REJECT'; title = 'Dừng lại — cổng loại trừ theo chính sách'; }
   else if (directive === 'MANUAL_REVIEW') { stance = 'REVIEW'; title = 'Cần thẩm định kỹ trước khi trình'; }
-  else if (creditGood && engineDecision !== 'REJECT') { stance = 'OK'; title = 'Đủ điều kiện cân nhắc đề xuất'; }
+  else if (creditGood) { stance = 'OK'; title = 'Đủ điều kiện cân nhắc đề xuất'; }
   else { stance = 'REVIEW'; title = 'Cần cân nhắc thêm trước khi trình'; }
-
-  // Phát hiện & diễn giải khi 2 mô hình lệch nhau (đây là gốc của cảm giác "chỗ duyệt chỗ không")
-  let divergence: string | null = null;
-  if (creditScore) {
-    if (creditWeak && engineDecision === 'APPROVE') {
-      divergence = 'Điểm rủi ro (Credit 360) đang thấp chủ yếu do hồ sơ CHƯA ĐỦ DỮ LIỆU (CIC, chứng từ thu nhập, thâm niên) '
-        + '— chưa hẳn là rủi ro xấu; trong khi biểu QĐ-LSGV vẫn xếp hạng cho vay được. '
-        + 'Hướng xử lý: bổ sung dữ liệu còn thiếu rồi chấm điểm lại, điểm thường sẽ cải thiện.';
-    } else if (creditGood && (engineDecision === 'REJECT' || !serviceAvailable)) {
-      divergence = 'Khách có điểm rủi ro tốt nhưng biểu QĐ-LSGV không cấp / đề xuất từ chối '
-        + '(thường do chưa khai thu nhập để tính PTI, hoặc nhóm sản phẩm không được cấp dịch vụ). '
-        + 'Hướng xử lý: kiểm tra năng lực trả nợ và nhóm sản phẩm.';
-    }
-  }
 
   const toneMap: Record<Stance, { box: string; icon: React.ReactNode; chip: string }> = {
     REJECT: {
@@ -509,20 +472,15 @@ function UnifiedVerdict({
 
         <div className="rounded-lg bg-white/70 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 p-2.5">
           <p className="text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Giá & hạn mức · QĐ-LSGV</p>
-          {engineBand ? (
+          {!creditScore ? (
+            <p className="text-xs text-gray-400 dark:text-gray-500">Chấm điểm để định giá</p>
+          ) : serviceAvailable && suggestedAmount != null ? (
             <>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-100">
-                <span className={'px-1.5 py-0.5 rounded ' + bandTone(engineBand)}>{engineBand}</span>
-                {engineDecisionLabel && <span className="ml-1.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400">{engineDecisionLabel}</span>}
-              </p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                {serviceAvailable && suggestedAmount != null
-                  ? `${formatMoney(suggestedAmount)} @ ${rateText(suggestedRate)}`
-                  : 'Lãi suất & hạn mức nếu cho vay'}
-              </p>
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{formatMoney(suggestedAmount)}</p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Lãi suất {rateText(suggestedRate)}</p>
             </>
           ) : (
-            <p className="text-xs text-gray-400 dark:text-gray-500">Đang tải...</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400">Không cấp dịch vụ ở hạng này</p>
           )}
         </div>
 
@@ -540,14 +498,6 @@ function UnifiedVerdict({
           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Hồ sơ có đáng tin không</p>
         </div>
       </div>
-
-      {/* Diễn giải khi 2 mô hình lệch — gỡ cảm giác "chỗ duyệt chỗ không" */}
-      {divergence && (
-        <div className="rounded-lg bg-white/60 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-700 px-3 py-2 flex gap-1.5">
-          <Lightbulb size={14} className="shrink-0 mt-0.5 text-amber-500" />
-          <p className="text-xs text-gray-600 dark:text-gray-300 leading-snug"><span className="font-semibold">Vì sao hai bên khác nhau: </span>{divergence}</p>
-        </div>
-      )}
 
       {/* Lý do cổng loại trừ */}
       {creditScore?.reviewReasons && creditScore.reviewReasons.length > 0 && directive !== 'AUTO' && (
@@ -864,11 +814,18 @@ function CreditScoreSection({ loan, score, onScore }: {
                 );
               })
             ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {score.explanation?.documents && !score.explanation.documents.aiEnabled
-                  ? 'AI thẩm định chứng từ đang tắt trên máy chủ — vui lòng đối chiếu chứng từ thủ công ở khối "Chứng từ người gọi vốn".'
-                  : (score.explanation?.documents?.summary ?? 'Chưa có kết quả AI thẩm định chứng từ. Nếu khối chứng từ bên dưới đã có file, hãy bấm chấm điểm lại hoặc kiểm tra log credit-service/file-manager.')}
-              </p>
+              <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
+                <p>
+                  {score.explanation?.documents && !score.explanation.documents.aiEnabled
+                    ? 'AI thẩm định chứng từ đang tắt trên máy chủ — vui lòng đối chiếu chứng từ thủ công ở khối "Chứng từ người gọi vốn".'
+                    : (score.explanation?.documents?.summary ?? 'Lần chấm điểm này chưa kèm kết quả phân tích chứng từ.')}
+                </p>
+                {/* AI tự chạy khi chấm điểm — trấn an thẩm định viên không phải thao tác riêng */}
+                <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">
+                  AI tự phân tích toàn bộ chứng từ ngay khi bấm "Chấm điểm tín dụng" — không cần bấm "Phân tích AI tất cả" trước.
+                  Nếu khoản đã có file mà vẫn trống, hãy chấm điểm lại (máy chủ có thể vừa được cập nhật).
+                </p>
+              </div>
             )}
           </div>
 
@@ -1077,14 +1034,17 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
   const [acting, setActing] = useState(false);
   const [actError, setActError] = useState('');
 
+  // Lãi suất/hạn mức định giá theo HẠNG Credit 360 — truyền grade xuống loan-service.
+  // Khi chấm điểm xong (grade đổi) → tự fetch lại để hiện lãi suất.
+  const creditGrade = creditScore?.grade ?? null;
   useEffect(() => {
     setLoading(true);
     setError('');
-    fetchAppraisalSuggestion(loanId, discouraged)
+    fetchAppraisalSuggestion(loanId, discouraged, creditGrade)
       .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [loanId, discouraged, tick]);
+  }, [loanId, discouraged, tick, creditGrade]);
 
   // Prefill form: chờ thẩm định → gợi ý engine; chờ lãnh đạo → số đã đề xuất
   useEffect(() => {
@@ -1131,7 +1091,6 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
   };
 
   const rec = data?.recommendation;
-  const dm = rec ? decisionMeta(rec.decision) : null;
   const sp = data?.schedulePreview ?? null;
   const af = data?.affordability ?? null;
 
@@ -1180,11 +1139,8 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
         <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
       )}
 
-      {/* Kết luận thống nhất — luôn hiển thị để gộp 3 nguồn ngay cả khi engine đang tải */}
+      {/* Kết luận thống nhất — Credit 360 là chuẩn; giá lấy theo hạng Credit 360 */}
       <UnifiedVerdict
-        engineBand={data?.risk.band ?? null}
-        engineDecision={rec?.decision ?? null}
-        engineDecisionLabel={dm?.label ?? null}
         suggestedAmount={rec?.suggestedAmount ?? null}
         suggestedRate={rec?.suggestedInterestRate ?? null}
         serviceAvailable={rec?.serviceAvailable ?? false}
@@ -1196,19 +1152,10 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
 
       {data && rec && (
         <>
-          {/* Top metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          {/* Top metrics — Credit 360 (chuẩn) + định giá theo hạng Credit 360 */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Hạng tín nhiệm — engine</p>
-              <div className="flex items-center gap-2">
-                <span className={`text-lg font-bold px-2.5 py-0.5 rounded-lg ${bandTone(data.risk.band)}`}>{data.risk.band}</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">{data.risk.score}/100 điểm</span>
-              </div>
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Biểu QĐ-LSGV · nhóm sản phẩm {data.productGroup ?? '—'}</p>
-            </div>
-
-            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Điểm tín dụng AI</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Điểm tín dụng Credit 360</p>
               {creditScore ? (
                 <>
                   <div className="flex items-center gap-2">
@@ -1220,12 +1167,6 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
               ) : (
                 <p className="text-xs text-gray-400 dark:text-gray-500">Chưa chấm — bấm "Chấm điểm tín dụng" ở khối trên để AI thẩm định chứng từ và cho điểm 300–850.</p>
               )}
-            </div>
-
-            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Khuyến nghị</p>
-              {dm && <span className={`inline-block text-xs font-bold px-2.5 py-1 rounded-lg ${dm.cls}`}>{dm.label}</span>}
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">Hỗ trợ — không tự quyết</p>
             </div>
 
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
@@ -1281,23 +1222,6 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
             )}
           </div>
 
-          {/* Score factors */}
-          <SubSection title="Yếu tố chấm điểm" icon={<Gauge size={13} />}>
-            <div className="space-y-0.5">
-              {data.risk.factors.map(f => (
-                <div key={f.code} className="flex items-start gap-2.5 py-1.5 text-sm">
-                  <span className={`font-bold w-9 text-right shrink-0 ${impactTone(f.impact)}`}>
-                    {f.points > 0 ? `+${f.points}` : f.points}
-                  </span>
-                  <div className="leading-snug">
-                    <span className="text-gray-700 dark:text-gray-200 font-medium">{f.label}</span>
-                    <span className="text-gray-400 dark:text-gray-500"> — {f.detail}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SubSection>
-
           {/* Auto warnings */}
           {(data.autoWarnings.length > 0 || docIssues > 0) && (
             <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 p-3 space-y-1.5">
@@ -1352,17 +1276,19 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
               <MiniRow label="Thẩm định viên" value={loan.proposedBy ?? '—'} />
               {loan.appraisalNote && <MiniRow label="Ghi chú" value={loan.appraisalNote} />}
 
-              {/* Căn cứ hỗ trợ cho ban lãnh đạo — đối chiếu đề xuất với engine + AI */}
+              {/* Căn cứ hỗ trợ cho ban lãnh đạo — Credit 360 (chuẩn) + định giá + AI chứng từ */}
               <div className="mt-2 pt-2 border-t border-red-100/70 dark:border-red-900/30">
                 <MiniRow
-                  label="Engine (QĐ-LSGV)"
-                  value={rec
-                    ? `Hạng ${data?.risk.band} · ${dm?.label} · gợi ý ${formatMoney(rec.suggestedAmount)} @ ${rateText(rec.suggestedInterestRate)}`
-                    : 'Đang tải...'}
+                  label="Điểm tín dụng Credit 360"
+                  value={aiScoreText ?? <span className="text-amber-600 dark:text-amber-400">Chưa chấm — bấm "Chấm điểm tín dụng" ở khối trên</span>}
                 />
                 <MiniRow
-                  label="Điểm tín dụng AI"
-                  value={aiScoreText ?? <span className="text-amber-600 dark:text-amber-400">Chưa chấm — bấm "Chấm điểm tín dụng" ở khối trên</span>}
+                  label="Đề xuất lãi suất (QĐ-LSGV)"
+                  value={rec
+                    ? (rec.serviceAvailable
+                        ? `${formatMoney(rec.suggestedAmount)} @ ${rateText(rec.suggestedInterestRate)}`
+                        : (rec.rateNote || 'Không cấp dịch vụ'))
+                    : 'Đang tải...'}
                 />
                 {creditScore && <MiniRow label="AI thẩm định chứng từ" value={docSummary} />}
                 {creditScore?.aiRecommendation && <MiniRow label="AI khuyến nghị" value={creditScore.aiRecommendation} />}
@@ -1401,18 +1327,20 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 />
               </div>
 
-              {/* Căn cứ đề xuất — tổng hợp engine + AI để thẩm định viên đối chiếu trước khi trình */}
+              {/* Căn cứ đề xuất — Credit 360 (chuẩn) + định giá + AI chứng từ */}
               <div className="rounded-lg bg-white/70 dark:bg-gray-900/40 border border-red-100/70 dark:border-red-900/30 p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1.5">Căn cứ đề xuất</p>
                 <MiniRow
-                  label="Engine (QĐ-LSGV)"
-                  value={rec
-                    ? `Hạng ${data?.risk.band} · ${dm?.label} · gợi ý ${formatMoney(rec.suggestedAmount)} @ ${rateText(rec.suggestedInterestRate)}`
-                    : 'Đang tải...'}
+                  label="Điểm tín dụng Credit 360"
+                  value={aiScoreText ?? <span className="text-amber-600 dark:text-amber-400">Chưa chấm điểm</span>}
                 />
                 <MiniRow
-                  label="Điểm tín dụng AI"
-                  value={aiScoreText ?? <span className="text-amber-600 dark:text-amber-400">Chưa chấm điểm</span>}
+                  label="Đề xuất lãi suất (QĐ-LSGV)"
+                  value={rec
+                    ? (rec.serviceAvailable
+                        ? `${formatMoney(rec.suggestedAmount)} @ ${rateText(rec.suggestedInterestRate)}`
+                        : (rec.rateNote || 'Không cấp dịch vụ'))
+                    : 'Đang tải...'}
                 />
                 <MiniRow label="AI thẩm định chứng từ" value={creditScore ? docSummary : '—'} />
                 {creditScore?.aiRecommendation && <MiniRow label="AI khuyến nghị" value={creditScore.aiRecommendation} />}

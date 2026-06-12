@@ -60,7 +60,17 @@ function DetailPanel({ entry }: { entry: AuditLogEntry }) {
       .finally(() => setLoading(false));
   }, [entry.id]);
 
-  const snap = detail?.appraisalSnapshot as AppraisalSuggestion | null | undefined;
+  // Audit là log tuần thủ: bản ghi CŨ (trước khi bỏ engine QĐ-LSGV) còn lưu risk/decision —
+  // vẫn cho xem nguyên trạng. Bản ghi MỚI dựa trên Credit 360 nên không còn các field này.
+  type LegacyAppraisalSnapshot = AppraisalSuggestion & {
+    risk?: {
+      score?: number;
+      band?: string;
+      factors?: Array<{ code: string; label: string; impact: string; points: number; detail: string }>;
+    };
+    recommendation: AppraisalSuggestion['recommendation'] & { decision?: string };
+  };
+  const snap = detail?.appraisalSnapshot as LegacyAppraisalSnapshot | null | undefined;
 
   if (loading) {
     return (
@@ -86,24 +96,26 @@ function DetailPanel({ entry }: { entry: AuditLogEntry }) {
 
       {snap && (
         <>
-          {/* ── Điểm tín dụng ── */}
-          <Section title="Điểm tín dụng tại thời điểm duyệt">
-            <div className="flex items-center gap-4 mb-3">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold ${bandTone(entry.creditBand)}`}>
-                {entry.creditBand ?? '—'}
-              </span>
-              <span className="text-2xl font-black text-gray-800 dark:text-gray-100">
-                {entry.creditScore ?? '—'}
-                <span className="text-sm font-normal text-gray-400 ml-1">/ 100</span>
-              </span>
-            </div>
-            <div className="divide-y divide-gray-100 dark:divide-gray-700">
-              {snap.risk?.factors?.map(f => (
-                <FactorRow key={f.code} label={f.label} impact={f.impact}
-                  points={f.points} detail={f.detail} />
-              ))}
-            </div>
-          </Section>
+          {/* ── Hạng tín nhiệm engine — chỉ bản ghi CŨ (engine QĐ-LSGV đã bỏ, Credit 360 là chuẩn) ── */}
+          {snap.risk && (
+            <Section title="Hạng tín nhiệm engine (bản ghi cũ)">
+              <div className="flex items-center gap-4 mb-3">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold ${bandTone(entry.creditBand)}`}>
+                  {entry.creditBand ?? '—'}
+                </span>
+                <span className="text-2xl font-black text-gray-800 dark:text-gray-100">
+                  {entry.creditScore ?? '—'}
+                  <span className="text-sm font-normal text-gray-400 ml-1">/ 100</span>
+                </span>
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                {snap.risk.factors?.map(f => (
+                  <FactorRow key={f.code} label={f.label} impact={f.impact}
+                    points={f.points} detail={f.detail} />
+                ))}
+              </div>
+            </Section>
+          )}
 
           {/* ── Năng lực tài chính ── */}
           {snap.affordability && (
@@ -128,7 +140,7 @@ function DetailPanel({ entry }: { entry: AuditLogEntry }) {
                 <ARow k="Lãi suất đề xuất" v={fmtRate(snap.recommendation.suggestedInterestRate)} />
                 <ARow k="Phí kết nối" v={snap.recommendation.feePercent != null
                   ? `${snap.recommendation.feePercent}%` : '—'} />
-                <ARow k="Quyết định engine" v={snap.recommendation.decision} />
+                {snap.recommendation.decision && <ARow k="Quyết định engine (bản ghi cũ)" v={snap.recommendation.decision} />}
               </div>
               {snap.recommendation.rateNote && (
                 <p className="mt-2 text-xs text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded">
