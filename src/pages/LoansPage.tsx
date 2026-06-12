@@ -10,7 +10,7 @@ import {
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument,
-  type CmsLoan, type AppraisalSuggestion,
+  type CmsLoan, type AppraisalSuggestion, type FraudCheck,
   type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
   type ScoreExplanation, type CicLookup, type CicLookupInput,
@@ -388,16 +388,56 @@ function ReviewDirectiveBanner({ directive, reasons }: {
 }
 
 /**
+ * Cảnh báo gian lận tự động — đối chiếu dữ liệu nội bộ (velocity & trùng chéo đa đầu mối).
+ * Đỏ nếu có cờ HIGH, hổ phách nếu chỉ MEDIUM. Chỉ tư vấn — quyết định thuộc người thẩm định.
+ */
+function FraudAlertBlock({ checks }: { checks: FraudCheck[] | null | undefined }) {
+  if (!checks || checks.length === 0) return null;
+  const hasHigh = checks.some(c => c.severity === 'HIGH');
+  const tone = hasHigh
+    ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50'
+    : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900/50';
+  const sevChip = (s: string) =>
+    s === 'HIGH' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+    : s === 'MEDIUM' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300';
+  const sevLabel = (s: string) => s === 'HIGH' ? 'Cao' : s === 'MEDIUM' ? 'Trung bình' : 'Tham khảo';
+  return (
+    <div className={'rounded-xl border p-4 space-y-2 ' + tone}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <ShieldAlert size={16} className={hasHigh ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'} />
+        <p className="text-sm font-bold text-gray-800 dark:text-gray-100">Cảnh báo gian lận tự động</p>
+        <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/60 dark:bg-gray-900/40 text-gray-500 dark:text-gray-400">
+          Đối chiếu nội bộ — chỉ tư vấn
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {checks.map((c, i) => (
+          <div key={i} className="flex gap-2 items-start rounded-lg bg-white/60 dark:bg-gray-900/40 px-3 py-2">
+            <span className={'shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded ' + sevChip(c.severity)}>{sevLabel(c.severity)}</span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-gray-800 dark:text-gray-100">{c.title}</p>
+              <p className="text-[11px] text-gray-600 dark:text-gray-300 leading-snug">{c.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
  * Kết luận thẩm định thống nhất — Credit Score 360 là chuẩn đánh giá DUY NHẤT.
  * Ba ô trả lời ba câu hỏi khác nhau, không cạnh tranh:
  *  - Credit Score 360 → rủi ro của khách (có nên cho vay không) — quyết định lập trường
  *  - Biểu QĐ-LSGV     → nếu cho vay thì lãi suất & hạn mức bao nhiêu (định giá theo hạng Credit 360)
  *  - AI chứng từ       → hồ sơ có đáng tin không
  *  - Cổng loại trừ     → chốt chặn theo chính sách (rule-based)
+ *  - Gian lận          → cờ HIGH tự nâng lập trường lên "cần thẩm định kỹ"
  */
 function UnifiedVerdict({
   suggestedAmount, suggestedRate, serviceAvailable,
-  creditScore, docSummary, docIssues, docTotal,
+  creditScore, docSummary, docIssues, docTotal, fraudHigh = false,
 }: {
   suggestedAmount: number | null;
   suggestedRate: number | null;
@@ -406,6 +446,7 @@ function UnifiedVerdict({
   docSummary: string | null;
   docIssues: number;
   docTotal: number;
+  fraudHigh?: boolean;
 }) {
   const directive = creditScore?.reviewDirective ?? null;
   const grade = creditScore?.grade ?? null;
@@ -420,6 +461,12 @@ function UnifiedVerdict({
   else if (directive === 'MANUAL_REVIEW') { stance = 'REVIEW'; title = 'Cần thẩm định kỹ trước khi trình'; }
   else if (creditGood) { stance = 'OK'; title = 'Đủ điều kiện cân nhắc đề xuất'; }
   else { stance = 'REVIEW'; title = 'Cần cân nhắc thêm trước khi trình'; }
+
+  // Cờ gian lận nghiêm trọng tự nâng lập trường (không hạ thấp HARD_REJECT)
+  if (fraudHigh && stance !== 'REJECT') {
+    stance = 'REVIEW';
+    title = 'Cần thẩm định kỹ — có cảnh báo gian lận';
+  }
 
   const toneMap: Record<Stance, { box: string; icon: React.ReactNode; chip: string }> = {
     REJECT: {
@@ -1148,7 +1195,11 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
         docSummary={docSummary}
         docIssues={docIssues}
         docTotal={docTotal}
+        fraudHigh={(data?.fraudChecks ?? []).some(c => c.severity === 'HIGH')}
       />
+
+      {/* Cảnh báo gian lận tự động (velocity & trùng chéo) */}
+      <FraudAlertBlock checks={data?.fraudChecks} />
 
       {data && rec && (
         <>

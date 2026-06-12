@@ -572,6 +572,13 @@ export interface AppraisalChecklistItem {
   required: boolean;
 }
 
+export interface FraudCheck {
+  code: string;
+  severity: 'HIGH' | 'MEDIUM' | 'INFO' | string;
+  title: string;
+  detail: string;
+}
+
 export interface AppraisalSuggestion {
   loanId: string;
   loanCode: string | null;
@@ -610,6 +617,8 @@ export interface AppraisalSuggestion {
   } | null;
   manualChecklist: AppraisalChecklistItem[];
   autoWarnings: string[];
+  /** Cảnh báo gian lận tự động (velocity & trùng chéo đa đầu mối) — chỉ tư vấn. */
+  fraudChecks: FraudCheck[] | null;
   disclaimer: string;
 }
 
