@@ -691,6 +691,66 @@ function CicLookupCard({ loanId, onSaved, onCicChange }: {
   );
 }
 
+function ProfileAdvisoryBlock({ advisory }: { advisory: CreditScoreResult['profileAdvisory'] }) {
+  if (!advisory) return null;
+
+  const signals = advisory.signals ?? [];
+  const tone = advisory.riskLevel === 'HIGH'
+    ? 'border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-900/15'
+    : advisory.riskLevel === 'MEDIUM'
+      ? 'border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-900/15'
+      : 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-900/15';
+  const textTone = advisory.riskLevel === 'HIGH'
+    ? 'text-red-700 dark:text-red-300'
+    : advisory.riskLevel === 'MEDIUM'
+      ? 'text-amber-700 dark:text-amber-300'
+      : 'text-emerald-700 dark:text-emerald-300';
+
+  return (
+    <div className={'rounded-xl border p-4 space-y-3 ' + tone}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <ShieldAlert size={15} className={textTone} />
+        <p className={'text-xs font-semibold ' + textTone}>AI kiểm tra thông tin hồ sơ</p>
+        <span className={'px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white/70 dark:bg-gray-950/40 ' + textTone}>
+          {advisory.riskLevel}
+        </span>
+        {advisory.aiIncluded && (
+          <span className="text-[11px] text-gray-500 dark:text-gray-400">AI + rule kiểm tra tính hợp lý</span>
+        )}
+      </div>
+      <p className="text-sm text-gray-700 dark:text-gray-200">{advisory.summary}</p>
+
+      {signals.length > 0 && (
+        <div className="space-y-2">
+          {signals.map((signal, idx) => (
+            <div key={`${signal.code}-${idx}`} className="rounded-lg bg-white/80 dark:bg-gray-950/40 border border-white/70 dark:border-gray-700 px-3 py-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={'text-[11px] font-bold ' + (signal.severity === 'HIGH' ? 'text-red-600 dark:text-red-300' : signal.severity === 'MEDIUM' ? 'text-amber-600 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400')}>
+                  {signal.severity}
+                </span>
+                <span className="text-[11px] text-gray-400 dark:text-gray-500">{signal.source}</span>
+              </div>
+              <p className="text-xs text-gray-700 dark:text-gray-200 mt-1">{signal.message}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {advisory.questionsForAppraiser && advisory.questionsForAppraiser.length > 0 && (
+        <div className="rounded-lg bg-white/70 dark:bg-gray-950/30 border border-white/70 dark:border-gray-700 p-3">
+          <p className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 mb-1">Gợi ý xác minh</p>
+          <ul className="list-disc pl-5 space-y-0.5 text-xs text-gray-600 dark:text-gray-300">
+            {advisory.questionsForAppraiser.map(q => <li key={q}>{q}</li>)}
+          </ul>
+        </div>
+      )}
+      <p className="text-[11px] text-gray-400 dark:text-gray-500 italic">
+        Kết quả chỉ hỗ trợ thẩm định viên xác minh thông tin, không tự động duyệt hoặc từ chối hồ sơ.
+      </p>
+    </div>
+  );
+}
+
 function CreditScoreSection({ loan, score, onScore }: {
   loan: CmsLoan;
   score: CreditScoreResult | null;
@@ -773,6 +833,7 @@ function CreditScoreSection({ loan, score, onScore }: {
       {score && (
         <div className="space-y-4">
           <ReviewDirectiveBanner directive={score.reviewDirective} reasons={score.reviewReasons} />
+          <ProfileAdvisoryBlock advisory={score.profileAdvisory} />
           <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-800/50 p-4">
               <div className="flex items-center justify-between mb-3">

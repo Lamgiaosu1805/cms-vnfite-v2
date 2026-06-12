@@ -422,6 +422,21 @@ export interface CreditScoreDetail {
   maxPoints: number;
 }
 
+export interface ProfileSignal {
+  code: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | string;
+  source: 'RULE' | 'AI' | string;
+  message: string;
+}
+
+export interface ProfileAdvisory {
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | string;
+  summary: string | null;
+  signals: ProfileSignal[] | null;
+  questionsForAppraiser: string[] | null;
+  aiIncluded: boolean;
+}
+
 export interface CreditScoreResult {
   id: string;
   userId: string;
@@ -438,6 +453,7 @@ export interface CreditScoreResult {
   aiSummary: string | null;
   aiRiskFlags: string[] | null;
   aiRecommendation: string | null;
+  profileAdvisory: ProfileAdvisory | null;
   /** Kết quả AI phân tích từng chứng từ — credit-service tự chạy khi chấm điểm */
   documentAnalyses: DocumentAnalysisResult[] | null;
   /** Diễn giải nguyên nhân điểm số — luôn có kể cả khi AI tắt */
