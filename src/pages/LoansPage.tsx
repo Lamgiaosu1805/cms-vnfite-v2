@@ -8,7 +8,7 @@ import {
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
-  fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore,
+  fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument,
   type CmsLoan, type AppraisalSuggestion, type FraudCheck,
   type RepaymentScheduleItem, type LoanContract,
@@ -757,6 +757,7 @@ function CreditScoreSection({ loan, score, onScore }: {
   onScore: (score: CreditScoreResult) => void;
 }) {
   const [loading, setLoading] = useState(false);
+  const [loadingSavedScore, setLoadingSavedScore] = useState(false);
   const [error, setError] = useState('');
   // null = đang tải CIC, true/false = đã biết có CIC hay chưa (quyết định mở Bước 2)
   const [hasCic, setHasCic] = useState<boolean | null>(null);
@@ -772,6 +773,23 @@ function CreditScoreSection({ loan, score, onScore }: {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let alive = true;
+    if (score) return () => { alive = false; };
+    setLoadingSavedScore(true);
+    fetchLatestLoanCreditScore(loan.loanId)
+      .then(saved => {
+        if (alive && saved) onScore(saved);
+      })
+      .catch(() => {
+        // Chưa từng chấm điểm thì giữ trạng thái rỗng; không cần hiện lỗi.
+      })
+      .finally(() => {
+        if (alive) setLoadingSavedScore(false);
+      });
+    return () => { alive = false; };
+  }, [loan.loanId, onScore, score]);
 
   const pct = score ? Math.max(0, Math.min(100, ((score.score - 300) / 550) * 100)) : 0;
   const grouped = score?.details.reduce<Record<string, typeof score.details>>((acc, item) => {
@@ -828,6 +846,7 @@ function CreditScoreSection({ loan, score, onScore }: {
       )}
 
       {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
+      {loadingSavedScore && !score && <p className="text-sm text-gray-500 dark:text-gray-400">Đang tải kết quả chấm điểm đã lưu...</p>}
       {loading && <p className="text-sm text-gray-500 dark:text-gray-400">Đang chấm điểm và AI phân tích chứng từ — có thể mất 1-2 phút nếu khoản có nhiều file...</p>}
 
       {score && (

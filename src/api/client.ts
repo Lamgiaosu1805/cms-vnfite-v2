@@ -527,6 +527,10 @@ export async function evaluateLoanCreditScore(loanId: string): Promise<CreditSco
   return request(`/loans/${loanId}/credit-score`, { method: 'POST' });
 }
 
+export async function fetchLatestLoanCreditScore(loanId: string): Promise<CreditScoreResult | null> {
+  return request(`/loans/${loanId}/credit-score`);
+}
+
 // ─── CIC nhập tay (chờ API CIC sandbox NĐ94) ────────────────────────────────
 
 export interface CicLookup {
