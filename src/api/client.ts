@@ -293,6 +293,7 @@ export interface CmsLoan {
   loanCode: string | null;
   borrowerId: string;
   borrowerName: string | null;
+  borrowerPhone: string | null;
   productName: string | null;
   amount: number;
   /** Null khi mới tạo — set khi ban lãnh đạo phê duyệt */
