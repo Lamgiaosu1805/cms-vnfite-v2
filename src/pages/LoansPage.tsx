@@ -361,6 +361,13 @@ function cicIsStale(checkedAt: string): boolean {
   return (Date.now() - d.getTime()) / 86400000 > CIC_VALIDITY_DAYS;
 }
 
+function todayLocalDateString(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10);
+}
+
 /** Cổng loại trừ (docx §7) — chỉ tư vấn. Đỏ = HARD_REJECT, hổ phách = MANUAL_REVIEW. */
 function ReviewDirectiveBanner({ directive, reasons }: {
   directive: string | null;
@@ -568,7 +575,11 @@ function CicLookupCard({ loanId, onSaved, onCicChange }: {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocalDateString();
+  const defaultForm = (): CicLookupInput => ({
+    debtGroup: 1, maxDpd: 0, activeLenders: 0, totalOutstanding: null,
+    checkedAt: todayLocalDateString(), note: '', consentConfirmed: false,
+  });
   const [form, setForm] = useState<CicLookupInput>({
     debtGroup: 1, maxDpd: 0, activeLenders: 0, totalOutstanding: null,
     checkedAt: today, note: '', consentConfirmed: false,
@@ -577,7 +588,14 @@ function CicLookupCard({ loanId, onSaved, onCicChange }: {
   useEffect(() => {
     let alive = true;
     fetchCicLookup(loanId)
-      .then(r => { if (alive) { setCic(r); if (r) seedForm(r); onCicChange?.(r != null); } })
+      .then(r => {
+        if (alive) {
+          setCic(r);
+          if (r) seedForm(r);
+          else setForm(defaultForm());
+          onCicChange?.(r != null);
+        }
+      })
       .catch(() => { if (alive) onCicChange?.(false); })
       .finally(() => { if (alive) setLoaded(true); });
     return () => { alive = false; };
@@ -617,7 +635,7 @@ function CicLookupCard({ loanId, onSaved, onCicChange }: {
         <p className="text-xs font-semibold text-gray-700 dark:text-gray-200">Tra cứu CIC (nhập tay)</p>
         <span className="text-[11px] text-gray-400 dark:text-gray-500">· chờ API CIC sandbox NĐ94</span>
         {loaded && !editing && (
-          <button onClick={() => setEditing(true)} className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-300 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20">
+          <button onClick={() => { if (!cic) setForm(defaultForm()); setEditing(true); }} className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-300 text-xs font-medium hover:bg-red-50 dark:hover:bg-red-900/20">
             <PlusCircle size={12} />{cic ? 'Cập nhật' : 'Nhập kết quả CIC'}
           </button>
         )}
