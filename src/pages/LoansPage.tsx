@@ -3,13 +3,13 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw,
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
   Send, Check, X, ShieldCheck, Search, FileText, Download, Brain, ExternalLink,
-  TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch, Ban, ShieldAlert, Landmark,
+  TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch, Ban, ShieldAlert, Landmark, Hourglass,
 } from 'lucide-react';
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
-  fetchCicLookup, saveCicLookup, analyzeLoanDocument,
+  fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep,
   type CmsLoan, type AppraisalSuggestion, type FraudCheck,
   type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
@@ -2043,6 +2043,36 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
   const [refresh, setRefresh] = useState(0);
   const [selectedLoan, setSelectedLoan] = useState<CmsLoan | null>(null);
 
+  const admin = getStoredAdmin();
+  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const [sweeping, setSweeping] = useState(false);
+  const [sweepMsg, setSweepMsg] = useState('');
+  const [sweepError, setSweepError] = useState(false);
+
+  const handleExpireSweep = async () => {
+    if (!window.confirm(
+      'Chạy job hết hạn ngay?\n\nCác khoản ACTIVE quá hạn gọi vốn và FUNDED quá hạn ký khế ước sẽ bị HỦY và HOÀN TIỀN cho nhà đầu tư.'
+    )) return;
+    setSweeping(true);
+    setSweepMsg('');
+    setSweepError(false);
+    try {
+      const r = await runFundingExpirySweep();
+      const failed = r.activeFailed + r.fundedFailed;
+      setSweepMsg(
+        `Đã xử lý: ${r.activeExpired} khoản hết hạn gọi vốn, ${r.fundedStuck} khoản hết hạn ký khế ước.`
+        + (failed > 0 ? ` (${failed} khoản lỗi — kiểm tra log loan-service)` : '')
+      );
+      setRefresh(x => x + 1);
+      onActionDone?.();
+    } catch (e) {
+      setSweepError(true);
+      setSweepMsg('Không chạy được job hết hạn: ' + (e as Error).message);
+    } finally {
+      setSweeping(false);
+    }
+  };
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebouncedSearch(search.trim());
@@ -2110,6 +2140,18 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
           {VN_PROVINCES_2025.map(p => <option key={p} value={p}>{p}</option>)}
         </select>
 
+        {isLeader && (
+          <button
+            onClick={handleExpireSweep}
+            disabled={sweeping}
+            title="Hủy & hoàn tiền các khoản quá hạn gọi vốn / ký khế ước (thay vì chờ job tự động 01:30)"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
+          >
+            <Hourglass size={15} className={sweeping ? 'animate-spin' : ''} />
+            {sweeping ? 'Đang chạy...' : 'Chạy hết hạn'}
+          </button>
+        )}
+
         <button onClick={() => setRefresh(r => r + 1)} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -2121,6 +2163,20 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
           </span>
         )}
       </div>
+
+      {/* Kết quả chạy job hết hạn */}
+      {sweepMsg && (
+        <div className={`rounded-lg border px-4 py-2.5 text-sm flex items-center justify-between gap-3 ${
+          sweepError
+            ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+            : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200'
+        }`}>
+          <span>{sweepMsg}</span>
+          <button onClick={() => setSweepMsg('')} className="shrink-0 opacity-60 hover:opacity-100">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
