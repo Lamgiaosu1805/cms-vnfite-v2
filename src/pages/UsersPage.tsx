@@ -227,7 +227,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                         <th className="py-2 text-left">Loại</th>
                         <th className="py-2 text-left">Nội dung</th>
                         <th className="py-2 text-right">Số tiền</th>
-                        <th className="py-2 text-right">Số dư sau GD</th>
+                        <th className="py-2 text-right">Số dư khả dụng sau GD</th>
                         <th className="py-2 text-center">Trạng thái</th>
                       </tr>
                     </thead>
