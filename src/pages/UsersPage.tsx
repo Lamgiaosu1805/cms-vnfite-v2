@@ -1,11 +1,46 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight, RefreshCw, Search, X } from 'lucide-react';
-import { decideKyc, fetchUsers, updateUserStatus, type CmsUser } from '../api/client';
+import type { ReactNode } from 'react';
+import { Check, ChevronLeft, ChevronRight, Eye, RefreshCw, Search, X } from 'lucide-react';
+import {
+  decideKyc,
+  fetchCustomerDetail,
+  fetchUsers,
+  updateUserStatus,
+  type CustomerDetail,
+  type CmsUser,
+} from '../api/client';
 import { Badge } from '../components/Badge';
 
 function formatDate(s: string | null | undefined) {
   if (!s) return '-';
   return new Date(s).toLocaleDateString('vi-VN');
+}
+
+function formatDateTime(s: string | null | undefined) {
+  if (!s) return '-';
+  return new Date(s).toLocaleString('vi-VN');
+}
+
+function formatMoney(n: number | null | undefined) {
+  if (n == null) return '—';
+  return new Intl.NumberFormat('vi-VN').format(n) + ' đ';
+}
+
+const transactionLabel: Record<string, string> = {
+  DEPOSIT: 'Cộng tiền',
+  WITHDRAW: 'Trừ tiền',
+  INVEST: 'Đầu tư',
+  INVEST_REFUND: 'Hoàn tiền đầu tư',
+  REPAYMENT: 'Nhận hoàn trả',
+};
+
+function InfoRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-700/70 last:border-b-0">
+      <span className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</span>
+      <span className="text-sm text-right text-gray-800 dark:text-gray-100">{value || '—'}</span>
+    </div>
+  );
 }
 
 interface ConfirmModalProps {
@@ -57,6 +92,190 @@ function ReasonModal({ title, placeholder, onConfirm, onCancel }: RejectModalPro
   );
 }
 
+interface CustomerDetailDrawerProps {
+  detail: CustomerDetail | null;
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+}
+
+function CustomerDetailDrawer({ detail, loading, error, onClose }: CustomerDetailDrawerProps) {
+  const profile = detail?.profile;
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
+      <button className="flex-1 cursor-default" onClick={onClose} aria-label="Đóng" />
+      <aside className="h-full w-full max-w-5xl overflow-y-auto bg-white dark:bg-gray-900 shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 px-6 py-4 backdrop-blur">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-600">Chi tiết khách hàng</p>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">
+              {profile?.fullName || profile?.phone || 'Đang tải...'}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-gray-200 dark:border-gray-700 p-2 text-gray-500 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-6">
+          {loading && (
+            <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+              <RefreshCw size={18} className="mr-2 inline animate-spin" />
+              Đang tải thông tin khách hàng...
+            </div>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-red-100 dark:border-red-900/40 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-300">
+              {error}
+            </div>
+          )}
+
+          {detail && (
+            <>
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Số dư khả dụng</p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-50">
+                    {formatMoney(detail.wallet?.availableBalance)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    TK VNF: {detail.wallet?.vnfAccountNo || 'Chưa tạo ví'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Tổng giao dịch</p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-50">
+                    {detail.transactions.totalElements}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Cộng/trừ tiền, đầu tư, hoàn tiền, hoàn trả</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Khoản gọi vốn</p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-50">
+                    {detail.loans.totalElements}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Tất cả trạng thái của khách hàng</p>
+                </div>
+              </section>
+
+              <section className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+                  <h3 className="mb-3 font-semibold text-gray-900 dark:text-gray-50">Thông tin cá nhân</h3>
+                  <InfoRow label="Họ và tên" value={profile?.fullName || 'Chưa cập nhật'} />
+                  <InfoRow label="Số điện thoại" value={profile?.phone} />
+                  <InfoRow label="Email" value={profile?.email || '—'} />
+                  <InfoRow label="Số CCCD" value={<span className="font-mono">{profile?.cccdNumber || '—'}</span>} />
+                  <InfoRow label="Ngày sinh" value={formatDate(profile?.dateOfBirth)} />
+                  <InfoRow label="Giới tính" value={profile?.gender || '—'} />
+                  <InfoRow label="Quê quán" value={profile?.hometown || '—'} />
+                  <InfoRow label="Địa chỉ thường trú" value={profile?.permanentAddress || '—'} />
+                  <InfoRow label="Ngày cấp" value={formatDate(profile?.issueDate)} />
+                  <InfoRow label="Nơi cấp" value={profile?.issuingAuthority || '—'} />
+                  <InfoRow label="Ngày hết hạn" value={formatDate(profile?.expiryDate)} />
+                  <InfoRow label="KYC" value={<Badge value={profile?.kycStatus || 'NONE'} />} />
+                  <InfoRow label="Trạng thái" value={<Badge value={profile?.accountStatus || 'ACTIVE'} />} />
+                  <InfoRow label="Ngày tạo" value={formatDateTime(profile?.createdAt)} />
+                </div>
+
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+                  <h3 className="mb-3 font-semibold text-gray-900 dark:text-gray-50">Thông tin ví</h3>
+                  <InfoRow label="Tài khoản VNF" value={detail.wallet?.vnfAccountNo || 'Chưa tạo ví'} />
+                  <InfoRow label="Tổng số dư" value={formatMoney(detail.wallet?.totalBalance)} />
+                  <InfoRow label="Đang phong tỏa" value={formatMoney(detail.wallet?.lockedBalance)} />
+                  <InfoRow label="Số dư khả dụng" value={formatMoney(detail.wallet?.availableBalance)} />
+                  <InfoRow label="Ngày tạo ví" value={formatDateTime(detail.wallet?.createdAt)} />
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-50">Lịch sử biến động giao dịch</h3>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">Hiển thị 30 giao dịch gần nhất</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                        <th className="py-2 text-left">Thời gian</th>
+                        <th className="py-2 text-left">Loại</th>
+                        <th className="py-2 text-left">Nội dung</th>
+                        <th className="py-2 text-right">Số tiền</th>
+                        <th className="py-2 text-right">Số dư sau GD</th>
+                        <th className="py-2 text-center">Trạng thái</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
+                      {detail.transactions.content.map(tx => (
+                        <tr key={tx.id}>
+                          <td className="py-3 text-gray-500 dark:text-gray-400">{formatDateTime(tx.createdAt)}</td>
+                          <td className="py-3 font-medium text-gray-800 dark:text-gray-100">{transactionLabel[tx.type] || tx.type}</td>
+                          <td className="py-3 text-gray-600 dark:text-gray-300">{tx.description || '—'}</td>
+                          <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(tx.amount)}</td>
+                          <td className="py-3 text-right text-gray-600 dark:text-gray-300">{formatMoney(tx.balanceAfter)}</td>
+                          <td className="py-3 text-center"><Badge value={tx.status} /></td>
+                        </tr>
+                      ))}
+                      {detail.transactions.content.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-gray-400 dark:text-gray-500">Chưa có giao dịch</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-50">Các khoản gọi vốn</h3>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">Hiển thị 30 khoản gần nhất</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                        <th className="py-2 text-left">Mã khoản</th>
+                        <th className="py-2 text-left">Sản phẩm</th>
+                        <th className="py-2 text-right">Số tiền</th>
+                        <th className="py-2 text-center">Lãi suất</th>
+                        <th className="py-2 text-center">Kỳ hạn</th>
+                        <th className="py-2 text-center">Trạng thái</th>
+                        <th className="py-2 text-right">Ngày tạo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
+                      {detail.loans.content.map(loan => (
+                        <tr key={loan.loanId}>
+                          <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">{loan.loanCode || loan.loanId.slice(0, 8)}</td>
+                          <td className="py-3 text-gray-700 dark:text-gray-200">{loan.productName || loan.purpose || '—'}</td>
+                          <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(loan.amount)}</td>
+                          <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.interestRate != null ? `${loan.interestRate}%` : '—'}</td>
+                          <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.termMonths} tháng</td>
+                          <td className="py-3 text-center"><Badge value={loan.status} /></td>
+                          <td className="py-3 text-right text-gray-500 dark:text-gray-400">{formatDate(loan.createdAt)}</td>
+                        </tr>
+                      ))}
+                      {detail.loans.content.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-gray-400 dark:text-gray-500">Chưa có khoản gọi vốn</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 export function UsersPage() {
   const [data, setData] = useState<{ content: CmsUser[]; totalElements: number; totalPages: number } | null>(null);
   const [search, setSearch] = useState('');
@@ -65,6 +284,10 @@ export function UsersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [detail, setDetail] = useState<CustomerDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Modals
   const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
@@ -73,12 +296,22 @@ export function UsersPage() {
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    setError('');
-    fetchUsers({ search, kycStatus: kycFilter || undefined, page, size: 20 })
-      .then(setData)
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
+    let alive = true;
+    void (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const next = await fetchUsers({ search, kycStatus: kycFilter || undefined, page, size: 20 });
+        if (alive) setData(next);
+      } catch (err: unknown) {
+        if (alive) setError(err instanceof Error ? err.message : 'Không thể tải danh sách khách hàng');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, [search, kycFilter, page, refresh]);
 
   function handleSearchChange(value: string) {
@@ -95,6 +328,20 @@ export function UsersPage() {
       setRefresh((r) => r + 1);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Lỗi thực hiện');
+    }
+  }
+
+  async function openDetail(user: CmsUser) {
+    setDetailOpen(true);
+    setDetail(null);
+    setDetailError('');
+    setDetailLoading(true);
+    try {
+      setDetail(await fetchCustomerDetail(user.userId));
+    } catch (err: unknown) {
+      setDetailError(err instanceof Error ? err.message : 'Không thể tải chi tiết khách hàng');
+    } finally {
+      setDetailLoading(false);
     }
   }
 
@@ -195,6 +442,13 @@ export function UsersPage() {
                   <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs">{formatDate(user.createdAt)}</td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={() => openDetail(user)}
+                        title="Xem chi tiết"
+                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      >
+                        <Eye size={15} />
+                      </button>
                       {user.kycStatus === 'PENDING' && (
                         <>
                           <button
@@ -272,6 +526,14 @@ export function UsersPage() {
           title={rejectModal.title}
           onConfirm={rejectModal.onConfirm}
           onCancel={() => setRejectModal(null)}
+        />
+      )}
+      {detailOpen && (
+        <CustomerDetailDrawer
+          detail={detail}
+          loading={detailLoading}
+          error={detailError}
+          onClose={() => setDetailOpen(false)}
         />
       )}
     </div>

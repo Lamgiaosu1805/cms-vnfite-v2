@@ -246,6 +246,39 @@ export interface CmsUser {
   kycStatus: string;
   accountStatus: string;
   createdAt: string;
+  dateOfBirth: string | null;
+  gender: string | null;
+  permanentAddress: string | null;
+  hometown: string | null;
+  issueDate: string | null;
+  issuingAuthority: string | null;
+  expiryDate: string | null;
+}
+
+export interface CmsWallet {
+  walletId: string;
+  vnfAccountNo: string;
+  totalBalance: number;
+  lockedBalance: number;
+  availableBalance: number;
+  createdAt: string;
+}
+
+export interface CmsWalletTransaction {
+  id: string;
+  type: string;
+  amount: number;
+  status: string;
+  description: string | null;
+  balanceAfter: number | null;
+  createdAt: string;
+}
+
+export interface CustomerDetail {
+  profile: CmsUser;
+  wallet: CmsWallet | null;
+  transactions: PagedResponse<CmsWalletTransaction>;
+  loans: PagedResponse<CmsLoan>;
 }
 
 export interface PagedResponse<T> {
@@ -270,6 +303,10 @@ export async function fetchUsers(params: {
   q.set('page', String(params.page ?? 0));
   q.set('size', String(params.size ?? 20));
   return request(`/users?${q}`);
+}
+
+export async function fetchCustomerDetail(userId: string): Promise<CustomerDetail> {
+  return request(`/users/${userId}/detail?transactionSize=30&loanSize=30`);
 }
 
 export async function decideKyc(userId: string, decision: 'APPROVED' | 'REJECTED', reason?: string): Promise<void> {
@@ -578,6 +615,22 @@ export async function analyzeLoanDocument(loanId: string, documentId: string): P
 /** OPS giải ngân vốn cho người gọi vốn: AWAITING_DISBURSEMENT → DISBURSED. */
 export async function disburseLoan(loanId: string): Promise<CmsLoan> {
   return request(`/loans/${loanId}/disburse`, { method: 'POST' });
+}
+
+/** Kết quả chạy job hết hạn gọi vốn / ký khế ước. */
+export interface FundingExpiryResult {
+  activeExpired: number;
+  activeFailed: number;
+  fundedStuck: number;
+  fundedFailed: number;
+}
+
+/**
+ * Chạy ngay job hết hạn (thay vì chờ cron 01:30): khoản ACTIVE quá hạn gọi vốn và FUNDED quá hạn
+ * ký khế ước sẽ bị hủy và hoàn tiền cho nhà đầu tư. Chỉ ADMIN/SUPER_ADMIN.
+ */
+export async function runFundingExpirySweep(): Promise<FundingExpiryResult> {
+  return request(`/loans/expire-sweep`, { method: 'POST' });
 }
 
 // ─── Hỗ trợ thẩm định (appraisal suggestion) ────────────────────────────────────
