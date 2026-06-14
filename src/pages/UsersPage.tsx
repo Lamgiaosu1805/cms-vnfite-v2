@@ -92,20 +92,41 @@ function ReasonModal({ title, placeholder, onConfirm, onCancel }: RejectModalPro
   );
 }
 
-interface CustomerDetailDrawerProps {
-  detail: CustomerDetail | null;
-  loading: boolean;
-  error: string;
-  onClose: () => void;
+interface CustomerDetailPageProps {
+  userId: string;
+  onBack: () => void;
 }
 
-function CustomerDetailDrawer({ detail, loading, error, onClose }: CustomerDetailDrawerProps) {
+export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) {
+  const [detail, setDetail] = useState<CustomerDetail | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const profile = detail?.profile;
+
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      setDetail(null);
+      setError('');
+      setLoading(true);
+      try {
+        const next = await fetchCustomerDetail(userId);
+        if (alive) setDetail(next);
+      } catch (err: unknown) {
+        if (alive) setError(err instanceof Error ? err.message : 'Không thể tải chi tiết khách hàng');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [userId]);
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-      <button className="flex-1 cursor-default" onClick={onClose} aria-label="Đóng" />
-      <aside className="h-full w-full max-w-5xl overflow-y-auto bg-white dark:bg-gray-900 shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 px-6 py-4 backdrop-blur">
+    <div className="space-y-5">
+      <div className="rounded-xl border border-gray-100 bg-white px-6 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-600">Chi tiết khách hàng</p>
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-50">
@@ -113,14 +134,16 @@ function CustomerDetailDrawer({ detail, loading, error, onClose }: CustomerDetai
             </h2>
           </div>
           <button
-            onClick={onClose}
-            className="rounded-xl border border-gray-200 dark:border-gray-700 p-2 text-gray-500 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+            onClick={onBack}
+            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            <X size={18} />
+            <ChevronLeft size={16} />
+            Quay lại
           </button>
         </div>
+      </div>
 
-        <div className="space-y-5 p-6">
+      <div className="space-y-5">
           {loading && (
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-6 text-center text-sm text-gray-500 dark:text-gray-400">
               <RefreshCw size={18} className="mr-2 inline animate-spin" />
@@ -270,13 +293,16 @@ function CustomerDetailDrawer({ detail, loading, error, onClose }: CustomerDetai
               </section>
             </>
           )}
-        </div>
-      </aside>
+      </div>
     </div>
   );
 }
 
-export function UsersPage() {
+interface UsersPageProps {
+  onViewCustomer?: (user: CmsUser) => void;
+}
+
+export function UsersPage({ onViewCustomer }: UsersPageProps) {
   const [data, setData] = useState<{ content: CmsUser[]; totalElements: number; totalPages: number } | null>(null);
   const [search, setSearch] = useState('');
   const [kycFilter, setKycFilter] = useState('');
@@ -284,10 +310,6 @@ export function UsersPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
-  const [detail, setDetail] = useState<CustomerDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState('');
-  const [detailOpen, setDetailOpen] = useState(false);
 
   // Modals
   const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
@@ -328,20 +350,6 @@ export function UsersPage() {
       setRefresh((r) => r + 1);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Lỗi thực hiện');
-    }
-  }
-
-  async function openDetail(user: CmsUser) {
-    setDetailOpen(true);
-    setDetail(null);
-    setDetailError('');
-    setDetailLoading(true);
-    try {
-      setDetail(await fetchCustomerDetail(user.userId));
-    } catch (err: unknown) {
-      setDetailError(err instanceof Error ? err.message : 'Không thể tải chi tiết khách hàng');
-    } finally {
-      setDetailLoading(false);
     }
   }
 
@@ -443,7 +451,7 @@ export function UsersPage() {
                   <td className="px-4 py-3.5">
                     <div className="flex items-center justify-center gap-1.5">
                       <button
-                        onClick={() => openDetail(user)}
+                        onClick={() => onViewCustomer?.(user)}
                         title="Xem chi tiết"
                         className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                       >
@@ -526,14 +534,6 @@ export function UsersPage() {
           title={rejectModal.title}
           onConfirm={rejectModal.onConfirm}
           onCancel={() => setRejectModal(null)}
-        />
-      )}
-      {detailOpen && (
-        <CustomerDetailDrawer
-          detail={detail}
-          loading={detailLoading}
-          error={detailError}
-          onClose={() => setDetailOpen(false)}
         />
       )}
     </div>

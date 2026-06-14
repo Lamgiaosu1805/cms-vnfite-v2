@@ -6,7 +6,7 @@ import { ChangePasswordPage } from './pages/ChangePasswordPage';
 import { TotpSetupPage } from './pages/TotpSetupPage';
 import { TotpVerifyPage } from './pages/TotpVerifyPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { UsersPage } from './pages/UsersPage';
+import { CustomerDetailPage, UsersPage } from './pages/UsersPage';
 import { LoansPage } from './pages/LoansPage';
 import { AdminsPage } from './pages/AdminsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
@@ -53,6 +53,7 @@ export default function App() {
   const [loanCountsRefresh, setLoanCountsRefresh] = useState(0);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('cms_theme') === 'dark');
   const [loginNotice, setLoginNotice] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoginNotice(consumeSessionNotice());
@@ -168,11 +169,13 @@ export default function App() {
 
   function handleTabChange(nextTab: TabKey) {
     if (nextTab === 'loans') setLoanStatus('');
+    setSelectedCustomerId(null);
     setTab(nextTab);
   }
 
   function handleLoanStatusChange(nextStatus: LoanStatusFilter) {
     setLoanStatus(nextStatus);
+    setSelectedCustomerId(null);
     setTab('loans');
   }
 
@@ -231,6 +234,12 @@ export default function App() {
 
   // Main app
   const { admin } = state;
+  const pageTitle = tab === 'users' && selectedCustomerId
+    ? 'Chi tiết khách hàng'
+    : tab === 'loans'
+      ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(loanStatus)}`
+      : PAGE_TITLES[tab];
+
   return (
     <div className="flex min-h-screen bg-[#FFF8F7] dark:bg-gray-950">
       <Sidebar
@@ -248,7 +257,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #C82020, #8B0A0A)' }} />
             <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-              {tab === 'loans' ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(loanStatus)}` : PAGE_TITLES[tab]}
+              {pageTitle}
             </h1>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
@@ -270,7 +279,11 @@ export default function App() {
 
         <main className="flex-1 p-6 overflow-auto dark:bg-gray-950">
           {tab === 'dashboard' && <DashboardPage />}
-          {tab === 'users'     && <UsersPage />}
+          {tab === 'users'     && (
+            selectedCustomerId
+              ? <CustomerDetailPage userId={selectedCustomerId} onBack={() => setSelectedCustomerId(null)} />
+              : <UsersPage onViewCustomer={(user) => setSelectedCustomerId(user.userId)} />
+          )}
           {tab === 'loans'     && (
             <LoansPage
               key={loanStatus || 'all'}
