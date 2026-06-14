@@ -34,6 +34,31 @@ const transactionLabel: Record<string, string> = {
   REPAYMENT: 'Nhận hoàn trả',
 };
 
+const moneyInTypes = new Set(['DEPOSIT', 'INVEST_REFUND', 'REPAYMENT']);
+const moneyOutTypes = new Set(['WITHDRAW', 'INVEST']);
+
+function isMoneyIn(type: string) {
+  return moneyInTypes.has(type);
+}
+
+function isMoneyOut(type: string) {
+  return moneyOutTypes.has(type);
+}
+
+function formatSignedMoney(type: string, amount: number | null | undefined) {
+  const value = formatMoney(amount);
+  if (amount == null) return value;
+  if (isMoneyIn(type)) return `+${value}`;
+  if (isMoneyOut(type)) return `-${value}`;
+  return value;
+}
+
+function moneyDirectionClass(type: string) {
+  if (isMoneyIn(type)) return 'text-emerald-600 dark:text-emerald-400';
+  if (isMoneyOut(type)) return 'text-red-600 dark:text-red-400';
+  return 'text-gray-900 dark:text-gray-50';
+}
+
 function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-700/70 last:border-b-0">
@@ -235,9 +260,21 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                       {detail.transactions.content.map(tx => (
                         <tr key={tx.id}>
                           <td className="py-3 text-gray-500 dark:text-gray-400">{formatDateTime(tx.createdAt)}</td>
-                          <td className="py-3 font-medium text-gray-800 dark:text-gray-100">{transactionLabel[tx.type] || tx.type}</td>
+                          <td className="py-3">
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
+                              isMoneyIn(tx.type)
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                : isMoneyOut(tx.type)
+                                  ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                            }`}>
+                              {transactionLabel[tx.type] || tx.type}
+                            </span>
+                          </td>
                           <td className="py-3 text-gray-600 dark:text-gray-300">{tx.description || '—'}</td>
-                          <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(tx.amount)}</td>
+                          <td className={`py-3 text-right font-semibold ${moneyDirectionClass(tx.type)}`}>
+                            {formatSignedMoney(tx.type, tx.amount)}
+                          </td>
                           <td className="py-3 text-right text-gray-600 dark:text-gray-300">{formatMoney(tx.balanceAfter)}</td>
                           <td className="py-3 text-center"><Badge value={tx.status} /></td>
                         </tr>
