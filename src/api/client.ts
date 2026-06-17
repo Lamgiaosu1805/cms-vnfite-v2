@@ -762,6 +762,16 @@ export async function fetchAuditLogById(id: string): Promise<AuditLogEntry> {
   return request(`/audit/loans/${id}`);
 }
 
+// ─── File proxy ──────────────────────────────────────────────────────────────
+
+/** Fetch ảnh KYC qua CMS backend proxy (có JWT). Trả về blob URL để dùng trong <img src>. */
+export async function fetchFileBlob(fileId: string): Promise<string> {
+  const res = await axiosClient.get<Blob>(`/files/${encodeURIComponent(fileId)}`, {
+    responseType: 'blob',
+  });
+  return URL.createObjectURL(res.data);
+}
+
 // ─── Push Notification ───────────────────────────────────────────────────────
 
 export async function getFcmDeviceCount(): Promise<{ count: number }> {
