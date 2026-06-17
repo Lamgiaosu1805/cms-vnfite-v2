@@ -26,6 +26,16 @@ function formatMoney(n: number | null | undefined) {
   return new Intl.NumberFormat('vi-VN').format(n) + ' đ';
 }
 
+const FILE_MANAGER_FILE_BASE =
+  (import.meta.env.VITE_FILE_MANAGER_FILE_BASE as string | undefined)
+  ?? 'https://service.vnfite.com.vn/file-manager/v2/file';
+
+function fileUrl(fileId: string | null | undefined) {
+  if (!fileId) return '';
+  if (/^https?:\/\//i.test(fileId)) return fileId;
+  return `${FILE_MANAGER_FILE_BASE.replace(/\/$/, '')}/${encodeURIComponent(fileId)}`;
+}
+
 const transactionLabel: Record<string, string> = {
   DEPOSIT: 'Cộng tiền',
   WITHDRAW: 'Trừ tiền',
@@ -64,6 +74,46 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
     <div className="flex items-start justify-between gap-4 py-2 border-b border-gray-100 dark:border-gray-700/70 last:border-b-0">
       <span className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</span>
       <span className="text-sm text-right text-gray-800 dark:text-gray-100">{value || '—'}</span>
+    </div>
+  );
+}
+
+function KycImageCard({ title, fileId, portrait = false }: { title: string; fileId: string | null | undefined; portrait?: boolean }) {
+  const [failed, setFailed] = useState(false);
+  const src = fileUrl(fileId);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [fileId]);
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/70">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</p>
+        {fileId && (
+          <span className="max-w-[180px] truncate font-mono text-[11px] text-gray-400 dark:text-gray-500" title={fileId}>
+            {fileId}
+          </span>
+        )}
+      </div>
+      {src && !failed ? (
+        <a href={src} target="_blank" rel="noreferrer" className="block">
+          <img
+            src={src}
+            alt={title}
+            onError={() => setFailed(true)}
+            className={`w-full rounded-lg border border-gray-100 bg-white object-cover shadow-sm dark:border-gray-700 dark:bg-gray-900 ${
+              portrait ? 'aspect-[3/4] max-h-[320px]' : 'aspect-[16/10] max-h-[260px]'
+            }`}
+          />
+        </a>
+      ) : (
+        <div className={`flex w-full items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-4 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 ${
+          portrait ? 'aspect-[3/4] max-h-[320px]' : 'aspect-[16/10] max-h-[260px]'
+        }`}>
+          {fileId ? 'Không tải được ảnh từ file-manager' : 'Chưa có ảnh'}
+        </div>
+      )}
     </div>
   );
 }
@@ -236,6 +286,22 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                   <InfoRow label="Đang phong tỏa" value={formatMoney(detail.wallet?.lockedBalance)} />
                   <InfoRow label="Số dư khả dụng" value={formatMoney(detail.wallet?.availableBalance)} />
                   <InfoRow label="Ngày tạo ví" value={formatDateTime(detail.wallet?.createdAt)} />
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-gray-100 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-50">Ảnh eKYC</h3>
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                      Dữ liệu lấy từ fileId trong kyc_submissions. Bấm vào ảnh để mở kích thước đầy đủ.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+                  <KycImageCard title="CCCD mặt trước" fileId={profile?.frontImageId} />
+                  <KycImageCard title="CCCD mặt sau" fileId={profile?.backImageId} />
+                  <KycImageCard title="Ảnh chân dung" fileId={profile?.portraitImageId} portrait />
                 </div>
               </section>
 
