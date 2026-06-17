@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, Eye, RefreshCw, Search, X } from 'luc
 import {
   decideKyc,
   fetchCustomerDetail,
+  fetchFileBlob,
   fetchUsers,
   updateUserStatus,
   type CustomerDetail,
@@ -26,15 +27,6 @@ function formatMoney(n: number | null | undefined) {
   return new Intl.NumberFormat('vi-VN').format(n) + ' đ';
 }
 
-const FILE_MANAGER_FILE_BASE =
-  (import.meta.env.VITE_FILE_MANAGER_FILE_BASE as string | undefined)
-  ?? 'https://service.vnfite.com.vn/file-manager/v2/file';
-
-function fileUrl(fileId: string | null | undefined) {
-  if (!fileId) return '';
-  if (/^https?:\/\//i.test(fileId)) return fileId;
-  return `${FILE_MANAGER_FILE_BASE.replace(/\/$/, '')}/${encodeURIComponent(fileId)}`;
-}
 
 const transactionLabel: Record<string, string> = {
   DEPOSIT: 'Cộng tiền',
@@ -79,11 +71,21 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function KycImageCard({ title, fileId, portrait = false }: { title: string; fileId: string | null | undefined; portrait?: boolean }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
-  const src = fileUrl(fileId);
 
   useEffect(() => {
+    if (!fileId) { setBlobUrl(null); setFailed(false); return; }
+    let revoked = false;
     setFailed(false);
+    setBlobUrl(null);
+    fetchFileBlob(fileId)
+      .then(url => { if (!revoked) setBlobUrl(url); })
+      .catch(() => { if (!revoked) setFailed(true); });
+    return () => {
+      revoked = true;
+      setBlobUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null; });
+    };
   }, [fileId]);
 
   return (
@@ -96,12 +98,11 @@ function KycImageCard({ title, fileId, portrait = false }: { title: string; file
           </span>
         )}
       </div>
-      {src && !failed ? (
-        <a href={src} target="_blank" rel="noreferrer" className="block">
+      {blobUrl ? (
+        <a href={blobUrl} target="_blank" rel="noreferrer" className="block">
           <img
-            src={src}
+            src={blobUrl}
             alt={title}
-            onError={() => setFailed(true)}
             className={`w-full rounded-lg border border-gray-100 bg-white object-cover shadow-sm dark:border-gray-700 dark:bg-gray-900 ${
               portrait ? 'aspect-[3/4] max-h-[320px]' : 'aspect-[16/10] max-h-[260px]'
             }`}
@@ -111,7 +112,7 @@ function KycImageCard({ title, fileId, portrait = false }: { title: string; file
         <div className={`flex w-full items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-4 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 ${
           portrait ? 'aspect-[3/4] max-h-[320px]' : 'aspect-[16/10] max-h-[260px]'
         }`}>
-          {fileId ? 'Không tải được ảnh từ file-manager' : 'Chưa có ảnh'}
+          {failed ? 'Không tải được ảnh' : fileId ? 'Đang tải...' : 'Chưa có ảnh'}
         </div>
       )}
     </div>
