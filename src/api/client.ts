@@ -253,6 +253,9 @@ export interface CmsUser {
   issueDate: string | null;
   issuingAuthority: string | null;
   expiryDate: string | null;
+  frontImageId: string | null;
+  backImageId: string | null;
+  portraitImageId: string | null;
 }
 
 export interface CmsWallet {
