@@ -8,6 +8,7 @@ import { TotpVerifyPage } from './pages/TotpVerifyPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CustomerDetailPage, UsersPage } from './pages/UsersPage';
 import { LoansPage } from './pages/LoansPage';
+import { LoanProductsPage } from './pages/LoanProductsPage';
 import { AdminsPage } from './pages/AdminsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
@@ -18,6 +19,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   dashboard: 'Dashboard',
   users: 'Khách hàng',
   loans: 'Gọi vốn',
+  products: 'Sản phẩm gọi vốn',
   admins: 'Quản lý Admin',
   audit: 'Nhật ký quyết định',
 };
@@ -291,6 +293,7 @@ export default function App() {
               onActionDone={() => setLoanCountsRefresh(v => v + 1)}
             />
           )}
+          {tab === 'products'  && <LoanProductsPage />}
           {tab === 'admins'    && <AdminsPage />}
           {tab === 'audit'     && <AuditLogPage />}
         </main>
