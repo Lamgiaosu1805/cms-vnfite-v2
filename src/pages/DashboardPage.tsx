@@ -66,78 +66,101 @@ const PERIODS: { key: ChartPeriod; label: string }[] = [
 
 // ─── Bar chart ────────────────────────────────────────────────────────────────
 
-function BarChart({ points, period, isDark }: { points: ChartPoint[]; period: ChartPeriod; isDark: boolean }) {
+type ChartMetricKey = 'loanVolume' | 'newUsers';
+
+function SingleMetricBarChart({
+  points,
+  period,
+  isDark,
+  metric,
+  title,
+  subtitle,
+  gradient,
+  formatValue,
+  formatTick,
+}: {
+  points: ChartPoint[];
+  period: ChartPeriod;
+  isDark: boolean;
+  metric: ChartMetricKey;
+  title: string;
+  subtitle: string;
+  gradient: string;
+  formatValue: (value: number) => string;
+  formatTick: (value: number) => string;
+}) {
   const [tooltip, setTooltip] = useState<{ idx: number; x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const maxVol   = Math.max(...points.map(p => Number(p.loanVolume  || 0)), 1);
-  const maxUsers = Math.max(...points.map(p => Number(p.newUsers    || 0)), 1);
-
-  const yTicks = [1, 0.75, 0.5, 0.25, 0].map(r => ({ pct: r, vol: maxVol * r }));
-  const gapX   = period === 'month' ? 'gap-1' : 'gap-2';
-  const active  = tooltip ? points[tooltip.idx] : null;
-
-  const dimColor = isDark ? '#374151' : '#F3F4F6'; // gray-700 dark / gray-100 light
+  const maxValue = Math.max(...points.map(p => Number(p[metric] || 0)), 1);
+  const yTicks = [1, 0.75, 0.5, 0.25, 0].map(r => ({ pct: r, value: maxValue * r }));
+  const gapX = period === 'month' ? 'gap-2' : 'gap-3';
+  const active = tooltip ? points[tooltip.idx] : null;
+  const dimColor = isDark ? '#374151' : '#E5E7EB';
 
   return (
-    <div className="relative select-none" ref={containerRef}>
-      {/* Tooltip */}
-      {active && (
-        <div
-          className="absolute z-20 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-xl px-3 py-2 shadow-lg pointer-events-none whitespace-nowrap"
-          style={{ left: tooltip!.x, top: tooltip!.y - 8, transform: 'translate(-50%, -100%)' }}>
-          <div className="font-semibold mb-1">{active.label} {period === 'week' ? `(${active.date})` : ''}</div>
-          <div className="flex flex-col gap-0.5">
-            <span>💰 {formatMoney(active.loanVolume)}</span>
-            <span>📋 {active.newLoans} khoản vay</span>
-            <span>👤 {active.newUsers} khách hàng</span>
+    <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30 p-4">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-bold text-gray-800 dark:text-gray-100">{title}</h4>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{subtitle}</p>
+        </div>
+        <span className="h-3 w-3 shrink-0 rounded-sm" style={{ background: gradient }} />
+      </div>
+
+      <div className="relative select-none" ref={containerRef}>
+        {active && (
+          <div
+            className="absolute z-20 rounded-xl bg-gray-900 px-3 py-2 text-xs text-white shadow-lg pointer-events-none whitespace-nowrap dark:bg-gray-700"
+            style={{ left: tooltip!.x, top: tooltip!.y - 8, transform: 'translate(-50%, -100%)' }}>
+            <div className="mb-1 font-semibold">{active.label} {period === 'week' ? `(${active.date})` : ''}</div>
+            <div className="flex flex-col gap-0.5">
+              <span>{title}: {formatValue(Number(active[metric] || 0))}</span>
+              {metric === 'loanVolume' && <span>Số khoản gọi vốn mới: {active.newLoans}</span>}
+            </div>
+            <div className="absolute left-1/2 bottom-[-5px] h-0 w-0 -translate-x-1/2"
+              style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: `5px solid ${isDark ? '#374151' : '#111827'}` }} />
           </div>
-          <div className="absolute left-1/2 -translate-x-1/2 bottom-[-5px] w-0 h-0"
-            style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: `5px solid ${isDark ? '#374151' : '#111827'}` }} />
-        </div>
-      )}
+        )}
 
-      <div className="flex gap-4">
-        {/* Y-axis */}
-        <div className="flex flex-col justify-between text-right text-xs text-gray-400 dark:text-gray-500 shrink-0 w-12 pb-6" style={{ height: 160 }}>
-          {yTicks.map(t => (
-            <span key={t.pct}>{shortMoney(t.vol)}</span>
-          ))}
-        </div>
+        <div className="flex gap-4">
+          <div className="flex shrink-0 flex-col justify-between pb-6 text-right text-xs text-gray-400 dark:text-gray-500" style={{ height: 170, width: 56 }}>
+            {yTicks.map(t => (
+              <span key={t.pct}>{formatTick(t.value)}</span>
+            ))}
+          </div>
 
-        {/* Chart area */}
-        <div className="flex-1 overflow-x-auto">
-          <div className={`flex ${gapX} items-end`} style={{ minWidth: 'max-content' }}>
-            {points.map((p, i) => {
-              const volH  = Math.max(2, (Number(p.loanVolume || 0) / maxVol)   * 140);
-              const userH = Math.max(2, (Number(p.newUsers   || 0) / maxUsers) * 140);
-              const dim   = p.future;
-              const colW  = period === 'month' ? 20 : period === 'year' ? 32 : 40;
-              const blueW = period === 'month' ? 6 : 8;
+          <div className="flex-1 overflow-x-auto">
+            <div className={`flex ${gapX} items-end`} style={{ minWidth: 'max-content' }}>
+              {points.map((p, i) => {
+                const value = Number(p[metric] || 0);
+                const barH = Math.max(3, (value / maxValue) * 145);
+                const dim = p.future;
+                const colW = period === 'month' ? 28 : period === 'year' ? 38 : 46;
+                const barW = period === 'month' ? 18 : 24;
 
-              return (
-                <div key={`${p.date}-${i}`}
-                  className="flex flex-col items-center cursor-pointer group shrink-0"
-                  style={{ width: colW }}
-                  onMouseEnter={e => {
-                    const rect = containerRef.current?.getBoundingClientRect();
-                    const el   = e.currentTarget.getBoundingClientRect();
-                    if (rect) setTooltip({ idx: i, x: el.left + el.width / 2 - rect.left + 56, y: el.top - rect.top });
-                  }}
-                  onMouseLeave={() => setTooltip(null)}>
-                  <div className="flex gap-0.5 items-end w-full justify-center" style={{ height: 140 }}>
-                    <div className="rounded-t-md transition-all duration-200 group-hover:brightness-90"
-                      style={{ height: volH, width: colW - blueW - 2, background: dim ? dimColor : 'linear-gradient(180deg,#E84A20,#C82020)' }} />
-                    <div className="rounded-t-md transition-all duration-200 group-hover:brightness-90"
-                      style={{ height: userH, width: blueW, background: dim ? dimColor : 'linear-gradient(180deg,#60A5FA,#2563EB)' }} />
+                return (
+                  <div key={`${metric}-${p.date}-${i}`}
+                    className="group flex shrink-0 cursor-pointer flex-col items-center"
+                    style={{ width: colW }}
+                    onMouseEnter={e => {
+                      const rect = containerRef.current?.getBoundingClientRect();
+                      const el = e.currentTarget.getBoundingClientRect();
+                      if (rect) setTooltip({ idx: i, x: el.left + el.width / 2 - rect.left + 56, y: el.top - rect.top });
+                    }}
+                    onMouseLeave={() => setTooltip(null)}>
+                    <div className="flex w-full items-end justify-center" style={{ height: 145 }}>
+                      <div className="rounded-t-lg transition-all duration-200 group-hover:brightness-95"
+                        style={{ height: barH, width: barW, background: dim ? dimColor : gradient }} />
+                    </div>
+                    <div className={`mt-1 w-full text-center font-medium ${dim ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'}`}
+                      style={{ fontSize: period === 'month' ? 9 : 11 }}>
+                      {p.label}
+                    </div>
                   </div>
-                  <div className={`mt-1 text-center font-medium w-full ${dim ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'}`}
-                    style={{ fontSize: period === 'month' ? 9 : 11 }}>
-                    {p.label}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -368,21 +391,21 @@ export function DashboardPage() {
       </div>
 
       {/* Chart card */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
+      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <TrendingUp size={18} className="text-gray-400 dark:text-gray-500" />
             <h3 className="font-bold text-gray-800 dark:text-gray-100">Biểu đồ hoạt động</h3>
           </div>
           {/* Period tabs */}
-          <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600 text-sm">
+          <div className="flex overflow-hidden rounded-xl border border-gray-200 text-sm dark:border-gray-600">
             {PERIODS.map(p => (
               <button key={p.key} onClick={() => handlePeriod(p.key)}
                 className={`px-4 py-1.5 font-medium transition-colors ${
                   period === p.key
                     ? 'text-white'
-                    : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    : 'bg-white text-gray-500 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
                 }`}
                 style={period === p.key ? { background: '#C82020' } : undefined}>
                 {p.label}
@@ -391,31 +414,39 @@ export function DashboardPage() {
           </div>
         </div>
 
-        {/* Chart */}
+        {/* Charts */}
         {chartLoading ? (
-          <div className="flex items-center justify-center h-40 text-gray-400 dark:text-gray-500">
-            <RefreshCw size={16} className="animate-spin mr-2" style={{ color: '#C82020' }} /> Đang tải...
+          <div className="flex h-44 items-center justify-center text-gray-400 dark:text-gray-500">
+            <RefreshCw size={16} className="mr-2 animate-spin" style={{ color: '#C82020' }} /> Đang tải...
           </div>
         ) : chart.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 py-8 text-center">Chưa có dữ liệu</p>
+          <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">Chưa có dữ liệu</p>
         ) : (
-          <BarChart points={chart} period={period} isDark={isDark} />
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <SingleMetricBarChart
+              points={chart}
+              period={period}
+              isDark={isDark}
+              metric="loanVolume"
+              title="Giá trị khoản gọi vốn"
+              subtitle="Tổng giá trị khoản phát sinh theo kỳ"
+              gradient="linear-gradient(180deg,#E84A20,#C82020)"
+              formatValue={formatMoney}
+              formatTick={shortMoney}
+            />
+            <SingleMetricBarChart
+              points={chart}
+              period={period}
+              isDark={isDark}
+              metric="newUsers"
+              title="Khách hàng mới"
+              subtitle="Số tài khoản khách hàng tạo mới"
+              gradient="linear-gradient(180deg,#60A5FA,#2563EB)"
+              formatValue={value => `${Math.round(value)} khách hàng`}
+              formatTick={value => (value > 0 ? Math.round(value).toString() : '')}
+            />
+          </div>
         )}
-
-        {/* Legend */}
-        <div className="flex items-center gap-5 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'linear-gradient(180deg,#E84A20,#C82020)' }} />
-            Giá trị khoản vay
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ background: 'linear-gradient(180deg,#60A5FA,#2563EB)' }} />
-            Khách hàng mới
-          </span>
-          <span className="ml-auto flex items-center gap-1">
-            <span className="w-3 h-3 rounded-sm inline-block bg-gray-200 dark:bg-gray-600" /> Chưa có dữ liệu
-          </span>
-        </div>
       </div>
 
       {/* Test push notification */}
