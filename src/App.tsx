@@ -39,12 +39,35 @@ function currentCmsUrl() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
+type MainHistoryState = {
+  cmsScreen: 'main';
+  tab: TabKey;
+  loanStatus: LoanStatusFilter;
+  selectedCustomerId: string | null;
+};
+
 function replaceCmsHistory(screen: CmsHistoryScreen) {
   window.history.replaceState({ cmsScreen: screen }, '', currentCmsUrl());
 }
 
 function pushCmsHistory(screen: CmsHistoryScreen) {
   window.history.pushState({ cmsScreen: screen }, '', currentCmsUrl());
+}
+
+function pushMainHistory(tab: TabKey, loanStatus: LoanStatusFilter, selectedCustomerId: string | null) {
+  window.history.pushState(
+    { cmsScreen: 'main', tab, loanStatus, selectedCustomerId } satisfies MainHistoryState,
+    '',
+    currentCmsUrl(),
+  );
+}
+
+function replaceMainHistory(tab: TabKey, loanStatus: LoanStatusFilter, selectedCustomerId: string | null) {
+  window.history.replaceState(
+    { cmsScreen: 'main', tab, loanStatus, selectedCustomerId } satisfies MainHistoryState,
+    '',
+    currentCmsUrl(),
+  );
 }
 
 export default function App() {
@@ -61,7 +84,7 @@ export default function App() {
     setLoginNotice(consumeSessionNotice());
     const storedAdmin = getStoredAdmin();
     if (storedAdmin) {
-      replaceCmsHistory('main');
+      replaceMainHistory('dashboard', '', null);
       setState({ screen: 'main', admin: storedAdmin });
       return;
     }
@@ -101,6 +124,10 @@ export default function App() {
       if (screen === 'main') {
         const storedAdmin = getStoredAdmin();
         if (storedAdmin) {
+          const s = event.state as MainHistoryState | undefined;
+          setTab(s?.tab ?? 'dashboard');
+          setLoanStatus(s?.loanStatus ?? '');
+          setSelectedCustomerId(s?.selectedCustomerId ?? null);
           setState({ screen: 'main', admin: storedAdmin });
         } else {
           replaceCmsHistory('login');
@@ -152,7 +179,7 @@ export default function App() {
       replaceCmsHistory('change-password');
       setState({ screen: 'change-password', admin });
     } else {
-      replaceCmsHistory('main');
+      replaceMainHistory('dashboard', '', null);
       setState({ screen: 'main', admin });
     }
   }
@@ -170,15 +197,27 @@ export default function App() {
   }
 
   function handleTabChange(nextTab: TabKey) {
-    if (nextTab === 'loans') setLoanStatus('');
+    const nextLoanStatus = nextTab === 'loans' ? loanStatus : ('' as LoanStatusFilter);
+    pushMainHistory(nextTab, nextLoanStatus, null);
+    if (nextTab === 'loans') setLoanStatus(nextLoanStatus);
     setSelectedCustomerId(null);
     setTab(nextTab);
   }
 
   function handleLoanStatusChange(nextStatus: LoanStatusFilter) {
+    pushMainHistory('loans', nextStatus, null);
     setLoanStatus(nextStatus);
     setSelectedCustomerId(null);
     setTab('loans');
+  }
+
+  function handleViewCustomer(userId: string) {
+    pushMainHistory('users', loanStatus, userId);
+    setSelectedCustomerId(userId);
+  }
+
+  function handleBackFromCustomer() {
+    window.history.back();
   }
 
   // ─── Screens ─────────────────────────────────────────────────────────────────
@@ -227,7 +266,7 @@ export default function App() {
       <ChangePasswordPage
         admin={state.admin}
         onDone={() => {
-          replaceCmsHistory('main');
+          replaceMainHistory('dashboard', '', null);
           setState({ screen: 'main', admin: state.admin });
         }}
       />
@@ -283,8 +322,8 @@ export default function App() {
           {tab === 'dashboard' && <DashboardPage />}
           {tab === 'users'     && (
             selectedCustomerId
-              ? <CustomerDetailPage userId={selectedCustomerId} onBack={() => setSelectedCustomerId(null)} />
-              : <UsersPage onViewCustomer={(user) => setSelectedCustomerId(user.userId)} />
+              ? <CustomerDetailPage userId={selectedCustomerId} onBack={handleBackFromCustomer} />
+              : <UsersPage onViewCustomer={(user) => handleViewCustomer(user.userId)} />
           )}
           {tab === 'loans'     && (
             <LoansPage
