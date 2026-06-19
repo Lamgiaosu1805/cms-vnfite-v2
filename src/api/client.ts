@@ -772,6 +772,45 @@ export async function fetchFileBlob(fileId: string): Promise<string> {
   return URL.createObjectURL(res.data);
 }
 
+// ─── Loan Products ───────────────────────────────────────────────────────────
+
+export interface LoanProduct {
+  id: string;
+  code: string;
+  name: string;
+  category: 'INDIVIDUAL' | 'BUSINESS' | string;
+  productGroup: number;
+  professionBound: boolean;
+  description: string | null;
+  minAmount: number;
+  maxAmount: number;
+  availableTerms: number[];
+  imageUrl: string | null;
+  maxInterestRate: number | null;
+  lateFeeRate: number | null;
+  sortOrder: number;
+}
+
+export async function fetchLoanProducts(): Promise<LoanProduct[]> {
+  return request('/loans/products');
+}
+
+export interface LoanProductUpdatePayload {
+  name: string;
+  description: string | null;
+  minAmount: number;
+  maxAmount: number;
+  availableTerms: number[];
+  maxInterestRate: number | null;
+  lateFeeRate: number | null;
+  sortOrder: number;
+  active: boolean;
+}
+
+export async function updateLoanProduct(id: string, payload: LoanProductUpdatePayload): Promise<LoanProduct> {
+  return request(`/loans/products/${id}`, { method: 'PUT', data: payload });
+}
+
 // ─── Push Notification ───────────────────────────────────────────────────────
 
 export async function getFcmDeviceCount(): Promise<{ count: number }> {
