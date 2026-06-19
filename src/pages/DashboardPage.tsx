@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  BarChart3, Bell, CircleDollarSign, RefreshCw, Send, ShieldCheck, Smartphone, TrendingUp, Users,
+  BarChart3, Bell, CircleDollarSign, RefreshCw, Send, Smartphone, TrendingUp, Users,
 } from 'lucide-react';
 import {
   fetchChart, fetchStats, getFcmDeviceCount, sendTestPush,
@@ -380,8 +380,9 @@ export function DashboardPage() {
         <Metric label="Tổng khách hàng" value={stats?.totalUsers ?? 0}
           sub={`+${stats?.todayNewUsers ?? 0} hôm nay`}
           icon={<Users size={16} />} color="linear-gradient(135deg,#C82020,#8B0A0A)" />
-        <Metric label="Chờ duyệt KYC" value={stats?.pendingKycCount ?? 0}
-          icon={<ShieldCheck size={16} />} color="linear-gradient(135deg,#E8A030,#C47820)" />
+        <Metric label="Đang gọi vốn" value={stats?.activeLoans ?? 0}
+          sub={formatMoney(stats?.activeFundingVolume)}
+          icon={<TrendingUp size={16} />} color="linear-gradient(135deg,#E8A030,#C47820)" />
         <Metric label="Tổng khoản vay" value={stats?.totalLoans ?? 0}
           sub={`${stats?.pendingLoans ?? 0} chờ duyệt · ${stats?.activeLoans ?? 0} active`}
           icon={<CircleDollarSign size={16} />} color="linear-gradient(135deg,#C82020,#E84A20)" />
@@ -422,7 +423,7 @@ export function DashboardPage() {
         ) : chart.length === 0 ? (
           <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">Chưa có dữ liệu</p>
         ) : (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
             <SingleMetricBarChart
               points={chart}
               period={period}
