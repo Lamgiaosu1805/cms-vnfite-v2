@@ -205,6 +205,7 @@ export interface DashboardStats {
   totalUsers: number;
   activeUsers: number;
   pendingKycCount: number;
+  activeFundingVolume: number;
   todayNewUsers: number;
   totalLoans: number;
   pendingLoans: number;
