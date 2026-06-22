@@ -1172,6 +1172,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
   const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
   const [amountInput, setAmountInput] = useState('');
   const [rateInput, setRateInput] = useState('');
+  const [feeRateInput, setFeeRateInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
   const [acting, setActing] = useState(false);
   const [actError, setActError] = useState('');
@@ -1216,9 +1217,11 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
     if (hasCic === false) { setActError('Cần nhập kết quả tra CIC trước khi trình ban lãnh đạo.'); return; }
     const amt = Number(amountInput);
     const rate = Number(rateInput);
+    const feeRate = feeRateInput !== '' ? Number(feeRateInput) : 0;
     if (!(amt > 0)) { setActError('Số tiền đề xuất không hợp lệ.'); return; }
     if (!(rate > 0)) { setActError('Lãi suất đề xuất không hợp lệ.'); return; }
-    runAction(() => proposeLoan(loanId, { proposedAmount: amt, proposedInterestRate: rate, note: noteInput.trim() || undefined }));
+    if (feeRate < 0 || feeRate > 100) { setActError('Phí thẩm định phải từ 0–100%.'); return; }
+    runAction(() => proposeLoan(loanId, { proposedAmount: amt, proposedInterestRate: rate, appraisalFeeRate: feeRate, note: noteInput.trim() || undefined }));
   };
 
   const handleApprove = () => {
@@ -1419,6 +1422,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
               </p>
               <MiniRow label="Số tiền đề xuất" value={formatMoney(loan.proposedAmount)} />
               <MiniRow label="Lãi suất đề xuất" value={loan.proposedInterestRate != null ? `${loan.proposedInterestRate}%/năm` : '—'} />
+              <MiniRow label="Phí thẩm định" value={loan.appraisalFeeRate != null && loan.appraisalFeeRate > 0 ? `${loan.appraisalFeeRate}%` : '0% (miễn phí)'} />
               <MiniRow label="Thẩm định viên" value={loan.proposedBy ?? '—'} />
               {loan.appraisalNote && <MiniRow label="Ghi chú" value={loan.appraisalNote} />}
 
@@ -1502,6 +1506,39 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                   <input type="number" step="0.1" value={rateInput} onChange={e => setRateInput(e.target.value)} className={inputCls} />
                 </label>
               </div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400">
+                Phí thẩm định (%)
+                <input type="number" step="0.1" min="0" max="100" value={feeRateInput}
+                  onChange={e => setFeeRateInput(e.target.value)} placeholder="0" className={inputCls} />
+              </label>
+              {/* Preview phí cho thẩm định viên thấy trước khi trình */}
+              {(() => {
+                const amt = Number(amountInput);
+                const fr = Number(feeRateInput);
+                if (!(amt > 0) || !(fr > 0)) return null;
+                const fee = Math.round(amt * fr / 100);
+                const vat = Math.round(fee * 0.1);
+                const total = fee + vat;
+                const net = amt - total;
+                const fmt = (v: number) => new Intl.NumberFormat('vi-VN').format(v) + ' VNĐ';
+                return (
+                  <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700 px-3 py-2.5 space-y-1 text-xs">
+                    <p className="font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Xem trước phí giải ngân</p>
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Phí thẩm định ({fr}%)</span><span className="font-medium text-gray-900 dark:text-white">{fmt(fee)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>VAT (10%)</span><span className="font-medium text-gray-900 dark:text-white">{fmt(vat)}</span>
+                    </div>
+                    <div className="flex justify-between font-semibold border-t border-gray-200 dark:border-gray-600 pt-1 text-gray-900 dark:text-white">
+                      <span>Tổng khấu trừ</span><span className="text-red-600 dark:text-red-400">{fmt(total)}</span>
+                    </div>
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                      <span>Người gọi vốn nhận</span><span className="font-semibold text-green-700 dark:text-green-400">{fmt(net)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
               <label className="block text-xs text-gray-500 dark:text-gray-400">
                 Ghi chú thẩm định
                 <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} rows={2} className={inputCls} />

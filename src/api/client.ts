@@ -384,6 +384,7 @@ export interface CmsLoan {
   /** Đề xuất của thẩm định viên (cấp 1) trình ban lãnh đạo */
   proposedAmount: number | null;
   proposedInterestRate: number | null;
+  appraisalFeeRate: number | null;
   proposedBy: string | null;
   proposedAt: string | null;
   appraisalNote: string | null;
@@ -425,10 +426,10 @@ export async function fetchLoans(params: {
   return request(`/loans?${q}`);
 }
 
-/** Cấp 1 — thẩm định viên đề xuất số tiền + lãi suất trình ban lãnh đạo. */
+/** Cấp 1 — thẩm định viên đề xuất số tiền + lãi suất + % phí trình ban lãnh đạo. */
 export async function proposeLoan(
   loanId: string,
-  payload: { proposedAmount: number; proposedInterestRate: number; note?: string },
+  payload: { proposedAmount: number; proposedInterestRate: number; appraisalFeeRate?: number; note?: string },
 ): Promise<void> {
   return request(`/loans/${loanId}/propose`, { method: 'PUT', data: payload });
 }
@@ -769,6 +770,7 @@ export interface AuditLogEntry {
   requestedAmount: number | null;
   proposedAmount: number | null;
   proposedInterestRate: number | null;
+  appraisalFeeRate: number | null;
   proposedBy: string | null;
   finalAmount: number | null;
   finalInterestRate: number | null;
@@ -873,31 +875,3 @@ export async function sendTestPush(title: string, body: string): Promise<{ sentT
   });
 }
 
-// ─── Fee Config ──────────────────────────────────────────────────────────────
-
-export interface FeeConfig {
-  id: number;
-  feeType: string;
-  feeName: string;
-  feeAmount: number;
-  calcType: 'FIXED' | 'PERCENTAGE';
-  vatRate: number;
-  isActive: boolean;
-  updatedBy: string | null;
-  updatedAt: string | null;
-}
-
-export async function getFeeConfigs(): Promise<FeeConfig[]> {
-  return request('/loans/fee-config');
-}
-
-export async function updateFeeConfig(payload: {
-  feeType: string;
-  feeName?: string;
-  feeAmount: number;
-  calcType?: 'FIXED' | 'PERCENTAGE';
-  vatRate?: number;
-  isActive?: boolean;
-}): Promise<FeeConfig> {
-  return request('/loans/fee-config', { method: 'PUT', data: payload });
-}
