@@ -37,7 +37,9 @@ axiosClient.interceptors.response.use(
     }
     const body = err.response?.data;
     const details = Array.isArray(body?.details) ? body.details.filter(Boolean).join('; ') : '';
-    const message = details || body?.message || body?.error || body?.detail || `Lỗi ${status}`;
+    const raw = details || body?.message || body?.error || body?.detail || `Lỗi ${status}`;
+    const isTechnical = /https?:\/\/|I\/O error|\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}|ECONNREFUSED|Connection refused/i.test(raw);
+    const message = isTechnical ? 'Không thể kết nối với máy chủ. Vui lòng thử lại.' : raw;
     return Promise.reject(new Error(message));
   },
 );
