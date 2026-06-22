@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, Copy, RefreshCw, UserPlus } from 'lucide-react';
 import { createAdmin, listAdmins, toggleAdminActive, type AdminItem, type CreateAdminResult } from '../api/client';
 import { Badge } from '../components/Badge';
-
-function formatDate(s: string | null | undefined) {
-  if (!s) return '-';
-  return new Date(s).toLocaleDateString('vi-VN');
-}
+import { formatVietnamDate } from '../utils/dateTime';
 
 interface CreateModalProps {
   onCreated: (result: CreateAdminResult) => void;
@@ -222,7 +218,7 @@ export function AdminsPage() {
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3.5 text-gray-400 dark:text-gray-500">{formatDate(admin.createdAt)}</td>
+                <td className="px-4 py-3.5 text-gray-400 dark:text-gray-500">{formatVietnamDate(admin.createdAt, '-')}</td>
                 <td className="px-4 py-3.5">
                   {admin.role !== 'SUPER_ADMIN' && (
                     <button onClick={() => handleToggle(admin.id)}

@@ -11,16 +11,7 @@ import {
   type CmsUser,
 } from '../api/client';
 import { Badge } from '../components/Badge';
-
-function formatDate(s: string | null | undefined) {
-  if (!s) return '-';
-  return new Date(s).toLocaleDateString('vi-VN');
-}
-
-function formatDateTime(s: string | null | undefined) {
-  if (!s) return '-';
-  return new Date(s).toLocaleString('vi-VN');
-}
+import { formatVietnamDate, formatVietnamDateTime } from '../utils/dateTime';
 
 function formatMoney(n: number | null | undefined) {
   if (n == null) return '—';
@@ -268,16 +259,16 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                   <InfoRow label="Số điện thoại" value={profile?.phone} />
                   <InfoRow label="Email" value={profile?.email || '—'} />
                   <InfoRow label="Số CCCD" value={<span className="font-mono">{profile?.cccdNumber || '—'}</span>} />
-                  <InfoRow label="Ngày sinh" value={formatDate(profile?.dateOfBirth)} />
+                  <InfoRow label="Ngày sinh" value={formatVietnamDate(profile?.dateOfBirth, '-')} />
                   <InfoRow label="Giới tính" value={profile?.gender || '—'} />
                   <InfoRow label="Quê quán" value={profile?.hometown || '—'} />
                   <InfoRow label="Địa chỉ thường trú" value={profile?.permanentAddress || '—'} />
-                  <InfoRow label="Ngày cấp" value={formatDate(profile?.issueDate)} />
+                  <InfoRow label="Ngày cấp" value={formatVietnamDate(profile?.issueDate, '-')} />
                   <InfoRow label="Nơi cấp" value={profile?.issuingAuthority || '—'} />
-                  <InfoRow label="Ngày hết hạn" value={formatDate(profile?.expiryDate)} />
+                  <InfoRow label="Ngày hết hạn" value={formatVietnamDate(profile?.expiryDate, '-')} />
                   <InfoRow label="KYC" value={<Badge value={profile?.kycStatus || 'NONE'} />} />
                   <InfoRow label="Trạng thái" value={<Badge value={profile?.accountStatus || 'ACTIVE'} />} />
-                  <InfoRow label="Ngày tạo" value={formatDateTime(profile?.createdAt)} />
+                  <InfoRow label="Ngày tạo" value={formatVietnamDateTime(profile?.createdAt, '-')} />
                 </div>
 
                 <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
@@ -286,7 +277,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                   <InfoRow label="Tổng số dư" value={formatMoney(detail.wallet?.totalBalance)} />
                   <InfoRow label="Đang phong tỏa" value={formatMoney(detail.wallet?.lockedBalance)} />
                   <InfoRow label="Số dư khả dụng" value={formatMoney(detail.wallet?.availableBalance)} />
-                  <InfoRow label="Ngày tạo ví" value={formatDateTime(detail.wallet?.createdAt)} />
+                  <InfoRow label="Ngày tạo ví" value={formatVietnamDateTime(detail.wallet?.createdAt, '-')} />
                 </div>
               </section>
 
@@ -326,7 +317,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
                       {detail.transactions.content.map(tx => (
                         <tr key={tx.id}>
-                          <td className="py-3 text-gray-500 dark:text-gray-400">{formatDateTime(tx.createdAt)}</td>
+                          <td className="py-3 text-gray-500 dark:text-gray-400">{formatVietnamDateTime(tx.createdAt, '-')}</td>
                           <td className="py-3">
                             <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${
                               isMoneyIn(tx.type)
@@ -383,7 +374,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                           <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.interestRate != null ? `${loan.interestRate}%` : '—'}</td>
                           <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.termMonths} tháng</td>
                           <td className="py-3 text-center"><Badge value={loan.status} /></td>
-                          <td className="py-3 text-right text-gray-500 dark:text-gray-400">{formatDate(loan.createdAt)}</td>
+                          <td className="py-3 text-right text-gray-500 dark:text-gray-400">{formatVietnamDate(loan.createdAt, '-')}</td>
                         </tr>
                       ))}
                       {detail.loans.content.length === 0 && (
@@ -551,7 +542,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
                   </td>
                   <td className="px-4 py-3.5 text-center"><Badge value={user.kycStatus} /></td>
                   <td className="px-4 py-3.5 text-center"><Badge value={user.accountStatus} /></td>
-                  <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs">{formatDate(user.createdAt)}</td>
+                  <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs">{formatVietnamDate(user.createdAt, '-')}</td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center justify-center gap-1.5">
                       <button

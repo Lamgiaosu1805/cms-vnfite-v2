@@ -12,6 +12,14 @@ Web admin CMS cho nền tảng P2P Lending VNFITE. Xây dựng bằng Vite + Rea
 
 **Quy tắc commit & push:** Không tự ý chạy `git commit` hay `git push`. Chỉ **gen câu lệnh** để người dùng tự chạy. Commit message ngắn gọn, 1 dòng.
 
+## Múi giờ và định dạng ngày giờ
+
+- Toàn bộ CMS bắt buộc hiển thị theo `Asia/Ho_Chi_Minh` (`UTC+7`), không phụ thuộc timezone của máy admin hoặc trình duyệt.
+- Mọi màn phải dùng formatter chung trong `src/utils/dateTime.ts`; không gọi `toLocaleDateString('vi-VN')` hoặc `toLocaleString('vi-VN')` trực tiếp.
+- Ngày hiển thị dạng zero-padded `dd/MM/yyyy`, ví dụ `22/01/2021`; ngày giờ dùng `HH:mm:ss dd/MM/yyyy` khi cần giây.
+- `LocalDate` dạng `yyyy-MM-dd` phải format trực tiếp để không lệch ngày. `LocalDateTime` backend không có offset được hiểu là giờ Việt Nam `+07:00`; timestamp có offset phải quy đổi về `Asia/Ho_Chi_Minh`.
+- Giá trị mặc định cho input ngày như ngày tra CIC phải lấy ngày hiện tại tại Việt Nam, không lấy ngày local của trình duyệt.
+
 ## Tech Stack
 
 - **Framework:** Vite + React 19 + TypeScript
