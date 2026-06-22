@@ -1837,14 +1837,18 @@ function ContractsSection({ loanId }: { loanId: string }) {
   );
 }
 
-// ─── Giải ngân (OPS) ────────────────────────────────────────────────────────────
+// ─── Giải ngân (ADMIN) ───────────────────────────────────────────────────────────
 
 function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [acting, setActing]         = useState(false);
   const [error, setError]           = useState('');
 
+  const admin = getStoredAdmin();
+  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+
   if (loan.status !== 'AWAITING_DISBURSEMENT') return null;
+  if (!isLeader) return null;
 
   const handleDisburse = async () => {
     setActing(true);
