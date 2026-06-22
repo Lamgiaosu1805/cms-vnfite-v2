@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Package, ShieldCheck, Users } from 'lucide-react';
+import { ArrowDownUp, BarChart3, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Package, ShieldCheck, Users } from 'lucide-react';
 import type { AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
-export type TabKey = 'dashboard' | 'users' | 'loans' | 'products' | 'admins' | 'audit';
+export type TabKey = 'dashboard' | 'users' | 'transactions' | 'loans' | 'products' | 'admins' | 'audit';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -33,6 +33,7 @@ export function Sidebar({
   const allItems: { key: TabKey; label: string; icon: React.ReactNode; roles?: string[] }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
     { key: 'users', label: 'Khách hàng', icon: <Users size={18} /> },
+    { key: 'transactions', label: 'Giao dịch nạp/rút', icon: <ArrowDownUp size={18} /> },
     { key: 'loans', label: 'Danh sách gọi vốn', icon: <CircleDollarSign size={18} /> },
     { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} /> },
     // Audit log: chỉ ADMIN và SUPER_ADMIN thấy được

@@ -11,6 +11,7 @@ import { LoansPage } from './pages/LoansPage';
 import { LoanProductsPage } from './pages/LoanProductsPage';
 import { AdminsPage } from './pages/AdminsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
+import { TransactionsPage } from './pages/TransactionsPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
@@ -18,6 +19,7 @@ import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './l
 const PAGE_TITLES: Record<TabKey, string> = {
   dashboard: 'Dashboard',
   users: 'Khách hàng',
+  transactions: 'Giao dịch nạp/rút',
   loans: 'Gọi vốn',
   products: 'Sản phẩm gọi vốn',
   admins: 'Quản lý Admin',
@@ -325,6 +327,7 @@ export default function App() {
               ? <CustomerDetailPage userId={selectedCustomerId} onBack={handleBackFromCustomer} />
               : <UsersPage onViewCustomer={(user) => handleViewCustomer(user.userId)} />
           )}
+          {tab === 'transactions' && <TransactionsPage />}
           {tab === 'loans'     && (
             <LoansPage
               key={loanStatus || 'all'}

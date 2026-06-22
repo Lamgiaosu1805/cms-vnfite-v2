@@ -40,6 +40,8 @@ Vite dev proxy: `/cms` → `http://42.113.122.119:7080` (tránh CORS khi dev loc
 
 **Bắt buộc dùng axios** để call API — không dùng `fetch` hay `XMLHttpRequest` trực tiếp. Cấu hình interceptor (Bearer token, error handling, base URL) tập trung ở `src/api/client.ts`.
 
+Màn `Giao dịch nạp/rút` dùng `GET /cms/transactions` với phân trang và bộ lọc. Dữ liệu thuộc `payment-service/payment_db`; CMS web và `cms_db` không được mirror hoặc tự tính lại giao dịch.
+
 ## Dark Mode
 
 CMS đã có dark mode. Toggle bằng nút mặt trăng/mặt trời ở header, lưu vào `localStorage` key `cms_theme`. Cơ chế: toggle class `dark` trên `document.documentElement` → Tailwind `dark:` variant.

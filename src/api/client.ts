@@ -289,7 +289,8 @@ export interface PagedResponse<T> {
   content: T[];
   totalElements: number;
   totalPages: number;
-  number: number;
+  page: number;
+  number?: number;
   size: number;
 }
 
@@ -311,6 +312,45 @@ export async function fetchUsers(params: {
 
 export async function fetchCustomerDetail(userId: string): Promise<CustomerDetail> {
   return request(`/users/${userId}/detail?transactionSize=30&loanSize=30`);
+}
+
+// ─── System money transactions ─────────────────────────────────────────────
+
+export interface CmsSystemTransaction {
+  id: string;
+  userId: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  walletId: string;
+  vnfAccountNo: string | null;
+  type: 'DEPOSIT' | 'WITHDRAW';
+  amount: number;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  description: string | null;
+  referenceId: string | null;
+  externalRef: string | null;
+  balanceAfter: number | null;
+  createdAt: string;
+}
+
+export async function fetchSystemTransactions(params: {
+  search?: string;
+  type?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  size?: number;
+}): Promise<PagedResponse<CmsSystemTransaction>> {
+  const q = new URLSearchParams();
+  if (params.search) q.set('search', params.search);
+  if (params.type) q.set('type', params.type);
+  if (params.status) q.set('status', params.status);
+  if (params.from) q.set('from', params.from);
+  if (params.to) q.set('to', params.to);
+  q.set('page', String(params.page ?? 0));
+  q.set('size', String(params.size ?? 20));
+  return request(`/transactions?${q}`);
 }
 
 export async function decideKyc(userId: string, decision: 'APPROVED' | 'REJECTED', reason?: string): Promise<void> {
