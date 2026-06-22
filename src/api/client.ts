@@ -398,6 +398,12 @@ export interface CmsLoan {
   rejectionReason: string | null;
   reviewedBy: string | null;
   reviewedAt: string | null;
+  disbursedAt: string | null;
+  disbursedBy: string | null;
+  appraisalFee: number | null;
+  vatAmount: number | null;
+  totalFee: number | null;
+  netDisbursement: number | null;
   createdAt: string;
 }
 
@@ -863,4 +869,33 @@ export async function sendTestPush(title: string, body: string): Promise<{ sentT
     method: 'POST',
     data: { title, body },
   });
+}
+
+// ─── Fee Config ──────────────────────────────────────────────────────────────
+
+export interface FeeConfig {
+  id: number;
+  feeType: string;
+  feeName: string;
+  feeAmount: number;
+  calcType: 'FIXED' | 'PERCENTAGE';
+  vatRate: number;
+  isActive: boolean;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
+
+export async function getFeeConfigs(): Promise<FeeConfig[]> {
+  return request('/loans/fee-config');
+}
+
+export async function updateFeeConfig(payload: {
+  feeType: string;
+  feeName?: string;
+  feeAmount: number;
+  calcType?: 'FIXED' | 'PERCENTAGE';
+  vatRate?: number;
+  isActive?: boolean;
+}): Promise<FeeConfig> {
+  return request('/loans/fee-config', { method: 'PUT', data: payload });
 }

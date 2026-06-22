@@ -12,6 +12,7 @@ import { LoanProductsPage } from './pages/LoanProductsPage';
 import { AdminsPage } from './pages/AdminsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { TransactionsPage } from './pages/TransactionsPage';
+import { FeeConfigPage } from './pages/FeeConfigPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
@@ -24,6 +25,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   products: 'Sản phẩm gọi vốn',
   admins: 'Quản lý Admin',
   audit: 'Nhật ký quyết định',
+  'fee-config': 'Cấu hình phí',
 };
 
 type AppState =
@@ -335,9 +337,10 @@ export default function App() {
               onActionDone={() => setLoanCountsRefresh(v => v + 1)}
             />
           )}
-          {tab === 'products'  && <LoanProductsPage />}
-          {tab === 'admins'    && <AdminsPage />}
-          {tab === 'audit'     && <AuditLogPage />}
+          {tab === 'products'    && <LoanProductsPage />}
+          {tab === 'admins'      && <AdminsPage />}
+          {tab === 'audit'       && <AuditLogPage />}
+          {tab === 'fee-config'  && <FeeConfigPage />}
         </main>
       </div>
     </div>

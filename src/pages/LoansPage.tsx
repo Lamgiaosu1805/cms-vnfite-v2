@@ -1986,9 +1986,34 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
           </Section>
         )}
 
+        {/* Phí giải ngân — chỉ hiện sau khi đã giải ngân */}
+        {loan.totalFee != null && loan.totalFee > 0 && (
+          <Section title="Phí giải ngân">
+            {loan.appraisalFee != null && (
+              <DetailRow label="Phí thẩm định hồ sơ" value={formatMoney(loan.appraisalFee)} />
+            )}
+            {loan.vatAmount != null && (
+              <DetailRow label="VAT (10%)" value={formatMoney(loan.vatAmount)} />
+            )}
+            <DetailRow
+              label="Tổng phí khấu trừ"
+              value={<span className="text-red-600 dark:text-red-400 font-semibold">− {formatMoney(loan.totalFee)}</span>}
+            />
+            {loan.netDisbursement != null && (
+              <DetailRow
+                label="Số tiền thực nhận"
+                value={<span className="text-green-600 dark:text-green-400 font-bold">{formatMoney(loan.netDisbursement)}</span>}
+              />
+            )}
+          </Section>
+        )}
+
         {/* Thời gian */}
         <Section title="Thời gian">
           <DetailRow label="Ngày tạo" value={formatVietnamDate(loan.createdAt)} />
+          {loan.disbursedAt && (
+            <DetailRow label="Ngày giải ngân" value={formatVietnamDate(loan.disbursedAt)} />
+          )}
         </Section>
       </div>
 
