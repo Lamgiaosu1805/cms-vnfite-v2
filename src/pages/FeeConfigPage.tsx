@@ -291,7 +291,7 @@ export function FeeConfigPage() {
       <div className="rounded-lg border border-blue-100 dark:border-blue-900/40 bg-blue-50 dark:bg-blue-900/20 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
         <p className="font-semibold mb-1">Lưu ý</p>
         <ul className="space-y-0.5 list-disc list-inside text-blue-600 dark:text-blue-400">
-          <li>Phí được áp dụng tại thời điểm OPS bấm <strong>Giải ngân</strong>.</li>
+          <li>Phí được áp dụng tại thời điểm Admin bấm <strong>Giải ngân</strong>.</li>
           <li>Số tiền người gọi vốn nhận = Số tiền được duyệt − Tổng phí (phí + VAT).</li>
           <li>Thay đổi cấu hình chỉ ảnh hưởng đến các khoản chưa giải ngân.</li>
         </ul>
