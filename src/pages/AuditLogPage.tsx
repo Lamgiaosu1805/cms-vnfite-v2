@@ -4,6 +4,7 @@ import {
   type AuditLogEntry, type AppraisalSuggestion,
 } from '../api/client';
 import { ChevronDown, ChevronUp, Search, X, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { formatVietnamDateTime } from '../utils/dateTime';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -12,11 +13,7 @@ const fmtMoney = (v: number | null | undefined) =>
   v == null ? '—' : `${fmt.format(v)} ₫`;
 const fmtRate = (v: number | null | undefined) =>
   v == null ? '—' : `${v}%/năm`;
-const fmtDt = (s: string | null | undefined) => {
-  if (!s) return '—';
-  const d = new Date(s);
-  return d.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
+const fmtDt = formatVietnamDateTime;
 
 function bandTone(band: string | null): string {
   if (!band) return 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400';

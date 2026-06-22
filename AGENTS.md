@@ -77,6 +77,7 @@ npm run preview
 - Shared UI components live in `src/components/`.
 - Pages live in `src/pages/`.
 - Keep side effects and API calls predictable and centralized.
+- Use `Asia/Ho_Chi_Minh` for all date/time behavior and the shared `src/utils/dateTime.ts` formatter. Display zero-padded `dd/MM/yyyy` dates (for example `22/01/2021`) and do not rely on the browser timezone.
 
 ## Git
 

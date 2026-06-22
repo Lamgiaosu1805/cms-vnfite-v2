@@ -20,6 +20,11 @@ import {
   loanStatusLabel, type LoanStatusFilter,
   CONTRACT_TYPE_LABEL, CONTRACT_STATUS_LABEL,
 } from '../loanConstants';
+import {
+  formatVietnamDate,
+  parseVietnamDateTime,
+  todayVietnamDateString,
+} from '../utils/dateTime';
 
 function formatMoney(value: number | string | undefined | null) {
   return new Intl.NumberFormat('vi-VN', {
@@ -27,11 +32,6 @@ function formatMoney(value: number | string | undefined | null) {
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(Number(value || 0));
-}
-
-function formatDate(s: string | null | undefined) {
-  if (!s) return '-';
-  return new Date(s).toLocaleDateString('vi-VN');
 }
 
 function shortId(id: string | null | undefined) {
@@ -356,16 +356,13 @@ const CIC_DEBT_GROUP_OPTIONS = [
 const CIC_VALIDITY_DAYS = 30;
 
 function cicIsStale(checkedAt: string): boolean {
-  const d = new Date(checkedAt);
+  const d = parseVietnamDateTime(checkedAt);
   if (isNaN(d.getTime())) return false;
   return (Date.now() - d.getTime()) / 86400000 > CIC_VALIDITY_DAYS;
 }
 
 function todayLocalDateString(): string {
-  const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10);
+  return todayVietnamDateString();
 }
 
 /** Cổng loại trừ (docx §7) — chỉ tư vấn. Đỏ = HARD_REJECT, hổ phách = MANUAL_REVIEW. */
@@ -1077,7 +1074,7 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" title={doc.fileName ?? doc.fileId}>{doc.fileName ?? doc.fileId}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{DOC_TYPE_LABEL[doc.docType] ?? doc.docType} · {doc.createdAt ? formatDate(doc.createdAt) : 'Chưa rõ ngày'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{DOC_TYPE_LABEL[doc.docType] ?? doc.docType} · {doc.createdAt ? formatVietnamDate(doc.createdAt) : 'Chưa rõ ngày'}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {analysis && (
@@ -1667,7 +1664,7 @@ function RepaymentScheduleSection({ loanId }: { loanId: string }) {
                   className={`border-t border-gray-100 dark:border-gray-700 ${STATUS_ROW_CLS[r.status]}`}>
                   <td className="px-4 py-2.5 text-center font-bold text-gray-700 dark:text-gray-300">{r.periodNumber}</td>
                   <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                    {new Date(r.dueDate).toLocaleDateString('vi-VN')}
+                    {formatVietnamDate(r.dueDate)}
                   </td>
                   <td className="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
                     {formatMoney(r.principalDue)}
@@ -1813,7 +1810,7 @@ function ContractsSection({ loanId }: { loanId: string }) {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    {c.signedAt ? formatDate(c.signedAt) : '—'}
+                    {c.signedAt ? formatVietnamDate(c.signedAt) : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     {(c.signedDocumentUrl || c.documentUrl) ? (
@@ -1840,14 +1837,18 @@ function ContractsSection({ loanId }: { loanId: string }) {
   );
 }
 
-// ─── Giải ngân (OPS) ────────────────────────────────────────────────────────────
+// ─── Giải ngân (ADMIN) ───────────────────────────────────────────────────────────
 
 function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [acting, setActing]         = useState(false);
   const [error, setError]           = useState('');
 
+  const admin = getStoredAdmin();
+  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+
   if (loan.status !== 'AWAITING_DISBURSEMENT') return null;
+  if (!isLeader) return null;
 
   const handleDisburse = async () => {
     setActing(true);
@@ -1979,7 +1980,7 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         {(loan.reviewedBy || loan.reviewedAt || loan.rejectionReason) && (
           <Section title="Thẩm định">
             {loan.reviewedBy && <DetailRow label="Người thẩm định" value={loan.reviewedBy} />}
-            {loan.reviewedAt && <DetailRow label="Ngày thẩm định" value={formatDate(loan.reviewedAt)} />}
+            {loan.reviewedAt && <DetailRow label="Ngày thẩm định" value={formatVietnamDate(loan.reviewedAt)} />}
             {loan.rejectionReason && (
               <DetailRow
                 label="Lý do từ chối"
@@ -1989,9 +1990,34 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
           </Section>
         )}
 
+        {/* Phí giải ngân — chỉ hiện sau khi đã giải ngân */}
+        {loan.totalFee != null && loan.totalFee > 0 && (
+          <Section title="Phí giải ngân">
+            {loan.appraisalFee != null && (
+              <DetailRow label="Phí thẩm định hồ sơ" value={formatMoney(loan.appraisalFee)} />
+            )}
+            {loan.vatAmount != null && (
+              <DetailRow label="VAT (10%)" value={formatMoney(loan.vatAmount)} />
+            )}
+            <DetailRow
+              label="Tổng phí khấu trừ"
+              value={<span className="text-red-600 dark:text-red-400 font-semibold">− {formatMoney(loan.totalFee)}</span>}
+            />
+            {loan.netDisbursement != null && (
+              <DetailRow
+                label="Số tiền thực nhận"
+                value={<span className="text-green-600 dark:text-green-400 font-bold">{formatMoney(loan.netDisbursement)}</span>}
+              />
+            )}
+          </Section>
+        )}
+
         {/* Thời gian */}
         <Section title="Thời gian">
-          <DetailRow label="Ngày tạo" value={formatDate(loan.createdAt)} />
+          <DetailRow label="Ngày tạo" value={formatVietnamDate(loan.createdAt)} />
+          {loan.disbursedAt && (
+            <DetailRow label="Ngày giải ngân" value={formatVietnamDate(loan.disbursedAt)} />
+          )}
         </Section>
       </div>
 
@@ -2244,7 +2270,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
                     <Badge value={loan.status === 'ACTIVE' ? 'loan_active' : loan.status} />
                   </td>
                   <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs align-middle">
-                    {formatDate(loan.createdAt)}
+                    {formatVietnamDate(loan.createdAt)}
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
                     <button
