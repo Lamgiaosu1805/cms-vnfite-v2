@@ -240,7 +240,7 @@ export default function App() {
   }
 
   if (state.screen === 'login') {
-    return <LoginPage onPasswordVerified={handlePasswordVerified} notice={loginNotice} onNoticeDismiss={() => setLoginNotice('')} />;
+    return <LoginPage onPasswordVerified={handlePasswordVerified} onLoggedIn={handleLoggedIn} notice={loginNotice} onNoticeDismiss={() => setLoginNotice('')} />;
   }
 
   if (state.screen === 'totp-setup') {
