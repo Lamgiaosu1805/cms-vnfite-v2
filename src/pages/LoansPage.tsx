@@ -1423,6 +1423,20 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
               <MiniRow label="Số tiền đề xuất" value={formatMoney(loan.proposedAmount)} />
               <MiniRow label="Lãi suất đề xuất" value={loan.proposedInterestRate != null ? `${loan.proposedInterestRate}%/năm` : '—'} />
               <MiniRow label="Phí thẩm định" value={loan.appraisalFeeRate != null && loan.appraisalFeeRate > 0 ? `${loan.appraisalFeeRate}%` : '0% (miễn phí)'} />
+              {(loan.totalFee != null && loan.totalFee > 0) && (
+                <div className="mt-1 mb-1 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 px-3 py-2 space-y-1">
+                  <MiniRow label={`Phí thẩm định (${loan.appraisalFeeRate}%)`} value={formatMoney(loan.appraisalFee)} />
+                  <MiniRow label="VAT (10%)" value={formatMoney(loan.vatAmount)} />
+                  <div className="flex justify-between items-start gap-3 py-1 border-t border-gray-200 dark:border-gray-600">
+                    <span className="text-xs text-red-600 dark:text-red-400 font-semibold shrink-0">Tổng khấu trừ</span>
+                    <span className="text-xs text-red-600 dark:text-red-400 text-right font-semibold">{formatMoney(loan.totalFee)}</span>
+                  </div>
+                  <div className="flex justify-between items-start gap-3 py-1">
+                    <span className="text-xs text-green-700 dark:text-green-400 font-semibold shrink-0">Người gọi vốn nhận</span>
+                    <span className="text-xs text-green-700 dark:text-green-400 text-right font-semibold">{formatMoney(loan.netDisbursement)}</span>
+                  </div>
+                </div>
+              )}
               <MiniRow label="Thẩm định viên" value={loan.proposedBy ?? '—'} />
               {loan.appraisalNote && <MiniRow label="Ghi chú" value={loan.appraisalNote} />}
 
