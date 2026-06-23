@@ -1,14 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { AlertTriangle, BarChart3, CircleDollarSign, Lock, RefreshCw, Users } from 'lucide-react';
-import { login, saveLastUsername, getLastUsername } from '../api/client';
+import { login, saveLastUsername, getLastUsername, type LoginResult } from '../api/client';
 
 interface LoginPageProps {
   onPasswordVerified: (pendingToken: string, totpEnabled: boolean) => void;
+  onLoggedIn?: (result: LoginResult) => void;
   notice?: string;
   onNoticeDismiss?: () => void;
 }
 
-export function LoginPage({ onPasswordVerified, notice, onNoticeDismiss }: LoginPageProps) {
+export function LoginPage({ onPasswordVerified, onLoggedIn, notice, onNoticeDismiss }: LoginPageProps) {
   const [username, setUsername] = useState(getLastUsername);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,8 +21,12 @@ export function LoginPage({ onPasswordVerified, notice, onNoticeDismiss }: Login
     setLoading(true);
     try {
       saveLastUsername(username);
-      const { pendingToken, totpEnabled } = await login(username, password);
-      onPasswordVerified(pendingToken, totpEnabled);
+      const result = await login(username, password);
+      if (result.accessToken && result.admin) {
+        onLoggedIn?.({ admin: result.admin, mustChangePassword: result.mustChangePassword ?? false });
+      } else {
+        onPasswordVerified(result.pendingToken, result.totpEnabled);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');
       setLoading(false);

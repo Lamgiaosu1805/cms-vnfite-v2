@@ -97,6 +97,10 @@ export interface LoginResult {
 export interface LoginInitResult {
   pendingToken: string;
   totpEnabled: boolean;
+  /** Chỉ có khi APP_TOTP_REQUIRED=false — bỏ qua TOTP, đăng nhập thẳng */
+  accessToken?: string;
+  admin?: AdminInfo;
+  mustChangePassword?: boolean;
 }
 
 export interface TotpSetupData {
@@ -115,12 +119,16 @@ export async function setupSuperAdmin(payload: {
   return request('/auth/setup', { method: 'POST', data: payload });
 }
 
-/** Bước 1: xác thực mật khẩu → nhận pendingToken */
+/** Bước 1: xác thực mật khẩu → nhận pendingToken (hoặc accessToken trực tiếp khi TOTP tắt) */
 export async function login(username: string, password: string): Promise<LoginInitResult> {
-  return request<LoginInitResult>('/auth/login', {
+  const data = await request<LoginInitResult>('/auth/login', {
     method: 'POST',
     data: { username, password },
   });
+  if (data.accessToken && data.admin) {
+    saveSession(data.accessToken, data.admin);
+  }
+  return data;
 }
 
 /** Bước 2a: lấy QR code để thiết lập TOTP lần đầu */
