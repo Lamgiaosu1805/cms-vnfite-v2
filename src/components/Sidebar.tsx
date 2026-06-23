@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownUp, BarChart3, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Package, ShieldCheck, Users } from 'lucide-react';
+import { ArrowDownUp, BarChart3, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Package, ShieldCheck, Users, Wallet } from 'lucide-react';
 import type { AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
-export type TabKey = 'dashboard' | 'users' | 'transactions' | 'loans' | 'products' | 'admins' | 'audit';
+export type TabKey = 'dashboard' | 'users' | 'transactions' | 'loans' | 'products' | 'admins' | 'audit' | 'withdrawals';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -36,9 +36,10 @@ export function Sidebar({
     { key: 'transactions', label: 'Giao dịch nạp/rút', icon: <ArrowDownUp size={18} /> },
     { key: 'loans', label: 'Danh sách gọi vốn', icon: <CircleDollarSign size={18} /> },
     { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} /> },
+    { key: 'withdrawals', label: 'Giám sát rút tiền', icon: <Wallet size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS'] },
     // Audit log: chỉ ADMIN và SUPER_ADMIN thấy được
     { key: 'audit', label: 'Nhật ký quyết định', icon: <ClipboardList size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
-{ key: 'admins', label: 'Quản lý Admin', icon: <ShieldCheck size={18} />, roles: ['SUPER_ADMIN'] },
+    { key: 'admins', label: 'Quản lý Admin', icon: <ShieldCheck size={18} />, roles: ['SUPER_ADMIN'] },
   ];
   const navItems = allItems.filter(item => !item.roles || item.roles.includes(admin.role));
 
