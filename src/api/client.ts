@@ -883,3 +883,59 @@ export async function sendTestPush(title: string, body: string): Promise<{ sentT
   });
 }
 
+// ─── Withdrawal Monitoring ───────────────────────────────────────────────────
+
+export type WithdrawalMonitorStatus =
+  | 'INITIATED' | 'OTP_PENDING' | 'FUNDS_LOCKED'
+  | 'TRANSFER_INITIATED' | 'PROCESSING' | 'COMPLETED'
+  | 'TRANSFER_FAILED' | 'FUNDS_RELEASED' | 'FAILED' | 'CANCELLED';
+
+export interface WithdrawalSummary {
+  id: string;
+  userId: string;
+  customerPhone: string | null;
+  customerName: string | null;
+  amount: number;
+  bankName: string | null;
+  bankAccountNo: string | null;
+  status: WithdrawalMonitorStatus;
+  statusLabel: string;
+  transferRef: string | null;
+  providerTransferRef: string | null;
+  mbFtNumber: string | null;
+  failureReason: string | null;
+  retryCount: number;
+  maxRetries: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export async function fetchWithdrawalsForMonitoring(params: {
+  statuses?: WithdrawalMonitorStatus[];
+  page?: number;
+  size?: number;
+}): Promise<PagedResponse<WithdrawalSummary>> {
+  const q = new URLSearchParams();
+  (params.statuses ?? []).forEach(s => q.append('statuses', s));
+  q.set('page', String(params.page ?? 0));
+  q.set('size', String(params.size ?? 20));
+  return request(`/withdrawals/monitoring?${q}`);
+}
+
+export async function retryWithdrawal(withdrawalId: string): Promise<{ message: string }> {
+  return request(`/withdrawals/${withdrawalId}/retry`, { method: 'POST' });
+}
+
+export interface ResolveWithdrawalPayload {
+  wasSent: boolean;
+  ftNumber?: string;
+  note?: string;
+}
+
+export async function resolveWithdrawal(
+  withdrawalId: string,
+  payload: ResolveWithdrawalPayload,
+): Promise<{ message: string }> {
+  return request(`/withdrawals/${withdrawalId}/resolve`, { method: 'POST', data: payload });
+}
+
