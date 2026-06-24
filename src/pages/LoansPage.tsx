@@ -2302,7 +2302,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
                     <TruncatedText
-                      value={loan.productName ?? loan.purpose}
+                      value={loan.productName ?? 'Chưa xác định'}
                       className="mx-auto max-w-[180px] text-gray-600 dark:text-gray-400 text-xs"
                     />
                   </td>
