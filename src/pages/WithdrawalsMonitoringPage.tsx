@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  ListFilter,
+  RotateCcw,
+  SlidersHorizontal,
+  X,
+} from 'lucide-react';
+import {
   fetchWithdrawalsForMonitoring,
   retryWithdrawal,
   resolveWithdrawal,
@@ -7,14 +16,14 @@ import {
   type WithdrawalMonitorStatus,
   type ResolveWithdrawalPayload,
 } from '../api/client';
+import { formatVietnamDateTime } from '../utils/dateTime';
+
 function formatVND(amount: number): string {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 }
 
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 const STATUS_LABEL: Record<WithdrawalMonitorStatus, string> = {
@@ -49,6 +58,23 @@ const ALL_STATUSES: WithdrawalMonitorStatus[] = [
 ];
 
 const DEFAULT_STATUSES: WithdrawalMonitorStatus[] = ['TRANSFER_FAILED', 'FAILED', 'TRANSFER_INITIATED', 'PROCESSING'];
+const COMPLETED_STATUSES: WithdrawalMonitorStatus[] = ['COMPLETED'];
+
+type FilterPreset = 'attention' | 'completed' | 'all' | 'custom';
+
+function matchesStatuses(
+  statuses: Set<WithdrawalMonitorStatus>,
+  expected: WithdrawalMonitorStatus[],
+): boolean {
+  return statuses.size === expected.length && expected.every(status => statuses.has(status));
+}
+
+function getFilterPreset(statuses: Set<WithdrawalMonitorStatus>): FilterPreset {
+  if (statuses.size === 0) return 'all';
+  if (matchesStatuses(statuses, DEFAULT_STATUSES)) return 'attention';
+  if (matchesStatuses(statuses, COMPLETED_STATUSES)) return 'completed';
+  return 'custom';
+}
 
 type ModalState =
   | { type: 'retry'; id: string; amount: number }
@@ -64,6 +90,7 @@ export default function WithdrawalsMonitoringPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<Set<WithdrawalMonitorStatus>>(
     new Set(DEFAULT_STATUSES),
   );
+  const [showDetailedFilters, setShowDetailedFilters] = useState(false);
   const [modal, setModal] = useState<ModalState>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -82,21 +109,35 @@ export default function WithdrawalsMonitoringPage() {
       });
       setRows(result.content);
       setTotal(result.totalElements);
-    } catch (e: any) {
-      setError(e.message ?? 'Không thể tải danh sách.');
+    } catch (e: unknown) {
+      setError(errorMessage(e, 'Không thể tải danh sách.'));
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(page, selectedStatuses); }, [page, selectedStatuses, load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void load(page, selectedStatuses);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [page, selectedStatuses, load]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const activePreset = getFilterPreset(selectedStatuses);
+
+  const selectPreset = (preset: Exclude<FilterPreset, 'custom'>) => {
+    if (preset === 'attention') setSelectedStatuses(new Set(DEFAULT_STATUSES));
+    if (preset === 'completed') setSelectedStatuses(new Set(COMPLETED_STATUSES));
+    if (preset === 'all') setSelectedStatuses(new Set());
+    setPage(0);
+  };
 
   const toggleStatus = (s: WithdrawalMonitorStatus) => {
     setSelectedStatuses(prev => {
       const next = new Set(prev);
-      next.has(s) ? next.delete(s) : next.add(s);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
       return next;
     });
     setPage(0);
@@ -111,8 +152,8 @@ export default function WithdrawalsMonitoringPage() {
       setSuccessMsg(res.message);
       setModal(null);
       load(page, selectedStatuses);
-    } catch (e: any) {
-      setActionError(e.message ?? 'Thao tác thất bại.');
+    } catch (e: unknown) {
+      setActionError(errorMessage(e, 'Thao tác thất bại.'));
     } finally {
       setActionLoading(false);
     }
@@ -127,8 +168,8 @@ export default function WithdrawalsMonitoringPage() {
       setSuccessMsg(res.message);
       setModal(null);
       load(page, selectedStatuses);
-    } catch (e: any) {
-      setActionError(e.message ?? 'Thao tác thất bại.');
+    } catch (e: unknown) {
+      setActionError(errorMessage(e, 'Thao tác thất bại.'));
     } finally {
       setActionLoading(false);
     }
@@ -152,14 +193,92 @@ export default function WithdrawalsMonitoringPage() {
       {successMsg && (
         <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 text-sm">
           <span>{successMsg}</span>
-          <button onClick={() => setSuccessMsg(null)} className="text-green-500 hover:text-green-700 dark:hover:text-green-200">✕</button>
+          <button
+            type="button"
+            onClick={() => setSuccessMsg(null)}
+            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-green-500 hover:text-green-700 hover:bg-green-100 dark:hover:text-green-200 dark:hover:bg-green-900/40"
+            aria-label="Đóng thông báo"
+          >
+            <X size={16} />
+          </button>
         </div>
       )}
 
-      {/* Status filter */}
-      <div className="flex flex-wrap gap-2">
-        {ALL_STATUSES.map(s => (
+      {/* Primary operational views */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-1">
           <button
+            type="button"
+            onClick={() => selectPreset('attention')}
+            className={`h-9 px-3 inline-flex items-center gap-2 rounded-md text-sm font-semibold transition-colors ${
+              activePreset === 'attention'
+                ? 'bg-white dark:bg-gray-700 text-[#C82020] dark:text-red-300 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            <AlertCircle size={16} />
+            Cần xử lý
+          </button>
+          <button
+            type="button"
+            onClick={() => selectPreset('completed')}
+            className={`h-9 px-3 inline-flex items-center gap-2 rounded-md text-sm font-semibold transition-colors ${
+              activePreset === 'completed'
+                ? 'bg-white dark:bg-gray-700 text-green-700 dark:text-green-300 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            <CheckCircle2 size={16} />
+            Hoàn tất
+          </button>
+          <button
+            type="button"
+            onClick={() => selectPreset('all')}
+            className={`h-9 px-3 inline-flex items-center gap-2 rounded-md text-sm font-semibold transition-colors ${
+              activePreset === 'all'
+                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+            }`}
+          >
+            <ListFilter size={16} />
+            Tất cả
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {!loading && (
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {total.toLocaleString('vi-VN')} giao dịch
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowDetailedFilters(value => !value)}
+            className={`h-9 px-3 inline-flex items-center gap-2 rounded-lg border text-sm font-semibold transition-colors ${
+              showDetailedFilters || activePreset === 'custom'
+                ? 'border-[#C82020] text-[#C82020] bg-red-50 dark:bg-red-950/30 dark:text-red-300 dark:border-red-700'
+                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
+            }`}
+          >
+            <SlidersHorizontal size={16} />
+            Lọc chi tiết
+            {activePreset === 'custom' && (
+              <span className="min-w-5 h-5 px-1 inline-flex items-center justify-center rounded-full bg-[#C82020] text-white text-[11px]">
+                {selectedStatuses.size}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {showDetailedFilters && (
+        <div className="flex flex-wrap items-center gap-2 py-3 border-y border-gray-100 dark:border-gray-800">
+          <span className="mr-1 text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">
+            Trạng thái
+          </span>
+          {ALL_STATUSES.map(s => (
+          <button
+            type="button"
             key={s}
             onClick={() => toggleStatus(s)}
             className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
@@ -172,12 +291,15 @@ export default function WithdrawalsMonitoringPage() {
           </button>
         ))}
         <button
-          onClick={() => { setSelectedStatuses(new Set(DEFAULT_STATUSES)); setPage(0); }}
-          className="px-3 py-1 rounded-full text-xs font-semibold border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-400 transition-all"
+          type="button"
+          onClick={() => selectPreset('attention')}
+          className="ml-auto h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-xs font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
-          Đặt lại
+          <RotateCcw size={14} />
+          Mặc định
         </button>
       </div>
+      )}
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -192,7 +314,24 @@ export default function WithdrawalsMonitoringPage() {
         ) : error ? (
           <div className="p-6 text-red-600 dark:text-red-400 text-sm text-center">{error}</div>
         ) : rows.length === 0 ? (
-          <div className="p-12 text-center text-gray-400 dark:text-gray-500 text-sm">Không có giao dịch nào khớp bộ lọc.</div>
+          <div className="min-h-44 flex flex-col items-center justify-center p-10 text-center">
+            {activePreset === 'attention' ? (
+              <CheckCircle2 size={34} className="mb-3 text-green-500 dark:text-green-400" />
+            ) : (
+              <ListFilter size={32} className="mb-3 text-gray-300 dark:text-gray-600" />
+            )}
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              {activePreset === 'attention' && 'Không có giao dịch cần xử lý'}
+              {activePreset === 'completed' && 'Chưa có giao dịch hoàn tất'}
+              {activePreset === 'all' && 'Chưa có giao dịch rút tiền'}
+              {activePreset === 'custom' && 'Không có giao dịch khớp bộ lọc chi tiết'}
+            </p>
+            {activePreset === 'attention' && (
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                Các lệnh rút tiền hiện không có lỗi hoặc trạng thái chờ xử lý.
+              </p>
+            )}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -247,7 +386,7 @@ export default function WithdrawalsMonitoringPage() {
                       ) : '—'}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
-                      {formatDateTime(row.createdAt)}
+                      {formatVietnamDateTime(row.createdAt)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 flex-nowrap">
@@ -318,8 +457,9 @@ export default function WithdrawalsMonitoringPage() {
             Khởi động lại lệnh rút tiền <span className="font-mono font-semibold">{modal.id.slice(0, 8)}…</span>
             {' '}số tiền <span className="font-semibold">{formatVND(modal.amount)}</span>.
           </p>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-            ⚠ Chỉ retry khi đã xác nhận lệnh chưa được gửi đến MB Bank.
+          <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300 mt-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>Chỉ retry khi đã xác nhận lệnh chưa được gửi đến MB Bank.</span>
           </p>
         </ConfirmModal>
       )}
@@ -402,8 +542,9 @@ export default function WithdrawalsMonitoringPage() {
               />
             </div>
           </div>
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-3">
-            ⚠ Thao tác này không thể hoàn tác. Chỉ thực hiện sau khi đã xác minh tại hệ thống ngân hàng.
+          <p className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300 mt-3">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>Thao tác này không thể hoàn tác. Chỉ thực hiện sau khi đã xác minh tại hệ thống ngân hàng.</span>
           </p>
         </ConfirmModal>
       )}
@@ -435,7 +576,14 @@ function ConfirmModal({ title, children, onClose, onConfirm, loading, error, con
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100 dark:border-gray-700">
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-100 dark:border-gray-700">
           <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">{title}</h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-lg">✕</button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            aria-label="Đóng"
+          >
+            <X size={17} />
+          </button>
         </div>
         <div className="px-5 py-4">
           {children}
