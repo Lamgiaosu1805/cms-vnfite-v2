@@ -369,7 +369,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                       {detail.loans.content.map(loan => (
                         <tr key={loan.loanId}>
                           <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">{loan.loanCode || loan.loanId.slice(0, 8)}</td>
-                          <td className="py-3 text-gray-700 dark:text-gray-200">{loan.productName || loan.purpose || '—'}</td>
+                          <td className="py-3 text-gray-700 dark:text-gray-200">{loan.productName || 'Chưa xác định'}</td>
                           <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(loan.amount)}</td>
                           <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.interestRate != null ? `${loan.interestRate}%` : '—'}</td>
                           <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.termMonths} tháng</td>
