@@ -224,6 +224,33 @@ export interface DashboardStats {
   totalFundedVolume: number;
   todayNewLoans: number;
   todayLoanVolume: number;
+  debtAsOfDate: string | null;
+  dueWithinDays: number;
+  dueSoonInstallments: number;
+  dueSoonCustomers: number;
+  overdueInstallments: number;
+  overdueCustomers: number;
+  outstandingPrincipal: number;
+  outstandingInterest: number;
+  outstandingLateFee: number;
+  totalOutstanding: number;
+  repaymentAttentionItems: RepaymentAttentionItem[];
+}
+
+export interface RepaymentAttentionItem {
+  loanId: string;
+  loanCode: string | null;
+  borrowerId: string;
+  borrowerName: string | null;
+  borrowerPhone: string | null;
+  periodNumber: number | null;
+  dueDate: string;
+  dpd: number;
+  status: 'OVERDUE' | 'DUE_SOON';
+  principalOutstanding: number;
+  interestOutstanding: number;
+  lateFeeOutstanding: number;
+  totalOutstanding: number;
 }
 
 export interface ChartPoint {
@@ -938,4 +965,3 @@ export async function resolveWithdrawal(
 ): Promise<{ message: string }> {
   return request(`/withdrawals/${withdrawalId}/resolve`, { method: 'POST', data: payload });
 }
-

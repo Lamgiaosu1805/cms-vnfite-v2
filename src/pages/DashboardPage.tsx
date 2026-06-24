@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  BarChart3, Bell, CircleDollarSign, RefreshCw, Send, Smartphone, TrendingUp, Users,
+  AlertTriangle, BarChart3, Bell, CalendarClock, CircleDollarSign, RefreshCw,
+  Send, Smartphone, TrendingUp, Users, WalletCards,
 } from 'lucide-react';
 import {
   fetchChart, fetchStats, getFcmDeviceCount, sendTestPush,
-  type ChartPeriod, type ChartPoint, type DashboardStats,
+  type ChartPeriod, type ChartPoint, type DashboardStats, type RepaymentAttentionItem,
 } from '../api/client';
 
 // ─── Dark-mode observer ───────────────────────────────────────────────────────
@@ -37,6 +38,12 @@ function shortMoney(v: number) {
   return v > 0 ? v.toString() : '';
 }
 
+function formatDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const [year, month, day] = value.slice(0, 10).split('-');
+  return year && month && day ? `${day}/${month}/${year}` : '—';
+}
+
 // ─── Metric card ──────────────────────────────────────────────────────────────
 
 function Metric({ label, value, icon, color, sub }: {
@@ -63,6 +70,112 @@ const PERIODS: { key: ChartPeriod; label: string }[] = [
   { key: 'month', label: 'Tháng' },
   { key: 'year',  label: 'Năm' },
 ];
+
+// ─── Debt monitoring ─────────────────────────────────────────────────────────
+
+function DebtDonut({ stats }: { stats: DashboardStats }) {
+  const total = Number(stats.totalOutstanding || 0);
+  const principal = Number(stats.outstandingPrincipal || 0);
+  const interest = Number(stats.outstandingInterest || 0);
+  const lateFee = Number(stats.outstandingLateFee || 0);
+  const principalPct = total > 0 ? (principal / total) * 100 : 0;
+  const interestPct = total > 0 ? (interest / total) * 100 : 0;
+  const donutBackground = total > 0
+    ? `conic-gradient(#C82020 0 ${principalPct}%, #E8A030 ${principalPct}% ${principalPct + interestPct}%, #7C3AED ${principalPct + interestPct}% 100%)`
+    : 'conic-gradient(#E5E7EB 0 100%)';
+
+  const parts = [
+    { label: 'Gốc còn lại', value: principal, color: '#C82020' },
+    { label: 'Lãi còn lại', value: interest, color: '#E8A030' },
+    { label: 'Phí phạt', value: lateFee, color: '#7C3AED' },
+  ];
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="mb-5">
+        <h3 className="font-bold text-gray-900 dark:text-gray-100">Cơ cấu dư nợ</h3>
+        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Cập nhật đến {formatDate(stats.debtAsOfDate)}</p>
+      </div>
+      <div className="flex flex-col items-center gap-6 sm:flex-row xl:flex-col 2xl:flex-row">
+        <div className="relative h-44 w-44 shrink-0 rounded-full" style={{ background: donutBackground }}>
+          <div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white text-center dark:bg-gray-800">
+            <span className="text-xs text-gray-400 dark:text-gray-500">Tổng dư nợ</span>
+            <strong className="mt-1 text-base text-gray-900 dark:text-gray-100">{shortMoney(total) || '0 đ'}</strong>
+          </div>
+        </div>
+        <div className="w-full space-y-3">
+          {parts.map(part => (
+            <div key={part.label} className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: part.color }} />
+                {part.label}
+              </span>
+              <strong className="text-gray-800 dark:text-gray-100">{formatMoney(part.value)}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RepaymentTable({ items }: { items: RepaymentAttentionItem[] }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-5 py-4 dark:border-gray-700">
+        <div>
+          <h3 className="font-bold text-gray-900 dark:text-gray-100">Khách hàng cần theo dõi</h3>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Ưu tiên khoản quá hạn, sau đó đến kỳ trong 7 ngày</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">
+          {items.length} kỳ
+        </span>
+      </div>
+      <div className="max-h-[430px] overflow-auto">
+        <table className="w-full min-w-[850px] text-sm">
+          <thead className="sticky top-0 z-10 bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+            <tr>
+              <th className="px-4 py-3 text-left">Khách hàng</th>
+              <th className="px-4 py-3 text-center">Mã khoản</th>
+              <th className="px-4 py-3 text-center">Kỳ</th>
+              <th className="px-4 py-3 text-center">Đến hạn</th>
+              <th className="px-4 py-3 text-center">Trạng thái</th>
+              <th className="px-4 py-3 text-right">Gốc + lãi</th>
+              <th className="px-4 py-3 text-right">Phí phạt</th>
+              <th className="px-4 py-3 text-right">Tổng phải thu</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            {items.map(item => (
+              <tr key={`${item.loanId}-${item.periodNumber}`} className="hover:bg-gray-50/70 dark:hover:bg-gray-700/30">
+                <td className="px-4 py-3">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">{item.borrowerName || item.borrowerId}</p>
+                  <p className="mt-0.5 font-mono text-xs text-gray-400 dark:text-gray-500">{item.borrowerPhone || 'Chưa có SĐT'}</p>
+                </td>
+                <td className="px-4 py-3 text-center font-mono font-semibold text-gray-700 dark:text-gray-200">{item.loanCode || item.loanId.slice(0, 8)}</td>
+                <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">{item.periodNumber ?? '—'}</td>
+                <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-300">{formatDate(item.dueDate)}</td>
+                <td className="px-4 py-3 text-center">
+                  {item.status === 'OVERDUE' ? (
+                    <span className="inline-flex rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300">Quá hạn {item.dpd} ngày</span>
+                  ) : (
+                    <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">Sắp đến hạn</span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{formatMoney(item.principalOutstanding + item.interestOutstanding)}</td>
+                <td className="px-4 py-3 text-right text-purple-700 dark:text-purple-300">{formatMoney(item.lateFeeOutstanding)}</td>
+                <td className="px-4 py-3 text-right font-bold text-gray-900 dark:text-gray-100">{formatMoney(item.totalOutstanding)}</td>
+              </tr>
+            ))}
+            {items.length === 0 && (
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400 dark:text-gray-500">Không có kỳ thanh toán đến hạn hoặc quá hạn.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 // ─── Bar chart ────────────────────────────────────────────────────────────────
 
@@ -383,13 +496,38 @@ export function DashboardPage() {
         <Metric label="Đang gọi vốn" value={stats?.activeLoans ?? 0}
           sub={formatMoney(stats?.activeFundingVolume)}
           icon={<TrendingUp size={16} />} color="linear-gradient(135deg,#E8A030,#C47820)" />
-        <Metric label="Tổng khoản vay" value={stats?.totalLoans ?? 0}
+        <Metric label="Tổng khoản gọi vốn" value={stats?.totalLoans ?? 0}
           sub={`${stats?.pendingLoans ?? 0} chờ duyệt · ${stats?.activeLoans ?? 0} active`}
           icon={<CircleDollarSign size={16} />} color="linear-gradient(135deg,#C82020,#E84A20)" />
-        <Metric label="Tổng funded" value={formatMoney(stats?.totalFundedVolume)}
+        <Metric label="Tổng đã được đầu tư" value={formatMoney(stats?.totalFundedVolume)}
           sub={`+${formatMoney(stats?.todayLoanVolume)} hôm nay`}
           icon={<BarChart3 size={16} />} color="linear-gradient(135deg,#27AE60,#1E8449)" />
       </div>
+
+      {/* Debt metrics */}
+      {stats && (
+        <>
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <Metric label="Tổng dư nợ" value={formatMoney(stats.totalOutstanding)}
+              sub={`Gốc ${formatMoney(stats.outstandingPrincipal)}`}
+              icon={<WalletCards size={16} />} color="linear-gradient(135deg,#991B1B,#C82020)" />
+            <Metric label={`Đến hạn trong ${stats.dueWithinDays} ngày`} value={stats.dueSoonInstallments}
+              sub={`${stats.dueSoonCustomers} khách hàng`}
+              icon={<CalendarClock size={16} />} color="linear-gradient(135deg,#D97706,#F59E0B)" />
+            <Metric label="Kỳ đang quá hạn" value={stats.overdueInstallments}
+              sub={`${stats.overdueCustomers} khách hàng`}
+              icon={<AlertTriangle size={16} />} color="linear-gradient(135deg,#B91C1C,#EF4444)" />
+            <Metric label="Lãi + phí phạt còn lại" value={formatMoney(stats.outstandingInterest + stats.outstandingLateFee)}
+              sub={`Phí phạt ${formatMoney(stats.outstandingLateFee)}`}
+              icon={<CircleDollarSign size={16} />} color="linear-gradient(135deg,#6D28D9,#8B5CF6)" />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">
+            <DebtDonut stats={stats} />
+            <RepaymentTable items={stats.repaymentAttentionItems || []} />
+          </div>
+        </>
+      )}
 
       {/* Chart card */}
       <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
