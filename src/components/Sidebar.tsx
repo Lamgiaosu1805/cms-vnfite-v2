@@ -44,7 +44,7 @@ export function Sidebar({
   const navItems = allItems.filter(item => !item.roles || item.roles.includes(admin.role));
 
   return (
-    <aside className="w-60 min-h-screen flex flex-col shrink-0 text-white"
+    <aside className="w-60 h-full overflow-y-auto flex flex-col shrink-0 text-white"
       style={{ background: 'linear-gradient(180deg, #8B0A0A 0%, #A01515 100%)' }}>
 
       {/* Brand */}
