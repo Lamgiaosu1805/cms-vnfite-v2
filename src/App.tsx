@@ -286,7 +286,7 @@ export default function App() {
       : PAGE_TITLES[tab];
 
   return (
-    <div className="flex min-h-screen bg-[#FFF8F7] dark:bg-gray-950">
+    <div className="flex h-screen overflow-hidden bg-[#FFF8F7] dark:bg-gray-950">
       <Sidebar
         admin={admin}
         activeTab={tab}
@@ -297,7 +297,7 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-1 h-6 rounded-full" style={{ background: 'linear-gradient(180deg, #C82020, #8B0A0A)' }} />
