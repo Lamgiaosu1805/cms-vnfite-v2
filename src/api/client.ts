@@ -965,3 +965,64 @@ export async function resolveWithdrawal(
 ): Promise<{ message: string }> {
   return request(`/withdrawals/${withdrawalId}/resolve`, { method: 'POST', data: payload });
 }
+
+// ─── Reconciliation ──────────────────────────────────────────────────────────
+
+export interface ReconciliationSession {
+  id: string;
+  reconDate: string;
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  totalItems: number;
+  openItems: number;
+  runBy: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReconciliationItem {
+  id: string;
+  sessionId: string;
+  itemType: 'STALE_DEPOSIT' | 'STALE_WITHDRAWAL' | 'WITHDRAWAL_MB_MISMATCH' | 'FAILED_WITHDRAWAL_MB_SUCCESS';
+  severity: 'HIGH' | 'MEDIUM' | 'LOW';
+  walletId: string | null;
+  transactionId: string | null;
+  referenceId: string | null;
+  externalRef: string | null;
+  vnfiteStatus: string | null;
+  mbStatus: string | null;
+  amount: number | null;
+  description: string | null;
+  status: 'OPEN' | 'INVESTIGATING' | 'RESOLVED';
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  resolutionNotes: string | null;
+  createdAt: string;
+}
+
+export async function runReconciliation(date: string): Promise<ReconciliationSession> {
+  return request(`/reconciliation/run?date=${date}`, { method: 'POST' });
+}
+
+export async function fetchReconciliationSessions(page = 0, size = 20): Promise<PagedResponse<ReconciliationSession>> {
+  return request(`/reconciliation/sessions?page=${page}&size=${size}`);
+}
+
+export async function fetchReconciliationItems(
+  sessionId: string,
+  status?: string,
+  page = 0,
+  size = 50,
+): Promise<PagedResponse<ReconciliationItem>> {
+  const q = new URLSearchParams({ page: String(page), size: String(size) });
+  if (status) q.set('status', status);
+  return request(`/reconciliation/sessions/${sessionId}/items?${q}`);
+}
+
+export async function resolveReconciliationItem(itemId: string, notes: string): Promise<void> {
+  return request(`/reconciliation/items/${itemId}/resolve`, { method: 'PUT', data: { notes } });
+}
+
+export async function markReconciliationItemInvestigating(itemId: string): Promise<void> {
+  return request(`/reconciliation/items/${itemId}/investigate`, { method: 'PUT' });
+}

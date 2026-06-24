@@ -13,6 +13,7 @@ import { AdminsPage } from './pages/AdminsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 import WithdrawalsMonitoringPage from './pages/WithdrawalsMonitoringPage';
+import ReconciliationPage from './pages/ReconciliationPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
@@ -26,6 +27,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   admins: 'Quản lý Admin',
   audit: 'Nhật ký quyết định',
   withdrawals: 'Giám sát rút tiền',
+  reconciliation: 'Tra soát giao dịch',
 };
 
 type AppState =
@@ -340,7 +342,8 @@ export default function App() {
           {tab === 'products'    && <LoanProductsPage />}
           {tab === 'admins'      && <AdminsPage />}
           {tab === 'audit'       && <AuditLogPage />}
-          {tab === 'withdrawals' && <WithdrawalsMonitoringPage />}
+          {tab === 'withdrawals'    && <WithdrawalsMonitoringPage />}
+          {tab === 'reconciliation' && <ReconciliationPage />}
         </main>
       </div>
     </div>
