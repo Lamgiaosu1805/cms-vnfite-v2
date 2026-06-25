@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import {
   fetchChart, fetchStats, getFcmDeviceCount, sendTestPush,
-  type ChartPeriod, type ChartPoint, type DashboardStats, type RepaymentAttentionItem,
+  getStoredAdmin, type ChartPeriod, type ChartPoint, type DashboardStats, type RepaymentAttentionItem,
 } from '../api/client';
 
 // ─── Dark-mode observer ───────────────────────────────────────────────────────
@@ -444,6 +444,8 @@ function TestPushPanel() {
 
 export function DashboardPage() {
   const isDark = useDarkMode();
+  const admin = getStoredAdmin();
+  const canSendTestPush = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
   const [stats, setStats]               = useState<DashboardStats | null>(null);
   const [chart, setChart]               = useState<ChartPoint[]>([]);
   const [period, setPeriod]             = useState<ChartPeriod>('week');
@@ -591,7 +593,7 @@ export function DashboardPage() {
       </div>
 
       {/* Test push notification */}
-      <TestPushPanel />
+      {canSendTestPush && <TestPushPanel />}
     </div>
   );
 }

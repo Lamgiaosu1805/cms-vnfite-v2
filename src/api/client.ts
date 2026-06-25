@@ -22,10 +22,11 @@ axiosClient.interceptors.response.use(
   (err: AxiosError<{ message?: string; error?: string; detail?: string; details?: string[] }>) => {
     const status = err.response?.status ?? 0;
     const url = err.config?.url ?? '';
-    // Auth endpoints: 401/403 là lỗi nghiệp vụ (sai mật khẩu, sai OTP) — KHÔNG redirect
-    // Các endpoint khác: 401/403 nghĩa là session hết hạn → xóa session + reload về login
+    // Auth endpoints: 401/403 là lỗi nghiệp vụ (sai mật khẩu, sai OTP) — KHÔNG redirect.
+    // Các endpoint khác: chỉ 401 mới là hết phiên. 403 là thiếu quyền theo role
+    // (ví dụ OPS/Vận hành không được vào một số chức năng), không được xóa session.
     const isAuthEndpoint = url.includes('/auth/');
-    if ((status === 401 || status === 403) && !isAuthEndpoint) {
+    if (status === 401 && !isAuthEndpoint) {
       const hadSession = !!localStorage.getItem('cms_token');
       localStorage.removeItem('cms_token');
       localStorage.removeItem('cms_admin');
