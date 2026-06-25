@@ -413,6 +413,20 @@ export interface CmsLoan {
   borrowerId: string;
   borrowerName: string | null;
   borrowerPhone: string | null;
+  borrowerEmail: string | null;
+  borrowerCccdNumber: string | null;
+  borrowerKycStatus: string | null;
+  borrowerAccountStatus: string | null;
+  borrowerDateOfBirth: string | null;
+  borrowerGender: string | null;
+  borrowerPermanentAddress: string | null;
+  borrowerHometown: string | null;
+  borrowerIssueDate: string | null;
+  borrowerIssuingAuthority: string | null;
+  borrowerExpiryDate: string | null;
+  borrowerFrontImageId: string | null;
+  borrowerBackImageId: string | null;
+  borrowerPortraitImageId: string | null;
   productName: string | null;
   amount: number;
   /** Null khi mới tạo — set khi ban lãnh đạo phê duyệt */
@@ -427,6 +441,14 @@ export interface CmsLoan {
   termMonths: number;
   repaymentDay: number | null;
   purpose: string | null;
+  ref1FullName: string | null;
+  ref1Relationship: string | null;
+  ref1Phone: string | null;
+  ref1Address: string | null;
+  ref2FullName: string | null;
+  ref2Relationship: string | null;
+  ref2Phone: string | null;
+  ref2Address: string | null;
   occupation: string | null;
   workplace: string | null;
   monthlyIncome: number | null;
