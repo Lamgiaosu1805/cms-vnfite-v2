@@ -105,16 +105,13 @@ function DebtDonut({ stats }: { stats: DashboardStats }) {
         </div>
         <div className="min-w-0 space-y-3">
           {parts.map(part => (
-            <div key={part.label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm">
-              <span className="flex min-w-0 items-center gap-2 text-gray-500 dark:text-gray-400">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: part.color }} />
-                <span className="min-w-0 truncate">{part.label}</span>
+            <div key={part.label} className="rounded-xl bg-gray-50 px-3 py-2.5 text-sm dark:bg-gray-900/40">
+              <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: part.color }} />
+                <span>{part.label}</span>
               </span>
-              <strong
-                className="whitespace-nowrap text-right text-gray-800 dark:text-gray-100"
-                title={formatMoney(part.value)}
-              >
-                {shortMoney(part.value) || '0 đ'}
+              <strong className="mt-1 block break-words pl-4 text-gray-900 dark:text-gray-100">
+                {formatMoney(part.value)}
               </strong>
             </div>
           ))}
