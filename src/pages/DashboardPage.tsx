@@ -96,21 +96,23 @@ function DebtDonut({ stats }: { stats: DashboardStats }) {
         <h3 className="font-bold text-gray-900 dark:text-gray-100">Cơ cấu dư nợ</h3>
         <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Cập nhật đến {formatDate(stats.debtAsOfDate)}</p>
       </div>
-      <div className="flex flex-col items-center gap-6 sm:flex-row xl:flex-col 2xl:flex-row">
-        <div className="relative h-44 w-44 shrink-0 rounded-full" style={{ background: donutBackground }}>
+      <div className="space-y-6">
+        <div className="relative mx-auto h-44 w-44 shrink-0 rounded-full" style={{ background: donutBackground }}>
           <div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white text-center dark:bg-gray-800">
             <span className="text-xs text-gray-400 dark:text-gray-500">Tổng dư nợ</span>
             <strong className="mt-1 text-base text-gray-900 dark:text-gray-100">{shortMoney(total) || '0 đ'}</strong>
           </div>
         </div>
-        <div className="w-full space-y-3">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
           {parts.map(part => (
-            <div key={part.label} className="flex items-center justify-between gap-3 text-sm">
+            <div key={part.label} className="rounded-xl bg-gray-50 px-3 py-2.5 text-sm dark:bg-gray-900/40">
               <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: part.color }} />
-                {part.label}
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: part.color }} />
+                <span>{part.label}</span>
               </span>
-              <strong className="text-gray-800 dark:text-gray-100">{formatMoney(part.value)}</strong>
+              <strong className="mt-1 block break-words pl-4 text-gray-900 dark:text-gray-100">
+                {formatMoney(part.value)}
+              </strong>
             </div>
           ))}
         </div>
