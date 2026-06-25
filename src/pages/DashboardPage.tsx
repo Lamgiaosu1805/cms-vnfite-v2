@@ -96,21 +96,26 @@ function DebtDonut({ stats }: { stats: DashboardStats }) {
         <h3 className="font-bold text-gray-900 dark:text-gray-100">Cơ cấu dư nợ</h3>
         <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Cập nhật đến {formatDate(stats.debtAsOfDate)}</p>
       </div>
-      <div className="flex flex-col items-center gap-6 sm:flex-row xl:flex-col 2xl:flex-row">
-        <div className="relative h-44 w-44 shrink-0 rounded-full" style={{ background: donutBackground }}>
+      <div className="grid gap-6 min-[420px]:grid-cols-[176px_minmax(0,1fr)] xl:grid-cols-1 2xl:grid-cols-[176px_minmax(0,1fr)]">
+        <div className="relative mx-auto h-44 w-44 shrink-0 rounded-full" style={{ background: donutBackground }}>
           <div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white text-center dark:bg-gray-800">
             <span className="text-xs text-gray-400 dark:text-gray-500">Tổng dư nợ</span>
             <strong className="mt-1 text-base text-gray-900 dark:text-gray-100">{shortMoney(total) || '0 đ'}</strong>
           </div>
         </div>
-        <div className="w-full space-y-3">
+        <div className="min-w-0 space-y-3">
           {parts.map(part => (
-            <div key={part.label} className="flex items-center justify-between gap-3 text-sm">
-              <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+            <div key={part.label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 text-sm">
+              <span className="flex min-w-0 items-center gap-2 text-gray-500 dark:text-gray-400">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: part.color }} />
-                {part.label}
+                <span className="min-w-0 truncate">{part.label}</span>
               </span>
-              <strong className="text-gray-800 dark:text-gray-100">{formatMoney(part.value)}</strong>
+              <strong
+                className="whitespace-nowrap text-right text-gray-800 dark:text-gray-100"
+                title={formatMoney(part.value)}
+              >
+                {shortMoney(part.value) || '0 đ'}
+              </strong>
             </div>
           ))}
         </div>
