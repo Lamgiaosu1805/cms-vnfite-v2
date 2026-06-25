@@ -96,14 +96,14 @@ function DebtDonut({ stats }: { stats: DashboardStats }) {
         <h3 className="font-bold text-gray-900 dark:text-gray-100">Cơ cấu dư nợ</h3>
         <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Cập nhật đến {formatDate(stats.debtAsOfDate)}</p>
       </div>
-      <div className="grid gap-6 min-[420px]:grid-cols-[176px_minmax(0,1fr)] xl:grid-cols-1 2xl:grid-cols-[176px_minmax(0,1fr)]">
+      <div className="space-y-6">
         <div className="relative mx-auto h-44 w-44 shrink-0 rounded-full" style={{ background: donutBackground }}>
           <div className="absolute inset-6 flex flex-col items-center justify-center rounded-full bg-white text-center dark:bg-gray-800">
             <span className="text-xs text-gray-400 dark:text-gray-500">Tổng dư nợ</span>
             <strong className="mt-1 text-base text-gray-900 dark:text-gray-100">{shortMoney(total) || '0 đ'}</strong>
           </div>
         </div>
-        <div className="min-w-0 space-y-3">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
           {parts.map(part => (
             <div key={part.label} className="rounded-xl bg-gray-50 px-3 py-2.5 text-sm dark:bg-gray-900/40">
               <span className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
