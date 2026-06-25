@@ -10,6 +10,7 @@ import {
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep,
+  fetchFileBlob,
   type CmsLoan, type AppraisalSuggestion, type FraudCheck,
   type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
@@ -71,6 +72,68 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500 mb-3">{title}</p>
       {children}
+    </div>
+  );
+}
+
+function KycImageCard({
+  title,
+  fileId,
+  portrait = false,
+}: {
+  title: string;
+  fileId: string | null | undefined;
+  portrait?: boolean;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!fileId) {
+      setBlobUrl(null);
+      setFailed(false);
+      return;
+    }
+    let cancelled = false;
+    setBlobUrl(null);
+    setFailed(false);
+    fetchFileBlob(fileId)
+      .then(url => {
+        if (!cancelled) setBlobUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+      setBlobUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
+  }, [fileId]);
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/70">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</p>
+      {blobUrl ? (
+        <a href={blobUrl} target="_blank" rel="noreferrer" className="block">
+          <img
+            src={blobUrl}
+            alt={title}
+            className={`w-full rounded-lg border border-gray-100 bg-white object-cover shadow-sm dark:border-gray-700 dark:bg-gray-900 ${
+              portrait ? 'aspect-[3/4] max-h-[340px]' : 'aspect-[16/10] max-h-[260px]'
+            }`}
+          />
+        </a>
+      ) : (
+        <div className={`flex w-full items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white px-4 text-center text-sm text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500 ${
+          portrait ? 'aspect-[3/4] max-h-[340px]' : 'aspect-[16/10] max-h-[260px]'
+        }`}>
+          {failed ? 'Không tải được ảnh' : fileId ? 'Đang tải ảnh...' : 'Chưa có ảnh'}
+        </div>
+      )}
     </div>
   );
 }
@@ -1988,6 +2051,18 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         {/* Người gọi vốn */}
         <Section title="Người gọi vốn">
           <DetailRow label="Họ tên" value={loan.borrowerName ?? '—'} />
+          <DetailRow label="Số điện thoại" value={loan.borrowerPhone ?? '—'} />
+          <DetailRow label="Email" value={loan.borrowerEmail ?? '—'} />
+          <DetailRow label="Số CCCD" value={loan.borrowerCccdNumber ?? '—'} />
+          <DetailRow label="Trạng thái KYC" value={<Badge value={loan.borrowerKycStatus ?? 'NONE'} />} />
+          <DetailRow label="Trạng thái tài khoản" value={loan.borrowerAccountStatus ?? '—'} />
+          <DetailRow label="Ngày sinh" value={loan.borrowerDateOfBirth ? formatVietnamDate(loan.borrowerDateOfBirth) : '—'} />
+          <DetailRow label="Giới tính" value={loan.borrowerGender ?? '—'} />
+          <DetailRow label="Địa chỉ thường trú" value={loan.borrowerPermanentAddress ?? '—'} />
+          <DetailRow label="Quê quán" value={loan.borrowerHometown ?? '—'} />
+          <DetailRow label="Ngày cấp CCCD" value={loan.borrowerIssueDate ? formatVietnamDate(loan.borrowerIssueDate) : '—'} />
+          <DetailRow label="Nơi cấp CCCD" value={loan.borrowerIssuingAuthority ?? '—'} />
+          <DetailRow label="Ngày hết hạn CCCD" value={loan.borrowerExpiryDate ? formatVietnamDate(loan.borrowerExpiryDate) : '—'} />
           <DetailRow
             label="Mã khách hàng"
             value={<span className="font-mono text-gray-400 dark:text-gray-500">{shortId(loan.borrowerId)}</span>}
@@ -2014,18 +2089,48 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         </Section>
 
         {/* Thông tin bổ sung */}
-        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.currentAddress || loan.commune || loan.province) && (
+        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.currentAddress || loan.commune || loan.province || loan.ref1FullName || loan.ref2FullName) && (
           <Section title="Thông tin bổ sung">
             {loan.occupation && <DetailRow label="Nghề nghiệp" value={loan.occupation} />}
-            <DetailRow label="Nơi làm việc" value={loan.workplace ?? 'Không có'} />
+            <DetailRow label="Tên cơ sở/nơi làm việc" value={loan.workplace ?? 'Không có'} />
+            <DetailRow label="Địa chỉ nơi làm việc" value={loan.workplace ?? 'Chưa có thông tin riêng'} />
             {loan.monthlyIncome != null && (
               <DetailRow label="Thu nhập/tháng" value={formatMoney(loan.monthlyIncome)} />
             )}
             {loan.currentAddress && <DetailRow label="Địa chỉ chi tiết" value={loan.currentAddress} />}
             {loan.commune && <DetailRow label="Xã/Phường" value={loan.commune} />}
             {loan.province && <DetailRow label="Tỉnh/Thành phố" value={loan.province} />}
+            {(loan.ref1FullName || loan.ref1Phone || loan.ref1Relationship || loan.ref1Address) && (
+              <div className="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/70">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Người tham chiếu 1</p>
+                <DetailRow label="Họ tên" value={loan.ref1FullName ?? '—'} />
+                <DetailRow label="Quan hệ" value={loan.ref1Relationship ?? '—'} />
+                <DetailRow label="Số điện thoại" value={loan.ref1Phone ?? '—'} />
+                <DetailRow label="Địa chỉ" value={loan.ref1Address ?? '—'} />
+              </div>
+            )}
+            {(loan.ref2FullName || loan.ref2Phone || loan.ref2Relationship || loan.ref2Address) && (
+              <div className="mt-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/70">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Người tham chiếu 2</p>
+                <DetailRow label="Họ tên" value={loan.ref2FullName ?? '—'} />
+                <DetailRow label="Quan hệ" value={loan.ref2Relationship ?? '—'} />
+                <DetailRow label="Số điện thoại" value={loan.ref2Phone ?? '—'} />
+                <DetailRow label="Địa chỉ" value={loan.ref2Address ?? '—'} />
+              </div>
+            )}
           </Section>
         )}
+
+        {/* Ảnh định danh */}
+        <div className="lg:col-span-2">
+          <Section title="Ảnh định danh eKYC">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <KycImageCard title="CCCD mặt trước" fileId={loan.borrowerFrontImageId} />
+              <KycImageCard title="CCCD mặt sau" fileId={loan.borrowerBackImageId} />
+              <KycImageCard title="Ảnh chân dung" fileId={loan.borrowerPortraitImageId} portrait />
+            </div>
+          </Section>
+        </div>
 
         {/* Thẩm định */}
         {(loan.reviewedBy || loan.reviewedAt || loan.rejectionReason) && (
