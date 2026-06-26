@@ -6,6 +6,7 @@ import {
   resetAdminPassword,
   resetAdminTotp,
   toggleAdminActive,
+  updateAdminRole,
   type AdminItem,
   type CreateAdminResult,
   type ResetAdminPasswordResult,
@@ -202,6 +203,23 @@ export function AdminsPage() {
     }
   }
 
+  async function handleRoleChange(admin: AdminItem, nextRole: 'ADMIN' | 'OPS') {
+    if (nextRole === admin.role) return;
+    if (!window.confirm(`Đổi quyền tài khoản ${admin.username} từ ${admin.role} sang ${nextRole}?`)) {
+      setAdmins((current) => [...current]);
+      return;
+    }
+    setActionLoadingId(admin.id);
+    try {
+      await updateAdminRole(admin.id, nextRole);
+      load();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Lỗi đổi quyền');
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -244,13 +262,24 @@ export function AdminsPage() {
                 </td>
                 <td className="px-4 py-3.5 font-mono text-gray-700 dark:text-gray-300">{admin.username}</td>
                 <td className="px-4 py-3.5">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                    admin.role === 'SUPER_ADMIN'
-                      ? 'text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                  }`} style={admin.role === 'SUPER_ADMIN' ? { background: 'linear-gradient(135deg,#C82020,#8B0A0A)' } : {}}>
-                    {admin.role}
-                  </span>
+                  {admin.role === 'SUPER_ADMIN' ? (
+                    <span
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                      style={{ background: 'linear-gradient(135deg,#C82020,#8B0A0A)' }}
+                    >
+                      SUPER_ADMIN
+                    </span>
+                  ) : (
+                    <select
+                      value={admin.role}
+                      disabled={actionLoadingId === admin.id}
+                      onChange={(event) => void handleRoleChange(admin, event.target.value as 'ADMIN' | 'OPS')}
+                      className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 outline-none transition hover:bg-gray-50 focus:ring-2 focus:ring-red-500 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+                    >
+                      <option value="ADMIN">ADMIN</option>
+                      <option value="OPS">OPS</option>
+                    </select>
+                  )}
                 </td>
                 <td className="px-4 py-3.5">
                   <div className="flex flex-col gap-1">

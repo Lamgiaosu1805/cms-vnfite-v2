@@ -218,6 +218,10 @@ export async function toggleAdminActive(id: string): Promise<void> {
   return request(`/admins/${id}/toggle-active`, { method: 'PUT' });
 }
 
+export async function updateAdminRole(id: string, role: 'ADMIN' | 'OPS'): Promise<AdminItem> {
+  return request(`/admins/${id}/role`, { method: 'PUT', data: { role } });
+}
+
 export async function resetAdminPassword(id: string): Promise<ResetAdminPasswordResult> {
   return request(`/admins/${id}/reset-password`, { method: 'POST' });
 }
