@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, ChevronLeft, ChevronRight, Eye, RefreshCw, Search, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Eye, KeyRound, RefreshCw, Search, Smartphone, X } from 'lucide-react';
 import {
   decideKyc,
   fetchCustomerDetail,
   fetchFileBlob,
   fetchUsers,
+  getStoredAdmin,
+  resetCustomerDevice,
+  resetCustomerPassword,
   updateUserStatus,
   type CustomerDetail,
   type CmsUser,
+  type ResetCustomerPasswordResult,
 } from '../api/client';
 import { Badge } from '../components/Badge';
 import { formatVietnamDate, formatVietnamDateTime } from '../utils/dateTime';
@@ -159,6 +163,62 @@ function ReasonModal({ title, placeholder, onConfirm, onCancel }: RejectModalPro
   );
 }
 
+function canResetCustomers() {
+  const role = getStoredAdmin()?.role;
+  return role === 'SUPER_ADMIN' || role === 'ADMIN';
+}
+
+function ResetPasswordResultModal({
+  result,
+  onClose,
+}: {
+  result: ResetCustomerPasswordResult;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyPassword() {
+    await navigator.clipboard.writeText(result.generatedPassword);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-600">Reset mật khẩu khách hàng</p>
+        <h3 className="mt-1 text-lg font-bold text-gray-900 dark:text-gray-50">Mật khẩu tạm đã tạo</h3>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          Khách hàng {result.phone || result.userId} cần đăng nhập lại bằng mật khẩu này.
+        </p>
+        <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-4 dark:border-red-900/40 dark:bg-red-950/30">
+          <p className="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">Mật khẩu tạm</p>
+          <div className="mt-2 flex items-center justify-between gap-3">
+            <code className="break-all font-mono text-lg font-bold text-gray-950 dark:text-gray-50">
+              {result.generatedPassword}
+            </code>
+            <button
+              onClick={copyPassword}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-white dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950"
+            >
+              <Copy size={15} />
+              {copied ? 'Đã copy' : 'Copy'}
+            </button>
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end">
+          <button
+            onClick={onClose}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface CustomerDetailPageProps {
   userId: string;
   onBack: () => void;
@@ -167,8 +227,11 @@ interface CustomerDetailPageProps {
 export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<'password' | 'device' | null>(null);
   const [error, setError] = useState('');
+  const [resetPasswordResult, setResetPasswordResult] = useState<ResetCustomerPasswordResult | null>(null);
   const profile = detail?.profile;
+  const showAdminReset = canResetCustomers();
 
   useEffect(() => {
     let alive = true;
@@ -190,6 +253,34 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
     };
   }, [userId]);
 
+  async function handleResetPassword() {
+    if (!window.confirm(`Reset mật khẩu khách hàng "${profile?.fullName || profile?.phone || userId}"?`)) return;
+    setActionLoading('password');
+    setError('');
+    try {
+      const result = await resetCustomerPassword(userId);
+      setResetPasswordResult(result);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Không thể reset mật khẩu khách hàng');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleResetDevice() {
+    if (!window.confirm(`Reset thiết bị đăng nhập của khách hàng "${profile?.fullName || profile?.phone || userId}"?`)) return;
+    setActionLoading('device');
+    setError('');
+    try {
+      await resetCustomerDevice(userId);
+      alert('Đã reset thiết bị khách hàng. Khách cần đăng nhập lại.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Không thể reset thiết bị khách hàng');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-gray-100 bg-white px-6 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-900">
@@ -200,13 +291,35 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
               {profile?.fullName || profile?.phone || 'Đang tải...'}
             </h2>
           </div>
-          <button
-            onClick={onBack}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
-          >
-            <ChevronLeft size={16} />
-            Quay lại
-          </button>
+          <div className="flex flex-wrap justify-end gap-2">
+            {showAdminReset && (
+              <>
+                <button
+                  onClick={handleResetPassword}
+                  disabled={!!actionLoading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+                >
+                  <KeyRound size={16} />
+                  {actionLoading === 'password' ? 'Đang reset...' : 'Reset mật khẩu'}
+                </button>
+                <button
+                  onClick={handleResetDevice}
+                  disabled={!!actionLoading}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                >
+                  <Smartphone size={16} />
+                  {actionLoading === 'device' ? 'Đang reset...' : 'Reset thiết bị'}
+                </button>
+              </>
+            )}
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <ChevronLeft size={16} />
+              Quay lại
+            </button>
+          </div>
         </div>
       </div>
 
@@ -389,6 +502,12 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
             </>
           )}
       </div>
+      {resetPasswordResult && (
+        <ResetPasswordResultModal
+          result={resetPasswordResult}
+          onClose={() => setResetPasswordResult(null)}
+        />
+      )}
     </div>
   );
 }
@@ -405,6 +524,9 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [refresh, setRefresh] = useState(0);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [resetPasswordResult, setResetPasswordResult] = useState<ResetCustomerPasswordResult | null>(null);
+  const showAdminReset = canResetCustomers();
 
   // Modals
   const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
@@ -448,6 +570,32 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
     }
   }
 
+  async function doCustomerResetPassword(user: CmsUser) {
+    setActionLoading(`password:${user.userId}`);
+    try {
+      const result = await resetCustomerPassword(user.userId);
+      setResetPasswordResult(result);
+      setRefresh((r) => r + 1);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Không thể reset mật khẩu khách hàng');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function doCustomerResetDevice(user: CmsUser) {
+    setActionLoading(`device:${user.userId}`);
+    try {
+      await resetCustomerDevice(user.userId);
+      alert('Đã reset thiết bị khách hàng. Khách cần đăng nhập lại.');
+      setRefresh((r) => r + 1);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Không thể reset thiết bị khách hàng');
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   function askApproveKyc(user: CmsUser) {
     setConfirmModal({
       message: `Duyệt KYC cho "${user.fullName || user.phone}"?`,
@@ -475,6 +623,26 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
       onConfirm: () => {
         setConfirmModal(null);
         doAction(updateUserStatus(user.userId, next));
+      },
+    });
+  }
+
+  function askResetPassword(user: CmsUser) {
+    setConfirmModal({
+      message: `Reset mật khẩu khách hàng "${user.fullName || user.phone}"? Khách sẽ cần đăng nhập lại bằng mật khẩu tạm.`,
+      onConfirm: () => {
+        setConfirmModal(null);
+        void doCustomerResetPassword(user);
+      },
+    });
+  }
+
+  function askResetDevice(user: CmsUser) {
+    setConfirmModal({
+      message: `Reset thiết bị đăng nhập của khách hàng "${user.fullName || user.phone}"? Phiên hiện tại và sinh trắc học sẽ bị thu hồi.`,
+      onConfirm: () => {
+        setConfirmModal(null);
+        void doCustomerResetDevice(user);
       },
     });
   }
@@ -580,6 +748,28 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
                       >
                         {user.accountStatus === 'ACTIVE' ? 'Khoá' : 'Mở khoá'}
                       </button>
+                      {showAdminReset && (
+                        <>
+                          <button
+                            onClick={() => askResetPassword(user)}
+                            disabled={actionLoading === `password:${user.userId}`}
+                            title="Reset mật khẩu khách hàng"
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:text-red-300 dark:hover:bg-red-950/40"
+                          >
+                            <KeyRound size={13} />
+                            MK
+                          </button>
+                          <button
+                            onClick={() => askResetDevice(user)}
+                            disabled={actionLoading === `device:${user.userId}`}
+                            title="Reset thiết bị khách hàng"
+                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 disabled:opacity-60 dark:text-gray-300 dark:hover:bg-gray-700"
+                          >
+                            <Smartphone size={13} />
+                            TB
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -629,6 +819,12 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
           title={rejectModal.title}
           onConfirm={rejectModal.onConfirm}
           onCancel={() => setRejectModal(null)}
+        />
+      )}
+      {resetPasswordResult && (
+        <ResetPasswordResultModal
+          result={resetPasswordResult}
+          onClose={() => setResetPasswordResult(null)}
         />
       )}
     </div>
