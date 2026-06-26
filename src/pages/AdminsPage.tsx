@@ -1,6 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Check, Copy, RefreshCw, UserPlus } from 'lucide-react';
-import { createAdmin, listAdmins, toggleAdminActive, type AdminItem, type CreateAdminResult } from '../api/client';
+import { Check, Copy, KeyRound, RefreshCw, ShieldOff, UserPlus } from 'lucide-react';
+import {
+  createAdmin,
+  listAdmins,
+  resetAdminPassword,
+  resetAdminTotp,
+  toggleAdminActive,
+  type AdminItem,
+  type CreateAdminResult,
+  type ResetAdminPasswordResult,
+} from '../api/client';
 import { Badge } from '../components/Badge';
 import { formatVietnamDate } from '../utils/dateTime';
 
@@ -72,11 +81,12 @@ function CreateModal({ onCreated, onCancel }: CreateModalProps) {
 }
 
 interface CreatedResultProps {
-  result: CreateAdminResult;
+  result: CreateAdminResult | ResetAdminPasswordResult;
   onClose: () => void;
+  mode?: 'created' | 'reset';
 }
 
-function CreatedResultModal({ result, onClose }: CreatedResultProps) {
+function CreatedResultModal({ result, onClose, mode = 'created' }: CreatedResultProps) {
   const [copied, setCopied] = useState(false);
 
   function copy() {
@@ -95,7 +105,9 @@ function CreatedResultModal({ result, onClose }: CreatedResultProps) {
             <Check size={20} className="text-green-600 dark:text-green-400" />
           </div>
           <div>
-            <h3 className="font-bold text-gray-800 dark:text-gray-100">Tạo tài khoản thành công</h3>
+            <h3 className="font-bold text-gray-800 dark:text-gray-100">
+              {mode === 'reset' ? 'Reset mật khẩu thành công' : 'Tạo tài khoản thành công'}
+            </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">Gửi thông tin này cho {result.fullName}</p>
           </div>
         </div>
@@ -117,7 +129,7 @@ function CreatedResultModal({ result, onClose }: CreatedResultProps) {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-500 dark:text-gray-400">Role</span>
-              <strong className="dark:text-gray-100">{result.role}</strong>
+              <strong className="dark:text-gray-100">{'role' in result ? result.role : '-'}</strong>
             </div>
           </div>
         </div>
@@ -145,6 +157,8 @@ export function AdminsPage() {
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [createdResult, setCreatedResult] = useState<CreateAdminResult | null>(null);
+  const [resetPasswordResult, setResetPasswordResult] = useState<ResetAdminPasswordResult | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -159,6 +173,33 @@ export function AdminsPage() {
   async function handleToggle(id: string) {
     try { await toggleAdminActive(id); load(); }
     catch (err: unknown) { alert(err instanceof Error ? err.message : 'Lỗi'); }
+  }
+
+  async function handleResetPassword(admin: AdminItem) {
+    if (!window.confirm(`Reset mật khẩu cho tài khoản ${admin.username}? Mật khẩu mới sẽ chỉ hiển thị một lần.`)) return;
+    setActionLoadingId(admin.id);
+    try {
+      const result = await resetAdminPassword(admin.id);
+      setResetPasswordResult(result);
+      load();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Lỗi reset mật khẩu');
+    } finally {
+      setActionLoadingId(null);
+    }
+  }
+
+  async function handleResetTotp(admin: AdminItem) {
+    if (!window.confirm(`Reset TOTP cho tài khoản ${admin.username}? Lần đăng nhập tiếp theo tài khoản này sẽ phải quét QR thiết lập lại.`)) return;
+    setActionLoadingId(admin.id);
+    try {
+      await resetAdminTotp(admin.id);
+      load();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Lỗi reset TOTP');
+    } finally {
+      setActionLoadingId(null);
+    }
   }
 
   return (
@@ -184,13 +225,14 @@ export function AdminsPage() {
               <th className="text-left px-4 py-3.5 font-medium text-gray-600 dark:text-gray-400">Username</th>
               <th className="text-left px-4 py-3.5 font-medium text-gray-600 dark:text-gray-400">Role</th>
               <th className="text-left px-4 py-3.5 font-medium text-gray-600 dark:text-gray-400">Trạng thái</th>
+              <th className="text-left px-4 py-3.5 font-medium text-gray-600 dark:text-gray-400">TOTP</th>
               <th className="text-left px-4 py-3.5 font-medium text-gray-600 dark:text-gray-400">Ngày tạo</th>
               <th className="px-4 py-3.5"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
             {loading && (
-              <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
+              <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
                 <RefreshCw size={18} className="animate-spin inline mr-2" />Đang tải...
               </td></tr>
             )}
@@ -218,19 +260,45 @@ export function AdminsPage() {
                     )}
                   </div>
                 </td>
+                <td className="px-4 py-3.5">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    admin.totpEnabled
+                      ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                      : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300'
+                  }`}>
+                    {admin.totpEnabled ? 'Đã bật' : 'Chưa bật'}
+                  </span>
+                </td>
                 <td className="px-4 py-3.5 text-gray-400 dark:text-gray-500">{formatVietnamDate(admin.createdAt, '-')}</td>
                 <td className="px-4 py-3.5">
-                  {admin.role !== 'SUPER_ADMIN' && (
-                    <button onClick={() => handleToggle(admin.id)}
-                      className="text-xs px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-300">
-                      {admin.active ? 'Khoá' : 'Mở khoá'}
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      onClick={() => handleResetPassword(admin)}
+                      disabled={actionLoadingId === admin.id}
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30 text-amber-700 dark:text-amber-300 disabled:opacity-60">
+                      <KeyRound size={13} />
+                      Reset MK
                     </button>
-                  )}
+                    <button
+                      onClick={() => handleResetTotp(admin)}
+                      disabled={actionLoadingId === admin.id || !admin.totpEnabled}
+                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-700 dark:text-blue-300 disabled:opacity-50">
+                      <ShieldOff size={13} />
+                      Reset TOTP
+                    </button>
+                    {admin.role !== 'SUPER_ADMIN' && (
+                      <button onClick={() => handleToggle(admin.id)}
+                        disabled={actionLoadingId === admin.id}
+                        className="text-xs px-3 py-1 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 text-gray-600 dark:text-gray-300 disabled:opacity-60">
+                        {admin.active ? 'Khoá' : 'Mở khoá'}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
             {!loading && admins.length === 0 && (
-              <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">Chưa có admin nào</td></tr>
+              <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">Chưa có admin nào</td></tr>
             )}
           </tbody>
         </table>
@@ -244,6 +312,13 @@ export function AdminsPage() {
       )}
       {createdResult && (
         <CreatedResultModal result={createdResult} onClose={() => setCreatedResult(null)} />
+      )}
+      {resetPasswordResult && (
+        <CreatedResultModal
+          result={resetPasswordResult}
+          mode="reset"
+          onClose={() => setResetPasswordResult(null)}
+        />
       )}
     </div>
   );

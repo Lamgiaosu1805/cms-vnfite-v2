@@ -184,6 +184,7 @@ export interface AdminItem {
   role: string;
   active: boolean;
   mustChangePassword: boolean;
+  totpEnabled: boolean;
   createdAt: string;
 }
 
@@ -193,6 +194,13 @@ export interface CreateAdminResult {
   email: string;
   fullName: string;
   role: string;
+  generatedPassword: string;
+}
+
+export interface ResetAdminPasswordResult {
+  id: string;
+  username: string;
+  fullName: string;
   generatedPassword: string;
 }
 
@@ -208,6 +216,14 @@ export async function createAdmin(payload: {
 
 export async function toggleAdminActive(id: string): Promise<void> {
   return request(`/admins/${id}/toggle-active`, { method: 'PUT' });
+}
+
+export async function resetAdminPassword(id: string): Promise<ResetAdminPasswordResult> {
+  return request(`/admins/${id}/reset-password`, { method: 'POST' });
+}
+
+export async function resetAdminTotp(id: string): Promise<void> {
+  return request(`/admins/${id}/reset-totp`, { method: 'POST' });
 }
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
