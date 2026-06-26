@@ -550,6 +550,9 @@ export interface RepaymentScheduleItem {
   interestDue: number;
   totalDue: number;
   paidAmount: number;
+  lateFee?: number | null;
+  lateFeeOutstanding?: number | null;
+  totalOutstanding?: number | null;
   status: 'PENDING' | 'PARTIAL' | 'PAID' | 'OVERDUE';
   dpd: number;
   paidAt?: string | null;
