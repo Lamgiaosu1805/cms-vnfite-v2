@@ -368,6 +368,20 @@ export async function fetchCustomerDetail(userId: string): Promise<CustomerDetai
   return request(`/users/${userId}/detail?transactionSize=30&loanSize=30`);
 }
 
+export interface ResetCustomerPasswordResult {
+  userId: string;
+  phone: string;
+  generatedPassword: string;
+}
+
+export async function resetCustomerPassword(userId: string): Promise<ResetCustomerPasswordResult> {
+  return request(`/users/${userId}/reset-password`, { method: 'POST' });
+}
+
+export async function resetCustomerDevice(userId: string): Promise<void> {
+  return request(`/users/${userId}/reset-device`, { method: 'POST' });
+}
+
 // ─── System money transactions ─────────────────────────────────────────────
 
 export interface CmsSystemTransaction {
