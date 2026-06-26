@@ -1764,7 +1764,9 @@ function RepaymentScheduleSection({ loanId }: { loanId: string }) {
                 <th className="px-4 py-2 font-semibold">Ngày đáo hạn</th>
                 <th className="px-4 py-2 font-semibold text-right">Gốc</th>
                 <th className="px-4 py-2 font-semibold text-right">Lãi</th>
-                <th className="px-4 py-2 font-semibold text-right">Tổng</th>
+                <th className="px-4 py-2 font-semibold text-right">Gốc + lãi</th>
+                <th className="px-4 py-2 font-semibold text-right">Phí phạt</th>
+                <th className="px-4 py-2 font-semibold text-right">Còn phải trả</th>
                 <th className="px-4 py-2 font-semibold text-right">Đã trả</th>
                 <th className="px-4 py-2 font-semibold text-center">Trạng thái</th>
                 {schedule.some(r => r.dpd > 0) && (
@@ -1788,6 +1790,21 @@ function RepaymentScheduleSection({ loanId }: { loanId: string }) {
                   </td>
                   <td className="px-4 py-2.5 text-right font-semibold text-gray-800 dark:text-gray-200">
                     {formatMoney(r.totalDue)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="space-y-0.5">
+                      <p className={Number(r.lateFee || 0) > 0
+                        ? 'font-semibold text-red-600 dark:text-red-300'
+                        : 'text-gray-400 dark:text-gray-500'}>
+                        {formatMoney(r.lateFee || 0)}
+                      </p>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                        Còn {formatMoney(r.lateFeeOutstanding || 0)}
+                      </p>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-bold text-gray-900 dark:text-gray-100">
+                    {formatMoney(r.totalOutstanding ?? Math.max((r.totalDue || 0) - (r.paidAmount || 0), 0))}
                   </td>
                   <td className="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400">
                     {r.paidAmount > 0 ? formatMoney(r.paidAmount) : '—'}
@@ -1819,6 +1836,13 @@ function RepaymentScheduleSection({ loanId }: { loanId: string }) {
                 </td>
                 <td className="px-4 py-2 text-right text-xs font-bold text-gray-800 dark:text-gray-200">
                   {formatMoney(schedule.reduce((s, r) => s + r.totalDue, 0))}
+                </td>
+                <td className="px-4 py-2 text-right text-xs font-bold text-red-600 dark:text-red-300">
+                  {formatMoney(schedule.reduce((s, r) => s + Number(r.lateFee || 0), 0))}
+                </td>
+                <td className="px-4 py-2 text-right text-xs font-bold text-gray-900 dark:text-gray-100">
+                  {formatMoney(schedule.reduce((s, r) =>
+                    s + Number(r.totalOutstanding ?? Math.max((r.totalDue || 0) - (r.paidAmount || 0), 0)), 0))}
                 </td>
                 <td colSpan={2} className="px-4 py-2" />
                 {schedule.some(r => r.dpd > 0) && <td />}
