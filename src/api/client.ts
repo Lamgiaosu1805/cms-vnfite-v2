@@ -781,6 +781,30 @@ export async function runFundingExpirySweep(): Promise<FundingExpiryResult> {
   return request(`/loans/expire-sweep`, { method: 'POST' });
 }
 
+/** Kết quả chạy job thu nợ tự động từ ví người gọi vốn. */
+export interface AutoDebitSweepResult {
+  auditId: string;
+  triggerSource: string;
+  triggeredBy?: string;
+  startedAt: string;
+  finishedAt: string;
+  scannedLoans: number;
+  dueLoans: number;
+  settledFull: number;
+  settledPartial: number;
+  noBalance: number;
+  balanceError: number;
+  noDue: number;
+  failed: number;
+  amountCollected: number | string;
+  errorSummary?: string;
+}
+
+/** Chạy ngay job thu nợ tự động từ ví người gọi vốn. Chỉ ADMIN/SUPER_ADMIN. */
+export async function runAutoDebitSweep(): Promise<AutoDebitSweepResult> {
+  return request(`/loans/repayments/auto-debit-sweep`, { method: 'POST' });
+}
+
 // ─── Hỗ trợ thẩm định (appraisal suggestion) ────────────────────────────────────
 // Engine QĐ-LSGV không còn tự đánh giá tín nhiệm — Credit Score 360 là chuẩn duy nhất.
 // Service này chỉ còn: định giá lãi suất/hạn mức (theo hạng Credit 360), năng lực trả nợ,

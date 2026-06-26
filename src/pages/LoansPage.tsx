@@ -3,13 +3,13 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, Eye, RefreshCw,
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
   Send, Check, X, ShieldCheck, Search, FileText, Download, Brain, ExternalLink,
-  TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch, Ban, ShieldAlert, Landmark, Hourglass,
+  TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch, Ban, ShieldAlert, Landmark, Hourglass, HandCoins,
 } from 'lucide-react';
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
-  fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep,
+  fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
   fetchFileBlob,
   type CmsLoan, type AppraisalSuggestion, type FraudCheck,
   type RepaymentScheduleItem, type LoanContract,
@@ -2252,6 +2252,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
   const admin = getStoredAdmin();
   const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
   const [sweeping, setSweeping] = useState(false);
+  const [collecting, setCollecting] = useState(false);
   const [sweepMsg, setSweepMsg] = useState('');
   const [sweepError, setSweepError] = useState(false);
 
@@ -2276,6 +2277,31 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
       setSweepMsg('Không chạy được job hết hạn: ' + (e as Error).message);
     } finally {
       setSweeping(false);
+    }
+  };
+
+  const handleAutoDebitSweep = async () => {
+    if (!window.confirm(
+      'Chạy thu nợ tự động ngay?\n\nHệ thống sẽ kiểm tra các kỳ đến hạn/quá hạn và trừ ví người gọi vốn nếu có số dư khả dụng. Các kỳ đã thanh toán sẽ được bỏ qua.'
+    )) return;
+    setCollecting(true);
+    setSweepMsg('');
+    setSweepError(false);
+    try {
+      const r = await runAutoDebitSweep();
+      setSweepMsg(
+        `Thu nợ xong: quét ${r.scannedLoans} khoản, ${r.dueLoans} khoản đến hạn, `
+        + `thu đủ ${r.settledFull}, thu một phần ${r.settledPartial}, `
+        + `không đủ tiền ${r.noBalance}, lỗi ${r.failed + r.balanceError}. `
+        + `Tổng thu ${formatMoney(r.amountCollected)}.`
+      );
+      setRefresh(x => x + 1);
+      onActionDone?.();
+    } catch (e) {
+      setSweepError(true);
+      setSweepMsg('Không chạy được thu nợ tự động: ' + (e as Error).message);
+    } finally {
+      setCollecting(false);
     }
   };
 
@@ -2358,6 +2384,18 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
           </button>
         )}
 
+        {isLeader && (
+          <button
+            onClick={handleAutoDebitSweep}
+            disabled={collecting}
+            title="Quét các kỳ đến hạn/quá hạn và trừ ví người gọi vốn nếu có số dư khả dụng"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 text-sm font-medium hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-50"
+          >
+            <HandCoins size={15} className={collecting ? 'animate-pulse' : ''} />
+            {collecting ? 'Đang thu...' : 'Thu nợ ngay'}
+          </button>
+        )}
+
         <button onClick={() => setRefresh(r => r + 1)} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -2370,7 +2408,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
         )}
       </div>
 
-      {/* Kết quả chạy job hết hạn */}
+      {/* Kết quả chạy job vận hành */}
       {sweepMsg && (
         <div className={`rounded-lg border px-4 py-2.5 text-sm flex items-center justify-between gap-3 ${
           sweepError
