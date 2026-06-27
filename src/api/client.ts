@@ -375,6 +375,9 @@ export interface CustomerInvestmentItem {
   offerId: string;
   loanId: string;
   loanCode: string | null;
+  borrowerId: string | null;
+  borrowerName: string | null;
+  borrowerPhone: string | null;
   amount: number;
   loanStatus: string;
   interestRate: number | null;

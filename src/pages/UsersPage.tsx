@@ -505,6 +505,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                     <thead>
                       <tr className="border-b border-gray-100 dark:border-gray-700 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
                         <th className="py-2 text-left">Mã khoản</th>
+                        <th className="py-2 text-left">Người gọi vốn</th>
                         <th className="py-2 text-right">Số tiền đầu tư</th>
                         <th className="py-2 text-center">Lãi suất</th>
                         <th className="py-2 text-center">Kỳ hạn</th>
@@ -517,6 +518,16 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                         <tr key={item.offerId}>
                           <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">
                             {item.loanCode || item.loanId?.slice(0, 8) || '—'}
+                          </td>
+                          <td className="py-3">
+                            <div className="max-w-[220px]" title={[item.borrowerName, item.borrowerPhone].filter(Boolean).join(' · ')}>
+                              <p className="truncate font-semibold text-gray-900 dark:text-gray-50">
+                                {item.borrowerName || item.borrowerPhone || 'Chưa xác định'}
+                              </p>
+                              {item.borrowerPhone && (
+                                <p className="mt-0.5 font-mono text-xs text-gray-400 dark:text-gray-500">{item.borrowerPhone}</p>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">
                             {formatMoney(item.amount)}
@@ -535,7 +546,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                       ))}
                       {(detail.investments?.investmentHistory?.length ?? 0) === 0 && (
                         <tr>
-                          <td colSpan={6} className="py-8 text-center text-gray-400 dark:text-gray-500">
+                          <td colSpan={7} className="py-8 text-center text-gray-400 dark:text-gray-500">
                             Khách hàng chưa có khoản đầu tư
                           </td>
                         </tr>
