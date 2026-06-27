@@ -8,8 +8,9 @@ export const LOAN_STATUS_OPTIONS = [
   { value: 'AWAITING_DISBURSEMENT', label: 'Chờ giải ngân' },
   { value: 'DISBURSED', label: 'Đã giải ngân' },
   { value: 'REPAYING', label: 'Đang thanh toán' },
+  { value: 'OVERDUE', label: 'Quá hạn' },
   { value: 'COMPLETED', label: 'Hoàn thành' },
-  { value: 'DEFAULTED', label: 'Quá hạn' },
+  { value: 'DEFAULTED', label: 'Nguy cơ mất vốn' },
   { value: 'REJECTED', label: 'Từ chối' },
   { value: 'CANCELLED', label: 'Đã huỷ' },
 ] as const;

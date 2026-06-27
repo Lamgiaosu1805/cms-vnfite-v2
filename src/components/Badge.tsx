@@ -40,7 +40,7 @@ const labelMap: Record<string, string> = {
   disbursed: 'Đã giải ngân',
   repaying: 'Đang thanh toán',
   completed: 'Hoàn thành',
-  defaulted: 'Mất khả năng trả',
+  defaulted: 'Nguy cơ mất vốn',
   cancelled: 'Đã huỷ',
 };
 
