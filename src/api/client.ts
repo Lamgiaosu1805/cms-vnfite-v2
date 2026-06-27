@@ -341,6 +341,48 @@ export interface CustomerDetail {
   wallet: CmsWallet | null;
   transactions: PagedResponse<CmsWalletTransaction>;
   loans: PagedResponse<CmsLoan>;
+  investments: CustomerInvestmentCashflow;
+}
+
+export interface CustomerInvestmentCashflow {
+  summary: {
+    totalInvested: number;
+    totalReturnsExpected: number;
+    totalReturnsPaid: number;
+    nextPaymentDate: string | null;
+    nextPaymentAmount: number | null;
+  };
+  upcomingPayments: CustomerUpcomingPayment[];
+  investmentHistory: CustomerInvestmentItem[];
+  monthlyChart: Array<{
+    month: string;
+    expected: number;
+    actual: number;
+  }>;
+}
+
+export interface CustomerUpcomingPayment {
+  loanId: string;
+  loanCode: string | null;
+  dueDate: string;
+  periodNumber: number;
+  investorShare: number;
+  status: string;
+  dpd: number;
+}
+
+export interface CustomerInvestmentItem {
+  offerId: string;
+  loanId: string;
+  loanCode: string | null;
+  borrowerId: string | null;
+  borrowerName: string | null;
+  borrowerPhone: string | null;
+  amount: number;
+  loanStatus: string;
+  interestRate: number | null;
+  termMonths: number | null;
+  investedAt: string | null;
 }
 
 export interface PagedResponse<T> {

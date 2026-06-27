@@ -339,7 +339,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
 
           {detail && (
             <>
-              <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <section className="grid grid-cols-1 gap-4 lg:grid-cols-4">
                 <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Số dư khả dụng</p>
                   <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-50">
@@ -362,6 +362,15 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                     {detail.loans.totalElements}
                   </p>
                   <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Tất cả trạng thái của khách hàng</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Đã đầu tư</p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-50">
+                    {formatMoney(detail.investments?.summary?.totalInvested)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    {detail.investments?.investmentHistory?.length ?? 0} khoản đầu tư
+                  </p>
                 </div>
               </section>
 
@@ -453,6 +462,93 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                       {detail.transactions.content.length === 0 && (
                         <tr>
                           <td colSpan={6} className="py-8 text-center text-gray-400 dark:text-gray-500">Chưa có giao dịch</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-50">Danh mục đầu tư</h3>
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                      Các khoản khách hàng đang/đã đầu tư, lấy từ loan_offers của loan-service.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-right text-xs sm:grid-cols-3">
+                    <div>
+                      <p className="text-gray-400 dark:text-gray-500">Dự kiến nhận</p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-50">
+                        {formatMoney(detail.investments?.summary?.totalReturnsExpected)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 dark:text-gray-500">Đã nhận</p>
+                      <p className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatMoney(detail.investments?.summary?.totalReturnsPaid)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-400 dark:text-gray-500">Kỳ gần nhất</p>
+                      <p className="font-semibold text-gray-900 dark:text-gray-50">
+                        {detail.investments?.summary?.nextPaymentDate
+                          ? `${formatVietnamDate(detail.investments.summary.nextPaymentDate)} · ${formatMoney(detail.investments.summary.nextPaymentAmount)}`
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 dark:border-gray-700 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                        <th className="py-2 text-left">Mã khoản</th>
+                        <th className="py-2 text-left">Người gọi vốn</th>
+                        <th className="py-2 text-right">Số tiền đầu tư</th>
+                        <th className="py-2 text-center">Lãi suất</th>
+                        <th className="py-2 text-center">Kỳ hạn</th>
+                        <th className="py-2 text-center">Trạng thái khoản</th>
+                        <th className="py-2 text-right">Ngày đầu tư</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
+                      {(detail.investments?.investmentHistory ?? []).map(item => (
+                        <tr key={item.offerId}>
+                          <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">
+                            {item.loanCode || item.loanId?.slice(0, 8) || '—'}
+                          </td>
+                          <td className="py-3">
+                            <div className="max-w-[220px]" title={[item.borrowerName, item.borrowerPhone].filter(Boolean).join(' · ')}>
+                              <p className="truncate font-semibold text-gray-900 dark:text-gray-50">
+                                {item.borrowerName || item.borrowerPhone || 'Chưa xác định'}
+                              </p>
+                              {item.borrowerPhone && (
+                                <p className="mt-0.5 font-mono text-xs text-gray-400 dark:text-gray-500">{item.borrowerPhone}</p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">
+                            {formatMoney(item.amount)}
+                          </td>
+                          <td className="py-3 text-center text-gray-600 dark:text-gray-300">
+                            {item.interestRate != null ? `${item.interestRate}%` : '—'}
+                          </td>
+                          <td className="py-3 text-center text-gray-600 dark:text-gray-300">
+                            {item.termMonths != null ? `${item.termMonths} tháng` : '—'}
+                          </td>
+                          <td className="py-3 text-center"><Badge value={item.loanStatus} /></td>
+                          <td className="py-3 text-right text-gray-500 dark:text-gray-400">
+                            {formatVietnamDateTime(item.investedAt, '-')}
+                          </td>
+                        </tr>
+                      ))}
+                      {(detail.investments?.investmentHistory?.length ?? 0) === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-gray-400 dark:text-gray-500">
+                            Khách hàng chưa có khoản đầu tư
+                          </td>
                         </tr>
                       )}
                     </tbody>
