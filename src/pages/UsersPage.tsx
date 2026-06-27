@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Check, ChevronLeft, ChevronRight, Copy, Eye, KeyRound, RefreshCw, Search, Smartphone, X } from 'lucide-react';
 import {
   decideKyc,
-  fetchCustomerDetail,
+  fetchCustomerDetailWithParams,
   fetchFileBlob,
   fetchUsers,
   getStoredAdmin,
@@ -33,6 +33,18 @@ const transactionLabel: Record<string, string> = {
 
 const moneyInTypes = new Set(['DEPOSIT', 'INVEST_REFUND', 'REPAYMENT']);
 const moneyOutTypes = new Set(['WITHDRAW', 'INVEST']);
+const investmentStatusOptions = [
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: 'ACTIVE', label: 'Đang gọi vốn' },
+  { value: 'FUNDED', label: 'Đã đủ vốn' },
+  { value: 'AWAITING_DISBURSEMENT', label: 'Chờ giải ngân' },
+  { value: 'DISBURSED', label: 'Đã giải ngân' },
+  { value: 'REPAYING', label: 'Đang trả nợ' },
+  { value: 'COMPLETED', label: 'Hoàn tất' },
+  { value: 'DEFAULTED', label: 'Mất khả năng trả' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+  { value: 'REJECTED', label: 'Từ chối' },
+];
 
 function isMoneyIn(type: string) {
   return moneyInTypes.has(type);
@@ -226,12 +238,15 @@ interface CustomerDetailPageProps {
 
 export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
+  const [investmentPage, setInvestmentPage] = useState(0);
+  const [investmentStatus, setInvestmentStatus] = useState('');
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<'password' | 'device' | null>(null);
   const [error, setError] = useState('');
   const [resetPasswordResult, setResetPasswordResult] = useState<ResetCustomerPasswordResult | null>(null);
   const profile = detail?.profile;
   const showAdminReset = canResetCustomers();
+  const investmentPageData = detail?.investments?.investmentHistoryPage;
 
   useEffect(() => {
     let alive = true;
@@ -240,7 +255,11 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
       setError('');
       setLoading(true);
       try {
-        const next = await fetchCustomerDetail(userId);
+        const next = await fetchCustomerDetailWithParams(userId, {
+          investmentPage,
+          investmentSize: 10,
+          investmentStatus,
+        });
         if (alive) setDetail(next);
       } catch (err: unknown) {
         if (alive) setError(err instanceof Error ? err.message : 'Không thể tải chi tiết khách hàng');
@@ -251,7 +270,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, investmentPage, investmentStatus]);
 
   async function handleResetPassword() {
     if (!window.confirm(`Reset mật khẩu khách hàng "${profile?.fullName || profile?.phone || userId}"?`)) return;
@@ -369,7 +388,9 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                     {formatMoney(detail.investments?.summary?.totalInvested)}
                   </p>
                   <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    {detail.investments?.investmentHistory?.length ?? 0} khoản đầu tư
+                    {detail.investments?.investmentHistoryPage?.totalElements
+                      ?? detail.investments?.investmentHistory?.length
+                      ?? 0} khoản đầu tư
                   </p>
                 </div>
               </section>
@@ -477,7 +498,22 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                       Các khoản khách hàng đang/đã đầu tư, lấy từ loan_offers của loan-service.
                     </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-right text-xs sm:grid-cols-3">
+                  <div className="flex flex-wrap items-start justify-end gap-3">
+                    <select
+                      value={investmentStatus}
+                      onChange={(e) => {
+                        setInvestmentStatus(e.target.value);
+                        setInvestmentPage(0);
+                      }}
+                      className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-xs font-medium text-gray-700 outline-none transition focus:border-red-300 focus:ring-2 focus:ring-red-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:focus:border-red-800 dark:focus:ring-red-950/50"
+                    >
+                      {investmentStatusOptions.map(option => (
+                        <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="mb-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-3">
                     <div>
                       <p className="text-gray-400 dark:text-gray-500">Dự kiến nhận</p>
                       <p className="font-semibold text-gray-900 dark:text-gray-50">
@@ -498,7 +534,6 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                           : '—'}
                       </p>
                     </div>
-                  </div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -514,7 +549,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
-                      {(detail.investments?.investmentHistory ?? []).map(item => (
+                      {(investmentPageData?.content ?? detail.investments?.investmentHistory ?? []).map(item => (
                         <tr key={item.offerId}>
                           <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">
                             {item.loanCode || item.loanId?.slice(0, 8) || '—'}
@@ -544,7 +579,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                           </td>
                         </tr>
                       ))}
-                      {(detail.investments?.investmentHistory?.length ?? 0) === 0 && (
+                      {(investmentPageData?.content?.length ?? detail.investments?.investmentHistory?.length ?? 0) === 0 && (
                         <tr>
                           <td colSpan={7} className="py-8 text-center text-gray-400 dark:text-gray-500">
                             Khách hàng chưa có khoản đầu tư
@@ -554,6 +589,34 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                     </tbody>
                   </table>
                 </div>
+                {investmentPageData && investmentPageData.totalElements > investmentPageData.size && (
+                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    <span>
+                      Hiển thị {investmentPageData.content.length} / {investmentPageData.totalElements} khoản đầu tư
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={investmentPage <= 0}
+                        onClick={() => setInvestmentPage(page => Math.max(page - 1, 0))}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
+                      >
+                        Trước
+                      </button>
+                      <span className="min-w-[72px] text-center">
+                        {investmentPageData.page + 1}/{Math.max(investmentPageData.totalPages, 1)}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={investmentPageData.last}
+                        onClick={() => setInvestmentPage(page => page + 1)}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-200"
+                      >
+                        Sau
+                      </button>
+                    </div>
+                  </div>
+                )}
               </section>
 
               <section className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
@@ -576,15 +639,56 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                     </thead>
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
                       {detail.loans.content.map(loan => (
-                        <tr key={loan.loanId}>
-                          <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">{loan.loanCode || loan.loanId.slice(0, 8)}</td>
-                          <td className="py-3 text-gray-700 dark:text-gray-200">{loan.productName || 'Chưa xác định'}</td>
-                          <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(loan.amount)}</td>
-                          <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.interestRate != null ? `${loan.interestRate}%` : '—'}</td>
-                          <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.termMonths} tháng</td>
-                          <td className="py-3 text-center"><Badge value={loan.status} /></td>
-                          <td className="py-3 text-right text-gray-500 dark:text-gray-400">{formatVietnamDate(loan.createdAt, '-')}</td>
-                        </tr>
+                        <Fragment key={loan.loanId}>
+                          <tr>
+                            <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">{loan.loanCode || loan.loanId.slice(0, 8)}</td>
+                            <td className="py-3 text-gray-700 dark:text-gray-200">{loan.productName || 'Chưa xác định'}</td>
+                            <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(loan.amount)}</td>
+                            <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.interestRate != null ? `${loan.interestRate}%` : '—'}</td>
+                            <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.termMonths} tháng</td>
+                            <td className="py-3 text-center"><Badge value={loan.status} /></td>
+                            <td className="py-3 text-right text-gray-500 dark:text-gray-400">{formatVietnamDate(loan.createdAt, '-')}</td>
+                          </tr>
+                          <tr>
+                            <td colSpan={7} className="pb-4">
+                              <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-900/40">
+                                <div className="mb-2 flex items-center justify-between gap-3">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Nhà đầu tư của khoản này
+                                  </p>
+                                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                                    {(loan.offers ?? []).length} nhà đầu tư · {formatMoney((loan.offers ?? []).reduce((sum, offer) => sum + (offer.amount ?? 0), 0))}
+                                  </p>
+                                </div>
+                                {(loan.offers ?? []).length > 0 ? (
+                                  <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                    {(loan.offers ?? []).map(offer => (
+                                      <div
+                                        key={offer.offerId}
+                                        className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
+                                      >
+                                        <div className="min-w-0">
+                                          <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-50" title={offer.investorName || offer.investorPhone || ''}>
+                                            {offer.investorName || offer.investorPhone || 'Chưa xác định'}
+                                          </p>
+                                          {offer.investorPhone && (
+                                            <p className="mt-0.5 font-mono text-xs text-gray-400 dark:text-gray-500">{offer.investorPhone}</p>
+                                          )}
+                                        </div>
+                                        <div className="shrink-0 text-right">
+                                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-50">{formatMoney(offer.amount)}</p>
+                                          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{offer.status || '—'}</p>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-400 dark:text-gray-500">Chưa có nhà đầu tư</p>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        </Fragment>
                       ))}
                       {detail.loans.content.length === 0 && (
                         <tr>

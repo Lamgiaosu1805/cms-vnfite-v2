@@ -354,6 +354,7 @@ export interface CustomerInvestmentCashflow {
   };
   upcomingPayments: CustomerUpcomingPayment[];
   investmentHistory: CustomerInvestmentItem[];
+  investmentHistoryPage: PagedResponse<CustomerInvestmentItem>;
   monthlyChart: Array<{
     month: string;
     expected: number;
@@ -385,6 +386,16 @@ export interface CustomerInvestmentItem {
   investedAt: string | null;
 }
 
+export interface CmsLoanOffer {
+  offerId: string;
+  investorId: string | null;
+  investorName: string | null;
+  investorPhone: string | null;
+  amount: number | null;
+  status: string | null;
+  createdAt: string | null;
+}
+
 export interface PagedResponse<T> {
   content: T[];
   totalElements: number;
@@ -392,6 +403,7 @@ export interface PagedResponse<T> {
   page: number;
   number?: number;
   size: number;
+  last?: boolean;
 }
 
 export async function fetchUsers(params: {
@@ -411,7 +423,20 @@ export async function fetchUsers(params: {
 }
 
 export async function fetchCustomerDetail(userId: string): Promise<CustomerDetail> {
-  return request(`/users/${userId}/detail?transactionSize=30&loanSize=30`);
+  return fetchCustomerDetailWithParams(userId, {});
+}
+
+export async function fetchCustomerDetailWithParams(
+  userId: string,
+  params: { investmentPage?: number; investmentSize?: number; investmentStatus?: string },
+): Promise<CustomerDetail> {
+  const q = new URLSearchParams();
+  q.set('transactionSize', '30');
+  q.set('loanSize', '30');
+  q.set('investmentPage', String(params.investmentPage ?? 0));
+  q.set('investmentSize', String(params.investmentSize ?? 10));
+  if (params.investmentStatus) q.set('investmentStatus', params.investmentStatus);
+  return request(`/users/${userId}/detail?${q}`);
 }
 
 export interface ResetCustomerPasswordResult {
@@ -542,6 +567,7 @@ export interface CmsLoan {
   totalFee: number | null;
   netDisbursement: number | null;
   createdAt: string;
+  offers?: CmsLoanOffer[];
 }
 
 export async function fetchLoans(params: {
