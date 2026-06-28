@@ -2123,7 +2123,7 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
           <Section title="Thông tin bổ sung">
             {loan.occupation && <DetailRow label="Nghề nghiệp" value={loan.occupation} />}
             {loan.workplace && <DetailRow label="Tên cơ sở/nơi làm việc" value={loan.workplace} />}
-            {loan.workplaceAddress && <DetailRow label="Địa chỉ nơi làm việc" value={loan.workplaceAddress} />}
+            <DetailRow label="Địa chỉ nơi làm việc" value={loan.workplaceAddress ?? 'Chưa có'} />
             {loan.monthlyIncome != null && (
               <DetailRow label="Thu nhập/tháng" value={formatMoney(loan.monthlyIncome)} />
             )}
