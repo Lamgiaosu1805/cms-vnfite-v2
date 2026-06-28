@@ -2087,6 +2087,12 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
           <DetailRow label="Ngày cấp CCCD" value={loan.borrowerIssueDate ? formatVietnamDate(loan.borrowerIssueDate) : '—'} />
           <DetailRow label="Nơi cấp CCCD" value={loan.borrowerIssuingAuthority ?? '—'} />
           <DetailRow label="Ngày hết hạn CCCD" value={loan.borrowerExpiryDate ? formatVietnamDate(loan.borrowerExpiryDate) : '—'} />
+          {loan.currentAddress && (
+            <DetailRow
+              label="Địa chỉ nơi ở hiện tại"
+              value={[loan.currentAddress, loan.commune, loan.province].filter(Boolean).join(', ')}
+            />
+          )}
           <DetailRow
             label="Mã khách hàng"
             value={<span className="font-mono text-gray-400 dark:text-gray-500">{shortId(loan.borrowerId)}</span>}
@@ -2113,17 +2119,14 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         </Section>
 
         {/* Thông tin bổ sung */}
-        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.currentAddress || loan.commune || loan.province || loan.ref1FullName || loan.ref2FullName) && (
+        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.ref1FullName || loan.ref2FullName) && (
           <Section title="Thông tin bổ sung">
             {loan.occupation && <DetailRow label="Nghề nghiệp" value={loan.occupation} />}
-            <DetailRow label="Tên cơ sở/nơi làm việc" value={loan.workplace ?? 'Không có'} />
-            <DetailRow label="Địa chỉ nơi làm việc" value={loan.workplace ?? 'Chưa có thông tin riêng'} />
+            {loan.workplace && <DetailRow label="Tên cơ sở/nơi làm việc" value={loan.workplace} />}
+            {loan.workplaceAddress && <DetailRow label="Địa chỉ nơi làm việc" value={loan.workplaceAddress} />}
             {loan.monthlyIncome != null && (
               <DetailRow label="Thu nhập/tháng" value={formatMoney(loan.monthlyIncome)} />
             )}
-            {loan.currentAddress && <DetailRow label="Địa chỉ chi tiết" value={loan.currentAddress} />}
-            {loan.commune && <DetailRow label="Xã/Phường" value={loan.commune} />}
-            {loan.province && <DetailRow label="Tỉnh/Thành phố" value={loan.province} />}
             {(loan.ref1FullName || loan.ref1Phone || loan.ref1Relationship || loan.ref1Address) && (
               <div className="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/70">
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Người tham chiếu 1</p>

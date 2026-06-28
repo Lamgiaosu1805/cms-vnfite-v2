@@ -23,10 +23,19 @@ axiosClient.interceptors.response.use(
     const status = err.response?.status ?? 0;
     const url = err.config?.url ?? '';
     // Auth endpoints: 401/403 là lỗi nghiệp vụ (sai mật khẩu, sai OTP) — KHÔNG redirect.
-    // Các endpoint khác: chỉ 401 mới là hết phiên. 403 là thiếu quyền theo role
-    // (ví dụ OPS/Vận hành không được vào một số chức năng), không được xóa session.
+    // Các endpoint khác: 401 = hết phiên → redirect về login.
+    // 403: decode JWT để phân biệt — token hết hạn thì redirect, còn hạn thì chỉ là thiếu quyền role.
     const isAuthEndpoint = url.includes('/auth/');
-    if (status === 401 && !isAuthEndpoint) {
+    const isTokenExpired = (() => {
+      const token = localStorage.getItem('cms_token');
+      if (!token) return false;
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return typeof payload.exp === 'number' && payload.exp * 1000 < Date.now();
+      } catch { return false; }
+    })();
+    const shouldClearSession = !isAuthEndpoint && (status === 401 || (status === 403 && isTokenExpired));
+    if (shouldClearSession) {
       const hadSession = !!localStorage.getItem('cms_token');
       localStorage.removeItem('cms_token');
       localStorage.removeItem('cms_admin');
@@ -552,6 +561,7 @@ export interface CmsLoan {
   ref2Address: string | null;
   occupation: string | null;
   workplace: string | null;
+  workplaceAddress: string | null;
   monthlyIncome: number | null;
   currentAddress: string | null;
   commune: string | null;
