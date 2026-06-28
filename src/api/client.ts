@@ -883,6 +883,51 @@ export async function runAutoDebitSweep(): Promise<AutoDebitSweepResult> {
   return request(`/loans/repayments/auto-debit-sweep`, { method: 'POST' });
 }
 
+/** Lịch sử các lần quét auto-debit từ loan-service. */
+export async function fetchAutoDebitAuditList(limit = 200): Promise<AutoDebitSweepResult[]> {
+  return request(`/loans/repayments/auto-debit-audit?limit=${limit}`, { method: 'GET' });
+}
+
+export interface InvestorDistributionRecord {
+  id: string;
+  repaymentTransactionId: string;
+  loanId: string;
+  loanCode?: string;
+  scheduleId?: string;
+  offerId: string;
+  investorId: string;
+  grossAmount: number;
+  principalAmount: number;
+  interestAmount: number;
+  lateFeeAmount: number;
+  taxRate: number;
+  taxAmount: number;
+  netAmount: number;
+  creditRef?: string;
+  distributedAt: string;
+}
+
+export interface PagedDistributionLog {
+  content: InvestorDistributionRecord[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  last: boolean;
+}
+
+export async function fetchDistributionLog(
+  loanId?: string,
+  investorId?: string,
+  page = 0,
+  size = 50,
+): Promise<PagedDistributionLog> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) });
+  if (loanId)     params.set('loanId', loanId);
+  if (investorId) params.set('investorId', investorId);
+  return request(`/loans/repayments/distribution-log?${params}`, { method: 'GET' });
+}
+
 // ─── Hỗ trợ thẩm định (appraisal suggestion) ────────────────────────────────────
 // Engine QĐ-LSGV không còn tự đánh giá tín nhiệm — Credit Score 360 là chuẩn duy nhất.
 // Service này chỉ còn: định giá lãi suất/hạn mức (theo hạng Credit 360), năng lực trả nợ,
