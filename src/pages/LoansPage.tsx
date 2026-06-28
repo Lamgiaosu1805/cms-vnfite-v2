@@ -590,7 +590,7 @@ function UnifiedVerdict({
             <p className="text-xs text-gray-400 dark:text-gray-500">Chấm điểm để định giá</p>
           ) : serviceAvailable && suggestedAmount != null ? (
             <>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{formatMoney(suggestedAmount)}</p>
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">{formatMoney(suggestedAmount)}</p>
               <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Lãi suất {rateText(suggestedRate)}</p>
             </>
           ) : (
@@ -1383,7 +1383,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
 
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Đề xuất giải ngân</p>
-              <p className="text-base font-bold text-gray-900 dark:text-white">{formatMoney(rec.suggestedAmount)}</p>
+              <p className="text-base font-bold text-gray-900 dark:text-white whitespace-nowrap">{formatMoney(rec.suggestedAmount)}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 Lãi suất tối thiểu <span className="font-semibold text-gray-700 dark:text-gray-200">{rateText(rec.suggestedInterestRate)}</span>
               </p>
@@ -2473,7 +2473,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
                       className="mx-auto max-w-[180px] text-gray-600 dark:text-gray-400 text-xs"
                     />
                   </td>
-                  <td className="px-4 py-3.5 text-center font-semibold text-gray-800 dark:text-gray-200 align-middle text-xs">
+                  <td className="px-4 py-3.5 text-center font-semibold text-gray-800 dark:text-gray-200 align-middle text-xs whitespace-nowrap">
                     {formatMoney(loan.amount)}
                   </td>
                   <td className="px-4 py-3.5 text-center text-gray-600 dark:text-gray-400 align-middle text-xs">
