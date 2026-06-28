@@ -34,17 +34,8 @@ const transactionLabel: Record<string, string> = {
 const moneyInTypes = new Set(['DEPOSIT', 'INVEST_REFUND', 'REPAYMENT']);
 const moneyOutTypes = new Set(['WITHDRAW', 'INVEST']);
 const investmentStatusOptions = [
-  { value: 'ACTIVE_PORTFOLIO', label: 'Đang thu hồi' },
-  { value: '', label: 'Tất cả trạng thái' },
-  { value: 'ACTIVE', label: 'Đang gọi vốn' },
-  { value: 'FUNDED', label: 'Đã đủ vốn' },
-  { value: 'AWAITING_DISBURSEMENT', label: 'Chờ giải ngân' },
-  { value: 'DISBURSED', label: 'Đã giải ngân' },
-  { value: 'REPAYING', label: 'Đang trả nợ' },
-  { value: 'DEFAULTED', label: 'Nguy cơ mất vốn' },
-  { value: 'COMPLETED', label: 'Hoàn tất' },
-  { value: 'CANCELLED', label: 'Đã hủy' },
-  { value: 'REJECTED', label: 'Từ chối' },
+  { value: 'ACTIVE_PORTFOLIO', label: 'Đang hoạt động' },
+  { value: 'COMPLETED', label: 'Đã hoàn thành' },
 ];
 
 function isMoneyIn(type: string) {
