@@ -32,9 +32,9 @@ function formatMoney(value: number | string | undefined) {
 }
 
 function shortMoney(v: number) {
-  if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1) + 'B';
-  if (v >= 1_000_000)     return (v / 1_000_000).toFixed(1) + 'M';
-  if (v >= 1_000)         return (v / 1_000).toFixed(0) + 'K';
+  if (v >= 1_000_000_000) return (v / 1_000_000_000).toFixed(1) + ' tỷ';
+  if (v >= 1_000_000)     return (v / 1_000_000).toFixed(1) + ' triệu';
+  if (v >= 1_000)         return (v / 1_000).toFixed(0) + ' nghìn';
   return v > 0 ? v.toString() : '';
 }
 
@@ -498,13 +498,13 @@ export function DashboardPage() {
           sub={`+${stats?.todayNewUsers ?? 0} hôm nay`}
           icon={<Users size={16} />} color="linear-gradient(135deg,#C82020,#8B0A0A)" />
         <Metric label="Đang gọi vốn" value={stats?.activeLoans ?? 0}
-          sub={formatMoney(stats?.activeFundingVolume)}
+          sub={shortMoney(stats?.activeFundingVolume ?? 0)}
           icon={<TrendingUp size={16} />} color="linear-gradient(135deg,#E8A030,#C47820)" />
         <Metric label="Tổng khoản gọi vốn" value={stats?.totalLoans ?? 0}
           sub={`${stats?.pendingLoans ?? 0} chờ duyệt · ${stats?.activeLoans ?? 0} active`}
           icon={<CircleDollarSign size={16} />} color="linear-gradient(135deg,#C82020,#E84A20)" />
-        <Metric label="Tổng đã được đầu tư" value={formatMoney(stats?.totalFundedVolume)}
-          sub={`+${formatMoney(stats?.todayLoanVolume)} hôm nay`}
+        <Metric label="Tổng đã được đầu tư" value={shortMoney(stats?.totalFundedVolume ?? 0)}
+          sub={`+${shortMoney(stats?.todayLoanVolume ?? 0)} hôm nay`}
           icon={<BarChart3 size={16} />} color="linear-gradient(135deg,#27AE60,#1E8449)" />
       </div>
 
@@ -512,8 +512,8 @@ export function DashboardPage() {
       {stats && (
         <>
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-            <Metric label="Tổng dư nợ" value={formatMoney(stats.totalOutstanding)}
-              sub={`Gốc ${formatMoney(stats.outstandingPrincipal)}`}
+            <Metric label="Tổng dư nợ" value={shortMoney(stats.totalOutstanding)}
+              sub={`Gốc ${shortMoney(stats.outstandingPrincipal)}`}
               icon={<WalletCards size={16} />} color="linear-gradient(135deg,#991B1B,#C82020)" />
             <Metric label={`Đến hạn trong ${stats.dueWithinDays} ngày`} value={stats.dueSoonInstallments}
               sub={`${stats.dueSoonCustomers} khách hàng`}
@@ -521,8 +521,8 @@ export function DashboardPage() {
             <Metric label="Kỳ đang quá hạn" value={stats.overdueInstallments}
               sub={`${stats.overdueCustomers} khách hàng`}
               icon={<AlertTriangle size={16} />} color="linear-gradient(135deg,#B91C1C,#EF4444)" />
-            <Metric label="Lãi + phí phạt còn lại" value={formatMoney(stats.outstandingInterest + stats.outstandingLateFee)}
-              sub={`Phí phạt ${formatMoney(stats.outstandingLateFee)}`}
+            <Metric label="Lãi + phí phạt còn lại" value={shortMoney(stats.outstandingInterest + stats.outstandingLateFee)}
+              sub={`Phí phạt ${shortMoney(stats.outstandingLateFee)}`}
               icon={<CircleDollarSign size={16} />} color="linear-gradient(135deg,#6D28D9,#8B5CF6)" />
           </div>
 

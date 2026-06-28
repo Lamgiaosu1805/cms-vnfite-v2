@@ -590,7 +590,7 @@ function UnifiedVerdict({
             <p className="text-xs text-gray-400 dark:text-gray-500">Chấm điểm để định giá</p>
           ) : serviceAvailable && suggestedAmount != null ? (
             <>
-              <p className="text-sm font-bold text-gray-800 dark:text-gray-100">{formatMoney(suggestedAmount)}</p>
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-100 whitespace-nowrap">{formatMoney(suggestedAmount)}</p>
               <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">Lãi suất {rateText(suggestedRate)}</p>
             </>
           ) : (
@@ -1383,7 +1383,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
 
             <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40 p-4">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Đề xuất giải ngân</p>
-              <p className="text-base font-bold text-gray-900 dark:text-white">{formatMoney(rec.suggestedAmount)}</p>
+              <p className="text-base font-bold text-gray-900 dark:text-white whitespace-nowrap">{formatMoney(rec.suggestedAmount)}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 Lãi suất tối thiểu <span className="font-semibold text-gray-700 dark:text-gray-200">{rateText(rec.suggestedInterestRate)}</span>
               </p>
@@ -2087,6 +2087,12 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
           <DetailRow label="Ngày cấp CCCD" value={loan.borrowerIssueDate ? formatVietnamDate(loan.borrowerIssueDate) : '—'} />
           <DetailRow label="Nơi cấp CCCD" value={loan.borrowerIssuingAuthority ?? '—'} />
           <DetailRow label="Ngày hết hạn CCCD" value={loan.borrowerExpiryDate ? formatVietnamDate(loan.borrowerExpiryDate) : '—'} />
+          {loan.currentAddress && (
+            <DetailRow
+              label="Địa chỉ nơi ở hiện tại"
+              value={[loan.currentAddress, loan.commune, loan.province].filter(Boolean).join(', ')}
+            />
+          )}
           <DetailRow
             label="Mã khách hàng"
             value={<span className="font-mono text-gray-400 dark:text-gray-500">{shortId(loan.borrowerId)}</span>}
@@ -2113,17 +2119,14 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         </Section>
 
         {/* Thông tin bổ sung */}
-        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.currentAddress || loan.commune || loan.province || loan.ref1FullName || loan.ref2FullName) && (
+        {(loan.occupation || loan.workplace || loan.monthlyIncome != null || loan.ref1FullName || loan.ref2FullName) && (
           <Section title="Thông tin bổ sung">
             {loan.occupation && <DetailRow label="Nghề nghiệp" value={loan.occupation} />}
-            <DetailRow label="Tên cơ sở/nơi làm việc" value={loan.workplace ?? 'Không có'} />
-            <DetailRow label="Địa chỉ nơi làm việc" value={loan.workplace ?? 'Chưa có thông tin riêng'} />
+            {loan.workplace && <DetailRow label="Tên cơ sở/nơi làm việc" value={loan.workplace} />}
+            <DetailRow label="Địa chỉ nơi làm việc" value={loan.workplaceAddress ?? 'Chưa có'} />
             {loan.monthlyIncome != null && (
               <DetailRow label="Thu nhập/tháng" value={formatMoney(loan.monthlyIncome)} />
             )}
-            {loan.currentAddress && <DetailRow label="Địa chỉ chi tiết" value={loan.currentAddress} />}
-            {loan.commune && <DetailRow label="Xã/Phường" value={loan.commune} />}
-            {loan.province && <DetailRow label="Tỉnh/Thành phố" value={loan.province} />}
             {(loan.ref1FullName || loan.ref1Phone || loan.ref1Relationship || loan.ref1Address) && (
               <div className="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/70">
                 <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Người tham chiếu 1</p>
@@ -2473,7 +2476,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
                       className="mx-auto max-w-[180px] text-gray-600 dark:text-gray-400 text-xs"
                     />
                   </td>
-                  <td className="px-4 py-3.5 text-center font-semibold text-gray-800 dark:text-gray-200 align-middle text-xs">
+                  <td className="px-4 py-3.5 text-center font-semibold text-gray-800 dark:text-gray-200 align-middle text-xs whitespace-nowrap">
                     {formatMoney(loan.amount)}
                   </td>
                   <td className="px-4 py-3.5 text-center text-gray-600 dark:text-gray-400 align-middle text-xs">
