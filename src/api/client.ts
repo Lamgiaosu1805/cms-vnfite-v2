@@ -928,6 +928,31 @@ export async function fetchDistributionLog(
   return request(`/loans/repayments/distribution-log?${params}`, { method: 'GET' });
 }
 
+export interface DueTodayScheduleItem {
+  scheduleId: string;
+  loanId: string;
+  loanCode?: string;
+  borrowerId?: string;
+  borrowerPhone: string;
+  borrowerFullName: string;
+  periodNumber: number;
+  dueDate: string;
+  principalDue: number;
+  interestDue: number;
+  totalDue: number;
+  lateFee: number;
+  paidAmount: number;
+  lateFeePaid: number;
+  remaining: number;
+  status: string;
+  dpd: number;
+}
+
+export async function fetchDueTodaySchedules(date?: string): Promise<DueTodayScheduleItem[]> {
+  const params = date ? `?date=${date}` : '';
+  return request(`/loans/repayments/due-today${params}`, { method: 'GET' });
+}
+
 // ─── Hỗ trợ thẩm định (appraisal suggestion) ────────────────────────────────────
 // Engine QĐ-LSGV không còn tự đánh giá tín nhiệm — Credit Score 360 là chuẩn duy nhất.
 // Service này chỉ còn: định giá lãi suất/hạn mức (theo hạng Credit 360), năng lực trả nợ,
