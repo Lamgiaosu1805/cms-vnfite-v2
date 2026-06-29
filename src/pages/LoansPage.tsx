@@ -188,7 +188,35 @@ function MiniRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-const FILE_MANAGER_BASE = 'https://service.vnfite.com.vn/file-manager/v2/file';
+function DocFileActions({ fileId, fileName }: { fileId: string; fileName?: string | null }) {
+  const [busy, setBusy] = useState(false);
+
+  const getBlob = async () => {
+    setBusy(true);
+    try { return await fetchFileBlob(fileId); }
+    finally { setBusy(false); }
+  };
+
+  const handleView = async () => { const url = await getBlob(); window.open(url, '_blank'); };
+
+  const handleDownload = async () => {
+    const url = await getBlob();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName ?? fileId;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const btnCls = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed';
+  return (
+    <>
+      <button onClick={handleView} disabled={busy} className={btnCls}><ExternalLink size={13} />Xem</button>
+      <button onClick={handleDownload} disabled={busy} className={btnCls}><Download size={13} />Tải</button>
+    </>
+  );
+}
 
 const DOC_TYPE_LABEL: Record<string, string> = {
   SALARY_STATEMENT: 'Sao kê lương',
@@ -1129,7 +1157,6 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
       {documents && documents.length > 0 && (
         <div className="space-y-3">
           {documents.map(doc => {
-            const fileUrl = FILE_MANAGER_BASE + '/' + doc.fileId;
             const analysis = analyses[doc.id] ?? null;
             const d = analysis ? parseDocData(analysis.extractedData) : null;
             return (
@@ -1145,8 +1172,7 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
                         {verdictLabel(analysis.verdict)}
                       </span>
                     )}
-                    <a href={fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"><ExternalLink size={13} />Xem</a>
-                    <a href={fileUrl} download className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-900"><Download size={13} />Tải</a>
+                    <DocFileActions fileId={doc.fileId} fileName={doc.fileName} />
                   </div>
                 </div>
 
