@@ -2177,7 +2177,10 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         {loan.totalFee != null && loan.totalFee > 0 && (
           <Section title="Phí giải ngân">
             {loan.appraisalFee != null && (
-              <DetailRow label="Phí thẩm định hồ sơ" value={formatMoney(loan.appraisalFee)} />
+              <DetailRow
+                label={loan.appraisalFeeRate != null && loan.appraisalFeeRate > 0 ? `Phí thẩm định hồ sơ (${loan.appraisalFeeRate}%)` : 'Phí thẩm định hồ sơ'}
+                value={formatMoney(loan.appraisalFee)}
+              />
             )}
             {loan.vatAmount != null && (
               <DetailRow label="VAT (10%)" value={formatMoney(loan.vatAmount)} />
