@@ -16,6 +16,7 @@ import WithdrawalsMonitoringPage from './pages/WithdrawalsMonitoringPage';
 import ReconciliationPage from './pages/ReconciliationPage';
 import AutoDebitAuditPage from './pages/AutoDebitAuditPage';
 import DistributionLogPage from './pages/DistributionLogPage';
+import RepaymentDueTodayPage from './pages/RepaymentDueTodayPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
@@ -30,6 +31,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   audit: 'Nhật ký quyết định',
   withdrawals: 'Giám sát rút tiền',
   reconciliation: 'Tra soát giao dịch',
+  'due-today': 'Đến hạn hôm nay',
   'auto-debit-audit': 'Lịch sử thu nợ tự động',
   'distribution-log': 'Phân bổ & Thuế TNCN',
 };
@@ -348,6 +350,7 @@ export default function App() {
           {tab === 'audit'       && <AuditLogPage />}
           {tab === 'withdrawals'    && <WithdrawalsMonitoringPage />}
           {tab === 'reconciliation' && <ReconciliationPage />}
+          {tab === 'due-today'         && <RepaymentDueTodayPage />}
           {tab === 'auto-debit-audit' && <AutoDebitAuditPage />}
           {tab === 'distribution-log' && <DistributionLogPage />}
         </main>
