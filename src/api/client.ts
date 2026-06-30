@@ -252,6 +252,10 @@ export interface DashboardStats {
   activeLoans: number;
   fundedLoans: number;
   totalFundedVolume: number;
+  /** Doanh thu phí đã thu (khoản đã giải ngân) */
+  totalAppraisalFee: number;
+  totalVatCollected: number;
+  totalFeeRevenue: number;
   todayNewLoans: number;
   todayLoanVolume: number;
   debtAsOfDate: string | null;
@@ -539,6 +543,8 @@ export interface CmsLoan {
   borrowerPortraitImageId: string | null;
   productName: string | null;
   amount: number;
+  /** Tổng tiền nhà đầu tư đã cam kết (offer ACCEPTED) — tiến độ gọi vốn */
+  fundedAmount: number | null;
   /** Null khi mới tạo — set khi ban lãnh đạo phê duyệt */
   interestRate: number | null;
   /** Đề xuất của thẩm định viên (cấp 1) trình ban lãnh đạo */
@@ -638,6 +644,20 @@ export interface RepaymentScheduleItem {
 
 export async function fetchRepaymentSchedule(loanId: string): Promise<RepaymentScheduleItem[]> {
   return request(`/loans/${loanId}/repayments`);
+}
+
+/**
+ * Ghi nhận một lần trả nợ thủ công (khách trả tiền mặt / chuyển khoản ngoài ví VNFITE).
+ * Tiền áp vào kỳ sớm nhất chưa trả — gốc+lãi trước, dư trả phí phạt. Trả về lịch trả nợ mới.
+ */
+export async function recordRepayment(
+  loanId: string,
+  payload: { amount: number; reason: string; externalRef?: string },
+): Promise<RepaymentScheduleItem[]> {
+  return request(`/loans/${loanId}/repayments`, {
+    method: 'POST',
+    data: payload,
+  });
 }
 
 // ─── Hợp đồng & giải ngân ───────────────────────────────────────────────────
@@ -928,6 +948,37 @@ export async function fetchDistributionLog(
   return request(`/loans/repayments/distribution-log?${params}`, { method: 'GET' });
 }
 
+// ─── Sổ cái doanh thu phí ───────────────────────────────────────────────────
+
+export interface FeeRevenueItem {
+  loanId: string;
+  loanCode: string | null;
+  borrowerId: string | null;
+  loanAmount: number;
+  appraisalFeeRate: number | null;
+  appraisalFee: number;
+  vatAmount: number;
+  totalFee: number;
+  disbursedAt: string | null;
+  disbursedBy: string | null;
+}
+
+export interface FeeRevenueReport {
+  totalCount: number;
+  totalAppraisalFee: number;
+  totalVat: number;
+  totalFeeRevenue: number;
+  page: number;
+  size: number;
+  totalPages: number;
+  items: FeeRevenueItem[];
+}
+
+/** Sổ cái doanh thu phí thẩm định + VAT (khoản đã giải ngân). */
+export async function fetchFeeRevenueReport(page = 0, size = 50): Promise<FeeRevenueReport> {
+  return request(`/loans/stats/fee-revenue?page=${page}&size=${size}`, { method: 'GET' });
+}
+
 export interface DueTodayScheduleItem {
   scheduleId: string;
   loanId: string;
@@ -944,6 +995,8 @@ export interface DueTodayScheduleItem {
   paidAmount: number;
   lateFeePaid: number;
   remaining: number;
+  /** Tổng dư nợ của TẤT CẢ kỳ chưa trả thuộc khoản này (kỳ này + các kỳ trước còn nợ). */
+  totalDebt: number;
   status: string;
   dpd: number;
 }
