@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownUp, BarChart3, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Package, ShieldCheck, Users, Wallet, Scale, CalendarClock, Receipt } from 'lucide-react';
+import { ArrowDownUp, BarChart3, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Package, ShieldCheck, Users, Wallet, Scale, CalendarClock, Receipt, BadgeCheck } from 'lucide-react';
 import type { AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
-export type TabKey = 'dashboard' | 'users' | 'transactions' | 'loans' | 'products' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today';
+export type TabKey = 'dashboard' | 'users' | 'transactions' | 'loans' | 'products' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -42,6 +42,7 @@ export function Sidebar({
     { key: 'auto-debit-audit', label: 'Lịch sử thu nợ tự động', icon: <CalendarClock size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS'] },
     { key: 'distribution-log', label: 'Phân bổ & thuế TNCN', icon: <Receipt size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { key: 'fee-revenue', label: 'Doanh thu phí', icon: <BarChart3 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { key: 'early-settlements', label: 'Tất toán sớm', icon: <BadgeCheck size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
     // Audit log: chỉ ADMIN và SUPER_ADMIN thấy được
     { key: 'audit', label: 'Nhật ký quyết định', icon: <ClipboardList size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { key: 'admins', label: 'Quản lý Admin', icon: <ShieldCheck size={18} />, roles: ['SUPER_ADMIN'] },
