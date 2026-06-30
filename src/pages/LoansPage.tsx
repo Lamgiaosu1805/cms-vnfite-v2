@@ -6,7 +6,7 @@ import {
   TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch, Ban, ShieldAlert, Landmark, Hourglass, HandCoins,
 } from 'lucide-react';
 import {
-  fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule,
+  fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
@@ -1722,11 +1722,103 @@ const STATUS_LABEL_SCH: Record<RepaymentScheduleItem['status'], string> = {
   OVERDUE: 'Quá hạn',
 };
 
-function RepaymentScheduleSection({ loanId }: { loanId: string }) {
+// Các trạng thái khoản đã lên sàn gọi vốn — tiến độ đầu tư mới có ý nghĩa hiển thị
+const FUNDING_VISIBLE_STATUSES = ['ACTIVE', 'FUNDED', 'AWAITING_DISBURSEMENT', 'DISBURSED', 'REPAYING', 'COMPLETED', 'DEFAULTED'];
+
+const OFFER_STATUS_CLS: Record<string, string> = {
+  ACCEPTED:  'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+  PENDING:   'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  REJECTED:  'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+  CANCELLED: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+};
+const OFFER_STATUS_LABEL: Record<string, string> = {
+  ACCEPTED: 'Đã chốt', PENDING: 'Chờ ký', REJECTED: 'Từ chối', CANCELLED: 'Đã huỷ',
+};
+
+function FundingProgressSection({ loan }: { loan: CmsLoan }) {
+  const target    = loan.amount || 0;
+  const raised    = loan.fundedAmount ?? 0;
+  const pct       = target > 0 ? Math.min(100, Math.round((raised / target) * 100)) : 0;
+  const remaining = Math.max(target - raised, 0);
+  const offers    = loan.offers ?? [];
+  const accepted  = offers.filter(o => o.status === 'ACCEPTED');
+
+  return (
+    <Section title="Tiến độ gọi vốn & Nhà đầu tư">
+      {/* Thanh tiến độ */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between text-xs mb-1.5">
+          <span className="text-gray-500 dark:text-gray-400">Đã được đầu tư</span>
+          <span className="font-semibold text-gray-800 dark:text-gray-100">
+            {formatMoney(raised)} / {formatMoney(target)} ({pct}%)
+          </span>
+        </div>
+        <div className="h-2.5 w-full rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
+          <div className="h-full rounded-full transition-all"
+            style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #C82020, #E8A030)' }} />
+        </div>
+        <div className="flex items-center justify-between text-[11px] mt-1.5 text-gray-400 dark:text-gray-500">
+          <span>{accepted.length} nhà đầu tư đã chốt</span>
+          {remaining > 0
+            ? <span>Còn lại {formatMoney(remaining)}</span>
+            : <span className="text-green-600 dark:text-green-400 font-semibold">Đã đủ vốn</span>}
+        </div>
+      </div>
+
+      {/* Danh sách nhà đầu tư */}
+      {offers.length === 0 ? (
+        <p className="text-xs text-gray-400 dark:text-gray-500">Chưa có nhà đầu tư nào đặt lệnh.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-left">
+                <th className="px-3 py-2 font-semibold">Nhà đầu tư</th>
+                <th className="px-3 py-2 font-semibold">Số điện thoại</th>
+                <th className="px-3 py-2 font-semibold text-right">Số tiền</th>
+                <th className="px-3 py-2 font-semibold text-center">Trạng thái</th>
+                <th className="px-3 py-2 font-semibold">Thời điểm</th>
+              </tr>
+            </thead>
+            <tbody>
+              {offers.map(o => (
+                <tr key={o.offerId} className="border-t border-gray-100 dark:border-gray-700">
+                  <td className="px-3 py-2 text-gray-800 dark:text-gray-200">
+                    {o.investorName ?? <span className="text-gray-400 italic">Chưa KYC</span>}
+                  </td>
+                  <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{o.investorPhone ?? '—'}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-gray-900 dark:text-gray-100">{formatMoney(o.amount ?? 0)}</td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${OFFER_STATUS_CLS[o.status ?? ''] ?? 'bg-gray-100 text-gray-500'}`}>
+                      {OFFER_STATUS_LABEL[o.status ?? ''] ?? o.status ?? '—'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{o.createdAt ? formatVietnamDate(o.createdAt) : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+const PAYABLE_LOAN_STATUSES = ['DISBURSED', 'REPAYING', 'DEFAULTED'];
+
+function RepaymentScheduleSection({ loanId, loanStatus }: { loanId: string; loanStatus: string }) {
   const [schedule, setSchedule] = useState<RepaymentScheduleItem[] | null>(null);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [open, setOpen]         = useState(false);
+
+  // Ghi nhận trả nợ thủ công
+  const [showRecord, setShowRecord]   = useState(false);
+  const [recAmount, setRecAmount]     = useState('');
+  const [recReason, setRecReason]     = useState('');
+  const [recRef, setRecRef]           = useState('');
+  const [recSubmitting, setRecSubmitting] = useState(false);
+  const [recError, setRecError]       = useState('');
 
   const load = async () => {
     if (schedule !== null) { setOpen(v => !v); return; }
@@ -1746,6 +1838,31 @@ function RepaymentScheduleSection({ loanId }: { loanId: string }) {
   const totalInterest = schedule?.reduce((s, r) => s + r.interestDue, 0) ?? 0;
   const paidCount     = schedule?.filter(r => r.status === 'PAID').length ?? 0;
   const overdueCount  = schedule?.filter(r => r.status === 'OVERDUE').length ?? 0;
+  const canRecord     = PAYABLE_LOAN_STATUSES.includes(loanStatus);
+  const totalOutstanding = schedule?.reduce(
+    (s, r) => s + (r.totalOutstanding ?? Math.max((r.totalDue || 0) - (r.paidAmount || 0), 0)), 0) ?? 0;
+
+  const submitRecord = async () => {
+    const amt = Number(recAmount);
+    if (!amt || amt <= 0) { setRecError('Số tiền phải lớn hơn 0.'); return; }
+    if (!recReason.trim()) { setRecError('Vui lòng nhập lý do ghi nhận.'); return; }
+    setRecSubmitting(true);
+    setRecError('');
+    try {
+      const updated = await recordRepayment(loanId, {
+        amount: amt,
+        reason: recReason.trim(),
+        externalRef: recRef.trim() || undefined,
+      });
+      setSchedule(updated);
+      setShowRecord(false);
+      setRecAmount(''); setRecReason(''); setRecRef('');
+    } catch (e) {
+      setRecError(e instanceof Error ? e.message : 'Ghi nhận trả nợ thất bại.');
+    } finally {
+      setRecSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -1778,6 +1895,87 @@ function RepaymentScheduleSection({ loanId }: { loanId: string }) {
 
       {error && (
         <p className="px-5 pb-4 text-xs text-red-500">{error}</p>
+      )}
+
+      {/* Thanh hành động ghi nhận trả nợ thủ công */}
+      {open && schedule && schedule.length > 0 && canRecord && (
+        <div className="px-5 pb-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[11px] text-gray-400 dark:text-gray-500">
+            Khách trả tiền mặt / chuyển khoản ngoài ví? Ghi nhận tại đây — tiền áp vào kỳ sớm nhất chưa trả (gốc + lãi trước, dư trả phí phạt).
+          </p>
+          <button
+            onClick={() => {
+              setShowRecord(true);
+              setRecError('');
+              setRecAmount(totalOutstanding > 0 ? String(Math.round(totalOutstanding)) : '');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white shrink-0"
+            style={{ background: 'linear-gradient(135deg, #C82020, #8B0A0A)' }}>
+            <HandCoins size={14} />Ghi nhận trả nợ
+          </button>
+        </div>
+      )}
+
+      {/* Modal ghi nhận trả nợ */}
+      {showRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => !recSubmitting && setShowRecord(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <HandCoins size={20} className="text-red-600 dark:text-red-400" />
+              <h3 className="text-base font-bold text-gray-900 dark:text-white">Ghi nhận trả nợ thủ công</h3>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Tổng còn phải trả của khoản: <span className="font-semibold text-red-600 dark:text-red-400">{formatMoney(totalOutstanding)}</span>.
+              Tiền sẽ được áp vào kỳ sớm nhất chưa trả.
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Số tiền nhận (VND) <span className="text-red-500">*</span></label>
+              <input
+                type="number" min={0} value={recAmount}
+                onChange={e => setRecAmount(e.target.value)}
+                placeholder="Nhập số tiền khách đã trả"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-300 dark:focus:ring-red-700" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Lý do / nguồn tiền <span className="text-red-500">*</span></label>
+              <input
+                type="text" value={recReason}
+                onChange={e => setRecReason(e.target.value)}
+                placeholder="VD: Khách chuyển khoản MB, thu tiền mặt tại quầy"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-300 dark:focus:ring-red-700" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Mã tham chiếu ngân hàng / biên lai <span className="text-gray-400 font-normal">(tuỳ chọn)</span></label>
+              <input
+                type="text" value={recRef}
+                onChange={e => setRecRef(e.target.value)}
+                placeholder="VD: FT24xxxx, số biên lai"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-300 dark:focus:ring-red-700" />
+            </div>
+
+            {recError && <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{recError}</p>}
+
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                onClick={() => setShowRecord(false)} disabled={recSubmitting}
+                className="px-4 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">
+                Huỷ
+              </button>
+              <button
+                onClick={submitRecord} disabled={recSubmitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #C82020, #8B0A0A)' }}>
+                {recSubmitting && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                Xác nhận ghi nhận
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Table */}
@@ -2174,6 +2372,13 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
           </Section>
         )}
 
+        {/* Tiến độ gọi vốn & Nhà đầu tư */}
+        {FUNDING_VISIBLE_STATUSES.includes(loan.status) && (
+          <div className="lg:col-span-2">
+            <FundingProgressSection loan={loan} />
+          </div>
+        )}
+
         {/* Ảnh định danh */}
         <div className="lg:col-span-2">
           <Section title="Ảnh định danh eKYC">
@@ -2245,7 +2450,7 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
       <ContractsSection loanId={loan.loanId} />
 
       {/* Lịch thanh toán — hiển thị cho mọi trạng thái (tự ẩn nếu chưa có lịch) */}
-      <RepaymentScheduleSection loanId={loan.loanId} />
+      <RepaymentScheduleSection loanId={loan.loanId} loanStatus={loan.status} />
     </div>
   );
 }

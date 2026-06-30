@@ -3,7 +3,7 @@ import { ArrowDownUp, BarChart3, CalendarCheck, ChevronDown, CircleDollarSign, C
 import type { AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
-export type TabKey = 'dashboard' | 'users' | 'transactions' | 'loans' | 'products' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'due-today';
+export type TabKey = 'dashboard' | 'users' | 'transactions' | 'loans' | 'products' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -41,6 +41,7 @@ export function Sidebar({
     { key: 'due-today', label: 'Đến hạn hôm nay', icon: <CalendarCheck size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS'] },
     { key: 'auto-debit-audit', label: 'Lịch sử thu nợ tự động', icon: <CalendarClock size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS'] },
     { key: 'distribution-log', label: 'Phân bổ & thuế TNCN', icon: <Receipt size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { key: 'fee-revenue', label: 'Doanh thu phí', icon: <BarChart3 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
     // Audit log: chỉ ADMIN và SUPER_ADMIN thấy được
     { key: 'audit', label: 'Nhật ký quyết định', icon: <ClipboardList size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { key: 'admins', label: 'Quản lý Admin', icon: <ShieldCheck size={18} />, roles: ['SUPER_ADMIN'] },

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle, BarChart3, Bell, CalendarClock, CircleDollarSign, RefreshCw,
-  Send, Smartphone, TrendingUp, Users, WalletCards,
+  Send, Smartphone, TrendingUp, Users, WalletCards, Receipt,
 } from 'lucide-react';
 import {
   fetchChart, fetchStats, getFcmDeviceCount, sendTestPush,
@@ -524,6 +524,22 @@ export function DashboardPage() {
             <Metric label="Lãi + phí phạt còn lại" value={shortMoney(stats.outstandingInterest + stats.outstandingLateFee)}
               sub={`Phí phạt ${shortMoney(stats.outstandingLateFee)}`}
               icon={<CircleDollarSign size={16} />} color="linear-gradient(135deg,#6D28D9,#8B5CF6)" />
+          </div>
+
+          {/* Doanh thu phí — phí thẩm định đã thu từ các khoản đã giải ngân */}
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <Metric label="Doanh thu phí đã thu" value={shortMoney(stats.totalFeeRevenue ?? 0)}
+              sub="Tổng phí + VAT (khoản đã giải ngân)"
+              icon={<Receipt size={16} />} color="linear-gradient(135deg,#0F766E,#14B8A6)" />
+            <Metric label="Phí thẩm định" value={shortMoney(stats.totalAppraisalFee ?? 0)}
+              sub="Chưa gồm VAT"
+              icon={<Receipt size={16} />} color="linear-gradient(135deg,#0E7490,#06B6D4)" />
+            <Metric label="VAT đã thu (10%)" value={shortMoney(stats.totalVatCollected ?? 0)}
+              sub="Thuế GTGT trên phí thẩm định"
+              icon={<Receipt size={16} />} color="linear-gradient(135deg,#1D4ED8,#3B82F6)" />
+            <Metric label="Đã giải ngân" value={shortMoney(stats.totalFundedVolume ?? 0)}
+              sub={`${stats.fundedLoans ?? 0} khoản`}
+              icon={<BarChart3 size={16} />} color="linear-gradient(135deg,#27AE60,#1E8449)" />
           </div>
 
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[340px_minmax(0,1fr)]">

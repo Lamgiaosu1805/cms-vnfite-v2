@@ -16,6 +16,7 @@ import WithdrawalsMonitoringPage from './pages/WithdrawalsMonitoringPage';
 import ReconciliationPage from './pages/ReconciliationPage';
 import AutoDebitAuditPage from './pages/AutoDebitAuditPage';
 import DistributionLogPage from './pages/DistributionLogPage';
+import FeeRevenuePage from './pages/FeeRevenuePage';
 import RepaymentDueTodayPage from './pages/RepaymentDueTodayPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
@@ -34,6 +35,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   'due-today': 'Đến hạn hôm nay',
   'auto-debit-audit': 'Lịch sử thu nợ tự động',
   'distribution-log': 'Phân bổ & Thuế TNCN',
+  'fee-revenue': 'Doanh thu phí',
 };
 
 type AppState =
@@ -353,6 +355,7 @@ export default function App() {
           {tab === 'due-today'         && <RepaymentDueTodayPage />}
           {tab === 'auto-debit-audit' && <AutoDebitAuditPage />}
           {tab === 'distribution-log' && <DistributionLogPage />}
+          {tab === 'fee-revenue'      && <FeeRevenuePage />}
         </main>
       </div>
     </div>
