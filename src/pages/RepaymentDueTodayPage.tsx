@@ -47,6 +47,78 @@ function StatusBadge({ status, dpd }: { status: string; dpd: number }) {
   );
 }
 
+interface LoanGroup {
+  loanId: string;
+  loanCode: string | undefined;
+  borrowerFullName: string;
+  borrowerPhone: string;
+  periods: number[];         // danh sách số kỳ
+  minDueDate: string;        // ngày đến hạn sớm nhất
+  totalDue: number;          // sum(totalDue + lateFee) các kỳ
+  principalDue: number;
+  interestDue: number;
+  lateFee: number;
+  paidAmount: number;
+  lateFeePaid: number;
+  remaining: number;
+  totalDebt: number;         // giống nhau cho mọi kỳ — lấy từ kỳ đầu
+  worstDpd: number;
+  worstStatus: string;       // PAID < UNPAID < PARTIAL < OVERDUE
+}
+
+function groupByLoan(items: DueTodayScheduleItem[]): LoanGroup[] {
+  const map = new Map<string, LoanGroup>();
+  for (const r of items) {
+    const existing = map.get(r.loanId);
+    if (!existing) {
+      map.set(r.loanId, {
+        loanId: r.loanId,
+        loanCode: r.loanCode,
+        borrowerFullName: r.borrowerFullName,
+        borrowerPhone: r.borrowerPhone,
+        periods: [r.periodNumber],
+        minDueDate: r.dueDate,
+        totalDue: r.totalDue + r.lateFee,
+        principalDue: r.principalDue,
+        interestDue: r.interestDue,
+        lateFee: r.lateFee,
+        paidAmount: r.paidAmount,
+        lateFeePaid: r.lateFeePaid,
+        remaining: r.remaining,
+        totalDebt: r.totalDebt ?? r.remaining,
+        worstDpd: r.dpd,
+        worstStatus: r.status,
+      });
+    } else {
+      existing.periods.push(r.periodNumber);
+      if (r.dueDate < existing.minDueDate) existing.minDueDate = r.dueDate;
+      existing.totalDue    += r.totalDue + r.lateFee;
+      existing.principalDue+= r.principalDue;
+      existing.interestDue += r.interestDue;
+      existing.lateFee     += r.lateFee;
+      existing.paidAmount  += r.paidAmount;
+      existing.lateFeePaid += r.lateFeePaid;
+      existing.remaining   += r.remaining;
+      // totalDebt đã bao gồm tất cả kỳ — giữ giá trị lớn nhất (tất cả bằng nhau)
+      existing.totalDebt = Math.max(existing.totalDebt, r.totalDebt ?? r.remaining);
+      if (r.dpd > existing.worstDpd) existing.worstDpd = r.dpd;
+      // Priority: OVERDUE > PARTIAL > UNPAID > PAID
+      const rank: Record<string, number> = { PAID: 0, UNPAID: 1, PARTIAL: 2 };
+      const getR = (s: string, dpd: number) => dpd > 0 ? 3 : (rank[s] ?? 1);
+      if (getR(r.status, r.dpd) > getR(existing.worstStatus, existing.worstDpd)) {
+        existing.worstStatus = r.status;
+      }
+    }
+  }
+  return Array.from(map.values());
+}
+
+function periodLabel(periods: number[]): string {
+  if (periods.length === 1) return String(periods[0]);
+  const sorted = [...periods].sort((a, b) => a - b);
+  return `${sorted[0]}→${sorted[sorted.length - 1]}`;
+}
+
 export default function RepaymentDueTodayPage() {
   const [selectedDate, setSelectedDate] = useState<string>(todayVNIso());
   const [items, setItems]   = useState<DueTodayScheduleItem[]>([]);
@@ -68,8 +140,9 @@ export default function RepaymentDueTodayPage() {
 
   useEffect(() => { load(selectedDate); }, [load, selectedDate]);
 
-  const paid   = items.filter(i => i.status === 'PAID');
-  const unpaid = items.filter(i => i.status !== 'PAID');
+  const groups  = groupByLoan(items);
+  const paid    = groups.filter(g => g.worstStatus === 'PAID' && g.worstDpd === 0);
+  const unpaid  = groups.filter(g => !(g.worstStatus === 'PAID' && g.worstDpd === 0));
   const isToday = selectedDate === todayVNIso();
 
   return (
@@ -84,7 +157,7 @@ export default function RepaymentDueTodayPage() {
               {isoToVN(selectedDate)}
               {isToday && <span className="ml-1.5 text-xs font-semibold text-red-600 dark:text-red-400">(Hôm nay)</span>}
               {items.length > 0 && (
-                <> · {items.length} kỳ &nbsp;·&nbsp;
+                <> · {groups.length} khoản ({items.length} kỳ) &nbsp;·&nbsp;
                   <span className="text-emerald-600 dark:text-emerald-400 font-medium">{paid.length} đã trả</span>
                   &nbsp;·&nbsp;
                   <span className="text-red-600 dark:text-red-400 font-medium">{unpaid.length} chưa trả</span>
@@ -169,67 +242,71 @@ export default function RepaymentDueTodayPage() {
                 </td>
               </tr>
             )}
-            {!loading && items.length === 0 && (
+            {!loading && groups.length === 0 && (
               <tr>
                 <td colSpan={11} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
                   Không có kỳ trả nợ nào đến hạn ngày {isoToVN(selectedDate)}
                 </td>
               </tr>
             )}
-            {!loading && items.map(r => (
+            {!loading && groups.map(g => (
               <tr
-                key={r.scheduleId}
-                className={`transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30 ${r.status === 'PAID' ? 'opacity-60' : ''}`}>
+                key={g.loanId}
+                className={`transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/30 ${g.worstStatus === 'PAID' && g.worstDpd === 0 ? 'opacity-60' : ''}`}>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  <div className="font-semibold text-gray-900 dark:text-gray-100 text-xs">{r.loanCode || '—'}</div>
-                  <div className="text-[11px] font-mono text-gray-400 dark:text-gray-500 truncate max-w-[90px]" title={r.loanId}>
-                    {r.loanId?.slice(0, 8)}…
+                  <div className="font-semibold text-gray-900 dark:text-gray-100 text-xs">{g.loanCode || '—'}</div>
+                  <div className="text-[11px] font-mono text-gray-400 dark:text-gray-500 truncate max-w-[90px]" title={g.loanId}>
+                    {g.loanId?.slice(0, 8)}…
                   </div>
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="font-medium text-gray-900 dark:text-gray-100 text-xs">
-                    {r.borrowerFullName || <span className="text-gray-400 dark:text-gray-500 italic">Chưa KYC</span>}
+                    {g.borrowerFullName || <span className="text-gray-400 dark:text-gray-500 italic">Chưa KYC</span>}
                   </div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400">{r.borrowerPhone || '—'}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">{g.borrowerPhone || '—'}</div>
                 </td>
                 <td className="px-3 py-2.5 text-center text-gray-700 dark:text-gray-300 font-medium">
-                  <div className="font-bold">{r.periodNumber}</div>
-                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{isoToVN(r.dueDate)}</div>
+                  <div className="font-bold">
+                    {g.periods.length > 1
+                      ? <span title={`Kỳ ${[...g.periods].sort((a,b)=>a-b).join(', ')}`}>{periodLabel(g.periods)}</span>
+                      : g.periods[0]}
+                  </div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{isoToVN(g.minDueDate)}</div>
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                  {formatVND(r.totalDue + r.lateFee)}
+                  {formatVND(g.totalDue)}
                 </td>
-                <td className="px-3 py-2.5 text-right text-blue-700 dark:text-blue-300 whitespace-nowrap">{formatVND(r.principalDue)}</td>
-                <td className="px-3 py-2.5 text-right text-green-700 dark:text-green-300 whitespace-nowrap">{formatVND(r.interestDue)}</td>
+                <td className="px-3 py-2.5 text-right text-blue-700 dark:text-blue-300 whitespace-nowrap">{formatVND(g.principalDue)}</td>
+                <td className="px-3 py-2.5 text-right text-green-700 dark:text-green-300 whitespace-nowrap">{formatVND(g.interestDue)}</td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                  <span className={r.lateFee > 0 ? 'font-semibold text-yellow-700 dark:text-yellow-300' : 'text-gray-400 dark:text-gray-500'}>
-                    {r.lateFee > 0 ? formatVND(r.lateFee) : '—'}
+                  <span className={g.lateFee > 0 ? 'font-semibold text-yellow-700 dark:text-yellow-300' : 'text-gray-400 dark:text-gray-500'}>
+                    {g.lateFee > 0 ? formatVND(g.lateFee) : '—'}
                   </span>
                 </td>
                 <td className="px-3 py-2.5 text-right text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
-                  {(r.paidAmount + r.lateFeePaid) > 0 ? formatVND(r.paidAmount + r.lateFeePaid) : '—'}
+                  {(g.paidAmount + g.lateFeePaid) > 0 ? formatVND(g.paidAmount + g.lateFeePaid) : '—'}
                 </td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                  {r.remaining > 0
-                    ? <span className="font-semibold text-orange-700 dark:text-orange-300">{formatVND(r.remaining)}</span>
+                  {g.remaining > 0
+                    ? <span className="font-semibold text-orange-700 dark:text-orange-300">{formatVND(g.remaining)}</span>
                     : <span className="text-gray-400 dark:text-gray-500">—</span>}
                 </td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap bg-red-50/40 dark:bg-red-900/10">
-                  {(r.totalDebt ?? r.remaining) > 0
-                    ? <span className="font-bold text-red-700 dark:text-red-300">{formatVND(r.totalDebt ?? r.remaining)}</span>
+                  {g.totalDebt > 0
+                    ? <span className="font-bold text-red-700 dark:text-red-300">{formatVND(g.totalDebt)}</span>
                     : <span className="text-gray-400 dark:text-gray-500">—</span>}
                 </td>
                 <td className="px-3 py-2.5 text-center">
-                  <StatusBadge status={r.status} dpd={r.dpd} />
+                  <StatusBadge status={g.worstStatus} dpd={g.worstDpd} />
                 </td>
               </tr>
             ))}
           </tbody>
-          {items.length > 0 && !loading && (
+          {groups.length > 0 && !loading && (
             <tfoot>
               <tr className="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
                 <td colSpan={3} className="px-3 py-2.5 text-xs font-semibold text-gray-600 dark:text-gray-300">
-                  Tổng ({items.length} kỳ)
+                  Tổng ({groups.length} khoản · {items.length} kỳ)
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold text-gray-900 dark:text-gray-100 text-sm whitespace-nowrap">
                   {formatVND(items.reduce((s, r) => s + r.totalDue + r.lateFee, 0))}
