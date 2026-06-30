@@ -656,7 +656,7 @@ export async function recordRepayment(
 ): Promise<RepaymentScheduleItem[]> {
   return request(`/loans/${loanId}/repayments`, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    data: payload,
   });
 }
 
