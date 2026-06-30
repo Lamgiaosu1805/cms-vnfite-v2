@@ -150,27 +150,28 @@ export default function RepaymentDueTodayPage() {
             <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap">Khoản</th>
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Người gọi vốn</th>
-              <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Kỳ</th>
-              <th className="px-3 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Phải trả</th>
+              <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Kỳ / Ngày ĐH</th>
+              <th className="px-3 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase whitespace-nowrap">Kỳ này phải trả</th>
               <th className="px-3 py-3 text-right text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">Gốc</th>
               <th className="px-3 py-3 text-right text-xs font-semibold text-green-600 dark:text-green-400 uppercase">Lãi</th>
               <th className="px-3 py-3 text-right text-xs font-semibold text-yellow-600 dark:text-yellow-400 uppercase">Phí phạt</th>
               <th className="px-3 py-3 text-right text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Đã trả</th>
-              <th className="px-3 py-3 text-right text-xs font-semibold text-red-600 dark:text-red-400 uppercase">Còn lại</th>
+              <th className="px-3 py-3 text-right text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase whitespace-nowrap">Còn lại kỳ này</th>
+              <th className="px-3 py-3 text-right text-xs font-semibold text-red-700 dark:text-red-400 uppercase whitespace-nowrap bg-red-50 dark:bg-red-900/20">Tổng nợ cần trả</th>
               <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Trạng thái</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {loading && (
               <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
+                <td colSpan={11} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
                   <RefreshCw size={20} className="animate-spin mx-auto mb-2" />Đang tải...
                 </td>
               </tr>
             )}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
+                <td colSpan={11} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
                   Không có kỳ trả nợ nào đến hạn ngày {isoToVN(selectedDate)}
                 </td>
               </tr>
@@ -191,14 +192,17 @@ export default function RepaymentDueTodayPage() {
                   </div>
                   <div className="text-[11px] text-gray-500 dark:text-gray-400">{r.borrowerPhone || '—'}</div>
                 </td>
-                <td className="px-3 py-2.5 text-center text-gray-700 dark:text-gray-300 font-medium">{r.periodNumber}</td>
+                <td className="px-3 py-2.5 text-center text-gray-700 dark:text-gray-300 font-medium">
+                  <div className="font-bold">{r.periodNumber}</div>
+                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{isoToVN(r.dueDate)}</div>
+                </td>
                 <td className="px-3 py-2.5 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                   {formatVND(r.totalDue + r.lateFee)}
                 </td>
                 <td className="px-3 py-2.5 text-right text-blue-700 dark:text-blue-300 whitespace-nowrap">{formatVND(r.principalDue)}</td>
                 <td className="px-3 py-2.5 text-right text-green-700 dark:text-green-300 whitespace-nowrap">{formatVND(r.interestDue)}</td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                  <span className={r.lateFee > 0 ? 'text-yellow-700 dark:text-yellow-300' : 'text-gray-400 dark:text-gray-500'}>
+                  <span className={r.lateFee > 0 ? 'font-semibold text-yellow-700 dark:text-yellow-300' : 'text-gray-400 dark:text-gray-500'}>
                     {r.lateFee > 0 ? formatVND(r.lateFee) : '—'}
                   </span>
                 </td>
@@ -207,7 +211,12 @@ export default function RepaymentDueTodayPage() {
                 </td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
                   {r.remaining > 0
-                    ? <span className="font-semibold text-red-700 dark:text-red-300">{formatVND(r.remaining)}</span>
+                    ? <span className="font-semibold text-orange-700 dark:text-orange-300">{formatVND(r.remaining)}</span>
+                    : <span className="text-gray-400 dark:text-gray-500">—</span>}
+                </td>
+                <td className="px-3 py-2.5 text-right whitespace-nowrap bg-red-50/40 dark:bg-red-900/10">
+                  {(r.totalDebt ?? r.remaining) > 0
+                    ? <span className="font-bold text-red-700 dark:text-red-300">{formatVND(r.totalDebt ?? r.remaining)}</span>
                     : <span className="text-gray-400 dark:text-gray-500">—</span>}
                 </td>
                 <td className="px-3 py-2.5 text-center">
@@ -237,8 +246,11 @@ export default function RepaymentDueTodayPage() {
                 <td className="px-3 py-2.5 text-right font-semibold text-emerald-700 dark:text-emerald-300 text-sm whitespace-nowrap">
                   {formatVND(items.reduce((s, r) => s + r.paidAmount + r.lateFeePaid, 0))}
                 </td>
-                <td className="px-3 py-2.5 text-right font-semibold text-red-700 dark:text-red-300 text-sm whitespace-nowrap">
+                <td className="px-3 py-2.5 text-right font-semibold text-orange-700 dark:text-orange-300 text-sm whitespace-nowrap">
                   {formatVND(items.reduce((s, r) => s + r.remaining, 0))}
+                </td>
+                <td className="px-3 py-2.5 text-right font-bold text-red-700 dark:text-red-300 text-sm whitespace-nowrap bg-red-50/40 dark:bg-red-900/10">
+                  {formatVND(items.reduce((s, r) => s + (r.totalDebt ?? r.remaining), 0))}
                 </td>
                 <td />
               </tr>

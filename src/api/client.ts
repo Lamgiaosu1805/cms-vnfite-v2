@@ -944,6 +944,8 @@ export interface DueTodayScheduleItem {
   paidAmount: number;
   lateFeePaid: number;
   remaining: number;
+  /** Tổng dư nợ của TẤT CẢ kỳ chưa trả thuộc khoản này (kỳ này + các kỳ trước còn nợ). */
+  totalDebt: number;
   status: string;
   dpd: number;
 }
