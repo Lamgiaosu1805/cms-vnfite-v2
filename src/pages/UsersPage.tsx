@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, ChevronLeft, ChevronRight, Copy, Eye, KeyRound, RefreshCw, Search, Smartphone, X } from 'lucide-react';
+import { Ban, Check, ChevronLeft, ChevronRight, Copy, Eye, KeyRound, RefreshCw, Search, ShieldCheck, Smartphone, X } from 'lucide-react';
 import {
   decideKyc,
   fetchCustomerDetailWithParams,
@@ -9,6 +9,7 @@ import {
   getStoredAdmin,
   resetCustomerDevice,
   resetCustomerPassword,
+  setCustomerBlacklist,
   updateUserStatus,
   type CustomerDetail,
   type CmsUser,
@@ -712,6 +713,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
   const [data, setData] = useState<{ content: CmsUser[]; totalElements: number; totalPages: number } | null>(null);
   const [search, setSearch] = useState('');
   const [kycFilter, setKycFilter] = useState('');
+  const [blacklistFilter, setBlacklistFilter] = useState('');
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -722,7 +724,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
 
   // Modals
   const [confirmModal, setConfirmModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
-  const [rejectModal, setRejectModal] = useState<{ title: string; onConfirm: (r: string) => void } | null>(null);
+  const [rejectModal, setRejectModal] = useState<{ title: string; placeholder?: string; onConfirm: (r: string) => void } | null>(null);
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -732,7 +734,13 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
       setLoading(true);
       setError('');
       try {
-        const next = await fetchUsers({ search, kycStatus: kycFilter || undefined, page, size: 20 });
+        const next = await fetchUsers({
+          search,
+          kycStatus: kycFilter || undefined,
+          blacklisted: blacklistFilter === '' ? undefined : blacklistFilter === 'true',
+          page,
+          size: 20,
+        });
         if (alive) setData(next);
       } catch (err: unknown) {
         if (alive) setError(err instanceof Error ? err.message : 'Không thể tải danh sách khách hàng');
@@ -743,7 +751,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
     return () => {
       alive = false;
     };
-  }, [search, kycFilter, page, refresh]);
+  }, [search, kycFilter, blacklistFilter, page, refresh]);
 
   function handleSearchChange(value: string) {
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
@@ -753,7 +761,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
     }, 400);
   }
 
-  async function doAction(promise: Promise<void>) {
+  async function doAction(promise: Promise<unknown>) {
     try {
       await promise;
       setRefresh((r) => r + 1);
@@ -839,6 +847,28 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
     });
   }
 
+  function askToggleBlacklist(user: CmsUser) {
+    if (user.blacklisted) {
+      setConfirmModal({
+        message: `Gỡ khách hàng "${user.fullName || user.phone}" khỏi blacklist? Khách sẽ có thể đăng ký gọi vốn nếu đáp ứng các điều kiện khác.`,
+        onConfirm: () => {
+          setConfirmModal(null);
+          doAction(setCustomerBlacklist(user.userId, false));
+        },
+      });
+      return;
+    }
+
+    setRejectModal({
+      title: `Đưa "${user.fullName || user.phone}" vào blacklist`,
+      placeholder: 'Nhập lý do blacklist...',
+      onConfirm: (reason) => {
+        setRejectModal(null);
+        doAction(setCustomerBlacklist(user.userId, true, reason));
+      },
+    });
+  }
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -863,6 +893,15 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
           <option value="APPROVED">Đã duyệt</option>
           <option value="REJECTED">Từ chối</option>
         </select>
+        <select
+          value={blacklistFilter}
+          onChange={(e) => { setBlacklistFilter(e.target.value); setPage(0); }}
+          className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-gray-100"
+        >
+          <option value="">Tất cả blacklist</option>
+          <option value="true">Đang bị blacklist</option>
+          <option value="false">Không blacklist</option>
+        </select>
         <button onClick={() => setRefresh((r) => r + 1)} className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -879,6 +918,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
                 <th className="text-center px-4 py-3.5">SĐT</th>
                 <th className="text-center px-4 py-3.5">Số CCCD</th>
                 <th className="text-center px-4 py-3.5">KYC</th>
+                <th className="text-center px-4 py-3.5">Blacklist</th>
                 <th className="text-center px-4 py-3.5">Trạng thái</th>
                 <th className="text-center px-4 py-3.5">Ngày tạo</th>
                 <th className="text-center px-4 py-3.5">Thao tác</th>
@@ -886,7 +926,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-700/50">
               {loading && !data && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
+                <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">
                   <RefreshCw size={18} className="animate-spin inline mr-2" /> Đang tải...
                 </td></tr>
               )}
@@ -901,6 +941,20 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
                     {user.cccdNumber || <span className="text-gray-300 dark:text-gray-600">—</span>}
                   </td>
                   <td className="px-4 py-3.5 text-center"><Badge value={user.kycStatus} /></td>
+                  <td className="px-4 py-3.5 text-center">
+                    {user.blacklisted ? (
+                      <span
+                        className="inline-flex items-center justify-center gap-1 rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                        title={user.blacklistedAt ? `Blacklist lúc ${formatVietnamDateTime(user.blacklistedAt, '-')}` : user.blacklistReason || 'Đang bị blacklist'}
+                      >
+                        <Ban size={12} /> Có
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center justify-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                        <ShieldCheck size={12} /> Không
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3.5 text-center"><Badge value={user.accountStatus} /></td>
                   <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs">{formatVietnamDateTime(user.createdAt, '-')}</td>
                   <td className="px-4 py-3.5">
@@ -940,6 +994,18 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
                       >
                         {user.accountStatus === 'ACTIVE' ? 'Khoá' : 'Mở khoá'}
                       </button>
+                      <button
+                        onClick={() => askToggleBlacklist(user)}
+                        title={user.blacklisted ? 'Gỡ khỏi blacklist' : 'Đưa vào blacklist'}
+                        className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                          user.blacklisted
+                            ? 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40'
+                            : 'text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40'
+                        }`}
+                      >
+                        {user.blacklisted ? <ShieldCheck size={13} /> : <Ban size={13} />}
+                        {user.blacklisted ? 'Gỡ BL' : 'BL'}
+                      </button>
                       {showAdminReset && (
                         <>
                           <button
@@ -967,7 +1033,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
                 </tr>
               ))}
               {data?.content.length === 0 && (
-                <tr><td colSpan={7} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">Không có dữ liệu</td></tr>
+                <tr><td colSpan={8} className="px-5 py-8 text-center text-gray-400 dark:text-gray-500">Không có dữ liệu</td></tr>
               )}
             </tbody>
           </table>

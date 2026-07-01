@@ -317,6 +317,10 @@ export interface CmsUser {
   role: string;
   kycStatus: string;
   accountStatus: string;
+  blacklisted: boolean;
+  blacklistedAt: string | null;
+  blacklistSource: string | null;
+  blacklistReason: string | null;
   createdAt: string;
   dateOfBirth: string | null;
   gender: string | null;
@@ -422,6 +426,7 @@ export interface PagedResponse<T> {
 export async function fetchUsers(params: {
   search?: string;
   kycStatus?: string;
+  blacklisted?: boolean;
   accountStatus?: string;
   page?: number;
   size?: number;
@@ -429,6 +434,7 @@ export async function fetchUsers(params: {
   const q = new URLSearchParams();
   if (params.search) q.set('search', params.search);
   if (params.kycStatus) q.set('kycStatus', params.kycStatus);
+  if (params.blacklisted !== undefined) q.set('blacklisted', String(params.blacklisted));
   if (params.accountStatus) q.set('accountStatus', params.accountStatus);
   q.set('page', String(params.page ?? 0));
   q.set('size', String(params.size ?? 20));
@@ -464,6 +470,13 @@ export async function resetCustomerPassword(userId: string): Promise<ResetCustom
 
 export async function resetCustomerDevice(userId: string): Promise<void> {
   return request(`/users/${userId}/reset-device`, { method: 'POST' });
+}
+
+export async function setCustomerBlacklist(userId: string, blacklisted: boolean, reason?: string): Promise<CmsUser> {
+  return request(`/users/${userId}/blacklist`, {
+    method: 'POST',
+    data: { blacklisted, reason },
+  });
 }
 
 // ─── System money transactions ─────────────────────────────────────────────
