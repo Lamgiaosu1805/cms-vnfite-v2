@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, CalendarClock, CheckCircle2, Eye, RefreshCw, X, XCircle } from 'lucide-react';
-import { fetchAutoDebitAuditList, runAutoDebitSweep, type AutoDebitSweepResult } from '../api/client';
+import {
+  fetchAutoDebitAuditItems,
+  fetchAutoDebitAuditList,
+  runAutoDebitSweep,
+  type AutoDebitAuditItem,
+  type AutoDebitSweepResult,
+} from '../api/client';
 import { formatVietnamDateTime } from '../utils/dateTime';
 
 function formatVND(value: number | string | undefined): string {
@@ -33,6 +39,25 @@ function resultTone(record: AutoDebitSweepResult): string {
   return 'text-gray-500 dark:text-gray-400';
 }
 
+function statusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    NO_DUE: 'Chưa đến hạn',
+    NO_BALANCE: 'Thiếu số dư',
+    BALANCE_ERROR: 'Lỗi số dư',
+    SETTLED_FULL: 'Thu đủ',
+    SETTLED_PARTIAL: 'Thu một phần',
+    FAILED: 'Thất bại',
+  };
+  return labels[status] ?? status;
+}
+
+function statusClass(status: string): string {
+  if (status === 'SETTLED_FULL') return 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+  if (status === 'SETTLED_PARTIAL') return 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300';
+  if (status === 'NO_BALANCE' || status === 'NO_DUE') return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+  return 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300';
+}
+
 function DetailItem({
   label,
   value,
@@ -57,6 +82,9 @@ export default function AutoDebitAuditPage() {
   const [sweeping, setSweeping] = useState(false);
   const [sweepMsg, setSweepMsg] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<AutoDebitSweepResult | null>(null);
+  const [detailItems, setDetailItems] = useState<AutoDebitAuditItem[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +114,29 @@ export default function AutoDebitAuditPage() {
     } finally {
       setSweeping(false);
     }
+  };
+
+  const openDetail = async (record: AutoDebitSweepResult) => {
+    setSelectedRecord(record);
+    setDetailItems([]);
+    setDetailError(null);
+    if (!record.auditId) return;
+    setDetailLoading(true);
+    try {
+      const items = await fetchAutoDebitAuditItems(record.auditId);
+      setDetailItems(Array.isArray(items) ? items : []);
+    } catch (e: unknown) {
+      setDetailError(e instanceof Error ? e.message : 'Không tải được chi tiết lần quét');
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeDetail = () => {
+    setSelectedRecord(null);
+    setDetailItems([]);
+    setDetailError(null);
+    setDetailLoading(false);
   };
 
   return (
@@ -173,7 +224,7 @@ export default function AutoDebitAuditPage() {
               return (
                 <tr
                   key={r.auditId ?? idx}
-                  onClick={() => setSelectedRecord(r)}
+                  onClick={() => openDetail(r)}
                   className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
                 >
                   <td className="px-4 py-3 whitespace-nowrap text-gray-900 dark:text-gray-100">
@@ -227,7 +278,7 @@ export default function AutoDebitAuditPage() {
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        setSelectedRecord(r);
+                        openDetail(r);
                       }}
                       title="Xem chi tiết"
                       className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-red-400"
@@ -271,7 +322,7 @@ export default function AutoDebitAuditPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedRecord(null)}
+                onClick={closeDetail}
                 className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                 title="Đóng"
               >
@@ -332,6 +383,82 @@ export default function AutoDebitAuditPage() {
                   </p>
                 </div>
               )}
+
+              <div>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Chi tiết từng khoản</h3>
+                  {detailItems.length > 0 && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{detailItems.length.toLocaleString('vi-VN')} khoản</span>
+                  )}
+                </div>
+
+                {detailLoading && (
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <RefreshCw size={18} className="mx-auto mb-2 animate-spin" />
+                    Đang tải chi tiết từng khoản...
+                  </div>
+                )}
+
+                {!detailLoading && detailError && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                    {detailError}
+                  </div>
+                )}
+
+                {!detailLoading && !detailError && detailItems.length === 0 && (
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                    Chưa có dữ liệu chi tiết từng khoản cho lần quét này. Các lần quét cũ trước khi cập nhật tính năng sẽ chỉ có số liệu tổng hợp.
+                  </div>
+                )}
+
+                {!detailLoading && detailItems.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-700/50">
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Khoản</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Người gọi vốn</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Kết quả</th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Số tiền thu</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500 dark:text-gray-400">Ghi chú</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {detailItems.map(item => (
+                          <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                            <td className="px-3 py-2.5 whitespace-nowrap">
+                              <div className="font-semibold text-gray-900 dark:text-gray-100">{item.loanCode || item.loanId.slice(0, 8)}</div>
+                              <div className="max-w-[140px] truncate font-mono text-[11px] text-gray-400 dark:text-gray-500" title={item.loanId}>{item.loanId}</div>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              <div className="max-w-[180px] truncate font-medium text-gray-900 dark:text-gray-100" title={item.borrowerFullName || item.borrowerPhone || item.borrowerId || ''}>
+                                {item.borrowerFullName || item.borrowerPhone || 'Chưa xác định'}
+                              </div>
+                              {item.borrowerPhone && (
+                                <div className="font-mono text-[11px] text-gray-500 dark:text-gray-400">{item.borrowerPhone}</div>
+                              )}
+                              {item.borrowerId && (
+                                <div className="max-w-[140px] truncate font-mono text-[11px] text-gray-400 dark:text-gray-500" title={item.borrowerId}>{item.borrowerId}</div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 whitespace-nowrap">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass(item.resultStatus)}`}>
+                                {statusLabel(item.resultStatus)}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                              {formatVND(item.amountCollected)}
+                            </td>
+                            <td className="px-3 py-2.5 text-gray-600 dark:text-gray-300">
+                              <span className="line-clamp-2" title={item.message || ''}>{item.message || '—'}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
