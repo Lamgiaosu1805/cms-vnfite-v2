@@ -1163,6 +1163,10 @@ export interface LoanProduct {
   interestPenaltyRate: number | null;
   /** Tỷ lệ phí tất toán trước hạn (% trên gốc còn lại, về VNFITE). Mặc định 5. */
   earlySettlementFeeRate: number | null;
+  /** Ngưỡng miễn phí tất toán: đã dùng vốn ≥ tỷ lệ này của kỳ hạn thì phí = 0. Mặc định 0.6667 (2/3). */
+  earlySettlementFreeRatio: number | null;
+  /** Mức phí tất toán tối thiểu (VND) khi phí áp dụng. Mặc định 500.000. */
+  earlySettlementMinFee: number | null;
   sortOrder: number;
 }
 
@@ -1180,6 +1184,8 @@ export interface LoanProductUpdatePayload {
   lateFeeRate: number | null;
   interestPenaltyRate: number | null;
   earlySettlementFeeRate: number | null;
+  earlySettlementFreeRatio: number | null;
+  earlySettlementMinFee: number | null;
   sortOrder: number;
   active: boolean;
 }
