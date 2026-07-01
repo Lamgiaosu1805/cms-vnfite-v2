@@ -4,17 +4,19 @@ import {
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
   Send, Check, X, ShieldCheck, Search, FileText, Download, Brain, ExternalLink,
   TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch, Ban, ShieldAlert, Landmark, Hourglass, HandCoins,
+  Calculator,
 } from 'lucide-react';
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
   proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
-  fetchFileBlob,
+  fetchFileBlob, fetchEarlySettlementQuote,
   type CmsLoan, type AppraisalSuggestion, type FraudCheck,
   type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
   type ScoreExplanation, type CicLookup, type CicLookupInput,
+  type EarlySettlementQuote,
 } from '../api/client';
 import { Badge } from '../components/Badge';
 import {
@@ -2083,6 +2085,94 @@ function RepaymentScheduleSection({ loanId, loanStatus }: { loanId: string; loan
   );
 }
 
+// ─── Xem báo giá tất toán sớm (chỉ xem, không trừ tiền) ─────────────────────────
+
+const EARLY_SETTLEMENT_ELIGIBLE_STATUSES = ['DISBURSED', 'REPAYING', 'DEFAULTED'];
+
+function EarlySettlementQuoteSection({ loanId, loanStatus }: { loanId: string; loanStatus: string }) {
+  const [quote, setQuote]   = useState<EarlySettlementQuote | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+  const [open, setOpen]       = useState(false);
+
+  if (!EARLY_SETTLEMENT_ELIGIBLE_STATUSES.includes(loanStatus)) return null;
+
+  const load = async () => {
+    if (quote !== null) { setOpen(v => !v); return; }
+    setLoading(true);
+    setError('');
+    try {
+      const data = await fetchEarlySettlementQuote(loanId);
+      setQuote(data);
+      setOpen(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không tải được báo giá tất toán.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+      <button
+        onClick={load}
+        disabled={loading}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+          <Calculator size={16} className="text-amber-500" />
+          Xem báo giá tất toán sớm
+          <span className="text-xs font-normal text-gray-400 dark:text-gray-500">(chỉ xem, không trừ tiền)</span>
+        </span>
+        {loading
+          ? <RefreshCw size={14} className="animate-spin text-gray-400" />
+          : <ChevronRight size={16} className={`text-gray-400 transition-transform ${open ? 'rotate-90' : ''}`} />}
+      </button>
+
+      {error && (
+        <p className="px-5 pb-3 text-xs text-red-500">{error}</p>
+      )}
+
+      {open && quote && (
+        <div className="px-5 pb-4 border-t border-gray-100 dark:border-gray-800 pt-3 space-y-2">
+          <p className="text-xs text-gray-400 dark:text-gray-500">Báo giá theo dữ liệu ngày {formatVietnamDate(quote.asOfDate)}</p>
+
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+            <span className="text-gray-500 dark:text-gray-400">Gốc còn lại</span>
+            <span className="text-right font-medium text-gray-900 dark:text-gray-100">{formatMoney(quote.remainingPrincipal)}</span>
+
+            <span className="text-gray-500 dark:text-gray-400">Lãi tới ngày tất toán</span>
+            <span className="text-right font-medium text-gray-900 dark:text-gray-100">{formatMoney(quote.interestToDate)}</span>
+
+            {quote.penaltyOutstanding > 0 && (
+              <>
+                <span className="text-gray-500 dark:text-gray-400">Phí phạt quá hạn</span>
+                <span className="text-right font-medium text-orange-600 dark:text-orange-400">{formatMoney(quote.penaltyOutstanding)}</span>
+              </>
+            )}
+
+            <span className="text-gray-500 dark:text-gray-400">
+              Phí tất toán sớm{quote.settlementFee > 0 ? ` (${quote.settlementFeeRate}%)` : ''}
+            </span>
+            <span className={`text-right font-medium ${quote.settlementFee > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'}`}>
+              {quote.settlementFee > 0 ? formatMoney(quote.settlementFee) : 'Miễn phí (đã dùng ≥ 2/3 kỳ hạn)'}
+            </span>
+          </div>
+
+          <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">Tổng thanh toán tất toán</span>
+            <span className="text-base font-bold text-red-600 dark:text-red-400">{formatMoney(quote.totalPayoff)}</span>
+          </div>
+
+          {quote.settled && (
+            <p className="text-xs text-green-600 dark:text-green-400">Khoản này đã được tất toán trước hạn.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Hợp đồng điện tử ───────────────────────────────────────────────────────────
 
 const CONTRACT_STATUS_CLS: Record<string, string> = {
@@ -2451,6 +2541,9 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
 
       {/* Lịch thanh toán — hiển thị cho mọi trạng thái (tự ẩn nếu chưa có lịch) */}
       <RepaymentScheduleSection loanId={loan.loanId} loanStatus={loan.status} />
+
+      {/* Báo giá tất toán sớm — chỉ xem, tự ẩn nếu khoản chưa giải ngân/đã hoàn tất */}
+      <EarlySettlementQuoteSection loanId={loan.loanId} loanStatus={loan.status} />
     </div>
   );
 }
