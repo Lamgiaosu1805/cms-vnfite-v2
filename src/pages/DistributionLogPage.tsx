@@ -13,6 +13,10 @@ function pct(rate: number | undefined | null): string {
   return (rate * 100).toFixed(1) + '%';
 }
 
+function investorDisplayName(record: InvestorDistributionRecord): string {
+  return record.investorName?.trim() || record.investorPhone?.trim() || 'Chưa xác định';
+}
+
 export default function DistributionLogPage() {
   const [records, setRecords] = useState<InvestorDistributionRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -172,7 +176,13 @@ export default function DistributionLogPage() {
                   <div className="text-gray-400 dark:text-gray-500 text-[11px] font-mono truncate max-w-[120px]" title={r.loanId}>{r.loanId.slice(0, 8)}…</div>
                 </td>
                 <td className="px-3 py-2.5">
-                  <div className="text-[11px] font-mono text-gray-500 dark:text-gray-400 truncate max-w-[120px]" title={r.investorId}>{r.investorId.slice(0, 8)}…</div>
+                  <div className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[180px]" title={investorDisplayName(r)}>
+                    {investorDisplayName(r)}
+                  </div>
+                  {r.investorPhone && (
+                    <div className="text-[11px] font-mono text-gray-500 dark:text-gray-400">{r.investorPhone}</div>
+                  )}
+                  <div className="text-[11px] font-mono text-gray-400 dark:text-gray-500 truncate max-w-[140px]" title={r.investorId}>{r.investorId.slice(0, 8)}…</div>
                 </td>
                 <td className="px-3 py-2.5 text-right text-gray-900 dark:text-gray-100 font-medium whitespace-nowrap">
                   {formatVND(r.grossAmount)}

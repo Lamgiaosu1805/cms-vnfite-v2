@@ -12,7 +12,7 @@ import {
   type ResetAdminPasswordResult,
 } from '../api/client';
 import { Badge } from '../components/Badge';
-import { formatVietnamDate } from '../utils/dateTime';
+import { formatVietnamDateTime } from '../utils/dateTime';
 
 interface CreateModalProps {
   onCreated: (result: CreateAdminResult) => void;
@@ -298,7 +298,7 @@ export function AdminsPage() {
                     {admin.totpEnabled ? 'Đã bật' : 'Chưa bật'}
                   </span>
                 </td>
-                <td className="px-4 py-3.5 text-gray-400 dark:text-gray-500">{formatVietnamDate(admin.createdAt, '-')}</td>
+                <td className="px-4 py-3.5 text-gray-400 dark:text-gray-500">{formatVietnamDateTime(admin.createdAt, '-')}</td>
                 <td className="px-4 py-3.5">
                   <div className="flex flex-wrap justify-end gap-2">
                     <button
