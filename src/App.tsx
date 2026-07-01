@@ -18,6 +18,7 @@ import AutoDebitAuditPage from './pages/AutoDebitAuditPage';
 import DistributionLogPage from './pages/DistributionLogPage';
 import FeeRevenuePage from './pages/FeeRevenuePage';
 import RepaymentDueTodayPage from './pages/RepaymentDueTodayPage';
+import { EarlySettlementsPage } from './pages/EarlySettlementsPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
@@ -36,6 +37,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   'auto-debit-audit': 'Lịch sử thu nợ tự động',
   'distribution-log': 'Phân bổ & Thuế TNCN',
   'fee-revenue': 'Doanh thu phí',
+  'early-settlements': 'Tất toán sớm',
 };
 
 type AppState =
@@ -356,6 +358,7 @@ export default function App() {
           {tab === 'auto-debit-audit' && <AutoDebitAuditPage />}
           {tab === 'distribution-log' && <DistributionLogPage />}
           {tab === 'fee-revenue'      && <FeeRevenuePage />}
+          {tab === 'early-settlements' && <EarlySettlementsPage />}
         </main>
       </div>
     </div>

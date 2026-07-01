@@ -1159,6 +1159,14 @@ export interface LoanProduct {
   imageUrl: string | null;
   maxInterestRate: number | null;
   lateFeeRate: number | null;
+  /** Tỷ lệ phí phạt lãi quá hạn (%/năm trên lãi chưa trả). Mặc định 10. */
+  interestPenaltyRate: number | null;
+  /** Tỷ lệ phí tất toán trước hạn (% trên gốc còn lại, về VNFITE). Mặc định 5. */
+  earlySettlementFeeRate: number | null;
+  /** Ngưỡng miễn phí tất toán: đã dùng vốn ≥ tỷ lệ này của kỳ hạn thì phí = 0. Mặc định 0.6667 (2/3). */
+  earlySettlementFreeRatio: number | null;
+  /** Mức phí tất toán tối thiểu (VND) khi phí áp dụng. Mặc định 500.000. */
+  earlySettlementMinFee: number | null;
   sortOrder: number;
 }
 
@@ -1174,12 +1182,43 @@ export interface LoanProductUpdatePayload {
   availableTerms: number[];
   maxInterestRate: number | null;
   lateFeeRate: number | null;
+  interestPenaltyRate: number | null;
+  earlySettlementFeeRate: number | null;
+  earlySettlementFreeRatio: number | null;
+  earlySettlementMinFee: number | null;
   sortOrder: number;
   active: boolean;
 }
 
 export async function updateLoanProduct(id: string, payload: LoanProductUpdatePayload): Promise<LoanProduct> {
   return request(`/loans/products/${id}`, { method: 'PUT', data: payload });
+}
+
+export interface EarlySettlementRecord {
+  id: string;
+  loanId: string;
+  loanCode: string;
+  borrowerId: string;
+  principalSettled: number;
+  interestToDate: number;
+  penaltyPaid: number;
+  settlementFee: number;
+  settlementFeeRate: number;
+  totalPaid: number;
+  settledAt: string;
+  settledBy: string;
+}
+
+export interface EarlySettlementPage {
+  content: EarlySettlementRecord[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
+
+export async function fetchEarlySettlements(page = 0, size = 20): Promise<EarlySettlementPage> {
+  return request(`/loans/early-settlements?page=${page}&size=${size}`);
 }
 
 // ─── Push Notification ───────────────────────────────────────────────────────

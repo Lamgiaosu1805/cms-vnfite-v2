@@ -31,6 +31,10 @@ function EditModal({ product, onClose, onSaved }: EditModalProps) {
     availableTerms: product.availableTerms ?? [],
     maxInterestRate: product.maxInterestRate ?? null,
     lateFeeRate: product.lateFeeRate ?? null,
+    interestPenaltyRate: product.interestPenaltyRate ?? null,
+    earlySettlementFeeRate: product.earlySettlementFeeRate ?? null,
+    earlySettlementFreeRatio: product.earlySettlementFreeRatio ?? null,
+    earlySettlementMinFee: product.earlySettlementMinFee ?? null,
     sortOrder: product.sortOrder,
     active: true,
   });
@@ -198,7 +202,7 @@ function EditModal({ product, onClose, onSaved }: EditModalProps) {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                Lãi phạt trả chậm (%)
+                Phí phạt gốc quá hạn (%)
               </label>
               <input
                 type="number"
@@ -209,6 +213,74 @@ function EditModal({ product, onClose, onSaved }: EditModalProps) {
                 placeholder="Mặc định 150"
                 className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500 dark:focus:border-red-400 transition placeholder:text-gray-400 dark:placeholder:text-gray-500"
               />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">× lãi suất/năm × gốc quá hạn</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Phí phạt lãi quá hạn (%/năm)
+              </label>
+              <input
+                type="number"
+                step={0.01}
+                min={0}
+                value={form.interestPenaltyRate ?? ''}
+                onChange={e => setForm(f => ({ ...f, interestPenaltyRate: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="Mặc định 10"
+                className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500 dark:focus:border-red-400 transition placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Trên phần lãi chưa trả</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Phí tất toán sớm (%)
+              </label>
+              <input
+                type="number"
+                step={0.01}
+                min={0}
+                value={form.earlySettlementFeeRate ?? ''}
+                onChange={e => setForm(f => ({ ...f, earlySettlementFeeRate: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="Mặc định 5"
+                className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500 dark:focus:border-red-400 transition placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">% trên gốc còn lại → VNFITE</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Ngưỡng miễn phí tất toán
+              </label>
+              <input
+                type="number"
+                step={0.0001}
+                min={0}
+                max={1}
+                value={form.earlySettlementFreeRatio ?? ''}
+                onChange={e => setForm(f => ({ ...f, earlySettlementFreeRatio: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="Mặc định 0.6667"
+                className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500 dark:focus:border-red-400 transition placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Tỷ lệ kỳ hạn đã dùng → miễn phí. 0.6667 = 2/3</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Phí tất toán tối thiểu (đ)
+              </label>
+              <input
+                type="number"
+                step={1000}
+                min={0}
+                value={form.earlySettlementMinFee ?? ''}
+                onChange={e => setForm(f => ({ ...f, earlySettlementMinFee: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="Mặc định 500000"
+                className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500 dark:focus:border-red-400 transition placeholder:text-gray-400 dark:placeholder:text-gray-500"
+              />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Mức sàn khi phí áp dụng (&lt; ngưỡng)</p>
             </div>
           </div>
 
