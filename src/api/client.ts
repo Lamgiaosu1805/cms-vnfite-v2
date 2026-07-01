@@ -934,6 +934,8 @@ export interface InvestorDistributionRecord {
   scheduleId?: string;
   offerId: string;
   investorId: string;
+  investorName?: string | null;
+  investorPhone?: string | null;
   grossAmount: number;
   principalAmount: number;
   interestAmount: number;

@@ -639,7 +639,7 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                             <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.interestRate != null ? `${loan.interestRate}%` : '—'}</td>
                             <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.termMonths} tháng</td>
                             <td className="py-3 text-center"><Badge value={loan.status} /></td>
-                            <td className="py-3 text-right text-gray-500 dark:text-gray-400">{formatVietnamDate(loan.createdAt, '-')}</td>
+                            <td className="py-3 text-right text-gray-500 dark:text-gray-400">{formatVietnamDateTime(loan.createdAt, '-')}</td>
                           </tr>
                           <tr>
                             <td colSpan={7} className="pb-4">
@@ -902,7 +902,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
                   </td>
                   <td className="px-4 py-3.5 text-center"><Badge value={user.kycStatus} /></td>
                   <td className="px-4 py-3.5 text-center"><Badge value={user.accountStatus} /></td>
-                  <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs">{formatVietnamDate(user.createdAt, '-')}</td>
+                  <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs">{formatVietnamDateTime(user.createdAt, '-')}</td>
                   <td className="px-4 py-3.5">
                     <div className="flex items-center justify-center gap-1.5">
                       <button

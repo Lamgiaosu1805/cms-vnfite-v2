@@ -25,6 +25,7 @@ import {
 } from '../loanConstants';
 import {
   formatVietnamDate,
+  formatVietnamDateTime,
   parseVietnamDateTime,
   todayVietnamDateString,
 } from '../utils/dateTime';
@@ -1166,7 +1167,7 @@ function LoanDocumentsSection({ loan }: { loan: CmsLoan }) {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate" title={doc.fileName ?? doc.fileId}>{doc.fileName ?? doc.fileId}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{DOC_TYPE_LABEL[doc.docType] ?? doc.docType} · {doc.createdAt ? formatVietnamDate(doc.createdAt) : 'Chưa rõ ngày'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{DOC_TYPE_LABEL[doc.docType] ?? doc.docType} · {doc.createdAt ? formatVietnamDateTime(doc.createdAt) : 'Chưa rõ ngày'}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {analysis && (
@@ -1795,7 +1796,7 @@ function FundingProgressSection({ loan }: { loan: CmsLoan }) {
                       {OFFER_STATUS_LABEL[o.status ?? ''] ?? o.status ?? '—'}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{o.createdAt ? formatVietnamDate(o.createdAt) : '—'}</td>
+                  <td className="px-3 py-2 text-gray-500 dark:text-gray-400">{o.createdAt ? formatVietnamDateTime(o.createdAt) : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -2262,7 +2263,7 @@ function ContractsSection({ loanId }: { loanId: string }) {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                    {c.signedAt ? formatVietnamDate(c.signedAt) : '—'}
+                    {c.signedAt ? formatVietnamDateTime(c.signedAt) : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     {(c.signedDocumentUrl || c.documentUrl) ? (
@@ -2484,7 +2485,7 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         {(loan.reviewedBy || loan.reviewedAt || loan.rejectionReason) && (
           <Section title="Thẩm định">
             {loan.reviewedBy && <DetailRow label="Người thẩm định" value={loan.reviewedBy} />}
-            {loan.reviewedAt && <DetailRow label="Ngày thẩm định" value={formatVietnamDate(loan.reviewedAt)} />}
+            {loan.reviewedAt && <DetailRow label="Ngày thẩm định" value={formatVietnamDateTime(loan.reviewedAt)} />}
             {loan.rejectionReason && (
               <DetailRow
                 label="Lý do từ chối"
@@ -2521,9 +2522,9 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
 
         {/* Thời gian */}
         <Section title="Thời gian">
-          <DetailRow label="Ngày tạo" value={formatVietnamDate(loan.createdAt)} />
+          <DetailRow label="Ngày tạo" value={formatVietnamDateTime(loan.createdAt)} />
           {loan.disbursedAt && (
-            <DetailRow label="Ngày giải ngân" value={formatVietnamDate(loan.disbursedAt)} />
+            <DetailRow label="Ngày giải ngân" value={formatVietnamDateTime(loan.disbursedAt)} />
           )}
         </Section>
       </div>
@@ -2818,7 +2819,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
                     <Badge value={loan.status === 'ACTIVE' ? 'loan_active' : loan.status} />
                   </td>
                   <td className="px-4 py-3.5 text-center text-gray-400 dark:text-gray-500 text-xs align-middle">
-                    {formatVietnamDate(loan.createdAt)}
+                    {formatVietnamDateTime(loan.createdAt)}
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
                     <button
