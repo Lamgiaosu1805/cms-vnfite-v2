@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, CalendarClock, CheckCircle2, RefreshCw, XCircle } from 'lucide-react';
+import { AlertCircle, CalendarClock, CheckCircle2, Eye, RefreshCw, X, XCircle } from 'lucide-react';
 import { fetchAutoDebitAuditList, runAutoDebitSweep, type AutoDebitSweepResult } from '../api/client';
 import { formatVietnamDateTime } from '../utils/dateTime';
 
@@ -22,12 +22,41 @@ function durationSeconds(start: string, end: string): string {
   }
 }
 
+function triggerLabel(source: string): string {
+  if (source === 'CRON' || source === 'SCHEDULER') return 'Cron tự động';
+  return 'Thủ công (CMS)';
+}
+
+function resultTone(record: AutoDebitSweepResult): string {
+  if (record.failed > 0 || record.balanceError > 0) return 'text-red-600 dark:text-red-400';
+  if (record.settledFull > 0 || record.settledPartial > 0) return 'text-green-600 dark:text-green-400';
+  return 'text-gray-500 dark:text-gray-400';
+}
+
+function DetailItem({
+  label,
+  value,
+  tone = 'text-gray-900 dark:text-gray-100',
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
+      <div className={`mt-1 text-sm font-semibold ${tone}`}>{value}</div>
+    </div>
+  );
+}
+
 export default function AutoDebitAuditPage() {
   const [records, setRecords] = useState<AutoDebitSweepResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sweeping, setSweeping] = useState(false);
   const [sweepMsg, setSweepMsg] = useState<string | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<AutoDebitSweepResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -119,12 +148,13 @@ export default function AutoDebitAuditPage() {
               <th className="px-4 py-3 text-right text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">Lỗi</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">Tổng thu</th>
               <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Thời gian chạy</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Chi tiết</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {loading && (
               <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
+                <td colSpan={11} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
                   <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
                   Đang tải...
                 </td>
@@ -132,7 +162,7 @@ export default function AutoDebitAuditPage() {
             )}
             {!loading && records.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
+                <td colSpan={11} className="px-4 py-10 text-center text-gray-400 dark:text-gray-500">
                   Chưa có dữ liệu quét auto-debit
                 </td>
               </tr>
@@ -141,17 +171,21 @@ export default function AutoDebitAuditPage() {
               const hasError = r.failed > 0 || r.balanceError > 0;
               const allGood = r.settledFull === r.dueLoans && r.dueLoans > 0;
               return (
-                <tr key={r.auditId ?? idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                <tr
+                  key={r.auditId ?? idx}
+                  onClick={() => setSelectedRecord(r)}
+                  className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors"
+                >
                   <td className="px-4 py-3 whitespace-nowrap text-gray-900 dark:text-gray-100">
                     {formatVietnamDateTime(r.startedAt)}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-0.5">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium w-fit
-                        ${r.triggerSource === 'CRON'
+                        ${r.triggerSource === 'CRON' || r.triggerSource === 'SCHEDULER'
                           ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                           : 'bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300'}`}>
-                        {r.triggerSource === 'CRON' ? 'Cron tự động' : 'Thủ công (CMS)'}
+                        {triggerLabel(r.triggerSource)}
                       </span>
                       {r.triggeredBy && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">{r.triggeredBy}</span>
@@ -188,6 +222,19 @@ export default function AutoDebitAuditPage() {
                       {hasError && <XCircle size={14} className="text-red-500 shrink-0" />}
                     </div>
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setSelectedRecord(r);
+                      }}
+                      title="Xem chi tiết"
+                      className="inline-flex items-center justify-center rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-600 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-red-400"
+                    >
+                      <Eye size={15} />
+                    </button>
+                  </td>
                 </tr>
               );
             })}
@@ -210,7 +257,83 @@ export default function AutoDebitAuditPage() {
                 <span className="text-xs text-orange-600 dark:text-orange-400 font-medium">{formatVietnamDateTime(r.startedAt)}</span>
                 <p className="text-sm text-orange-800 dark:text-orange-200 font-mono mt-0.5 whitespace-pre-wrap">{r.errorSummary}</p>
               </div>
-            ))}
+          ))}
+        </div>
+      )}
+
+      {selectedRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-gray-200 dark:border-gray-700 px-5 py-4">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Chi tiết lần thu nợ tự động</h2>
+                <p className="mt-1 font-mono text-xs text-gray-500 dark:text-gray-400">{selectedRecord.auditId}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRecord(null)}
+                className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-100"
+                title="Đóng"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="max-h-[75vh] overflow-y-auto px-5 py-4 space-y-5">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <DetailItem label="Nguồn kích hoạt" value={triggerLabel(selectedRecord.triggerSource)} />
+                <DetailItem label="Người kích hoạt" value={selectedRecord.triggeredBy || '—'} />
+                <DetailItem
+                  label="Kết quả"
+                  value={
+                    selectedRecord.failed > 0 || selectedRecord.balanceError > 0
+                      ? 'Có lỗi'
+                      : selectedRecord.amountCollected && Number(selectedRecord.amountCollected) > 0
+                        ? 'Đã thu'
+                        : 'Không phát sinh thu'
+                  }
+                  tone={resultTone(selectedRecord)}
+                />
+                <DetailItem label="Bắt đầu" value={formatVietnamDateTime(selectedRecord.startedAt)} />
+                <DetailItem label="Kết thúc" value={formatVietnamDateTime(selectedRecord.finishedAt)} />
+                <DetailItem label="Thời gian chạy" value={durationSeconds(selectedRecord.startedAt, selectedRecord.finishedAt)} />
+              </div>
+
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">Tổng quan khoản</h3>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <DetailItem label="Đã quét" value={selectedRecord.scannedLoans.toLocaleString('vi-VN')} />
+                  <DetailItem label="Đến hạn" value={selectedRecord.dueLoans.toLocaleString('vi-VN')} />
+                  <DetailItem label="Không đến hạn" value={selectedRecord.noDue.toLocaleString('vi-VN')} />
+                  <DetailItem label="Tổng thu" value={formatVND(selectedRecord.amountCollected)} tone="text-red-700 dark:text-red-300" />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">Phân loại kết quả</h3>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  <DetailItem label="Thu đủ" value={selectedRecord.settledFull.toLocaleString('vi-VN')} tone="text-green-600 dark:text-green-400" />
+                  <DetailItem label="Thu một phần" value={selectedRecord.settledPartial.toLocaleString('vi-VN')} tone="text-yellow-600 dark:text-yellow-400" />
+                  <DetailItem label="Thiếu số dư" value={selectedRecord.noBalance.toLocaleString('vi-VN')} />
+                  <DetailItem label="Lỗi số dư" value={selectedRecord.balanceError.toLocaleString('vi-VN')} tone={selectedRecord.balanceError > 0 ? 'text-red-600 dark:text-red-400' : undefined} />
+                  <DetailItem label="Thất bại" value={selectedRecord.failed.toLocaleString('vi-VN')} tone={selectedRecord.failed > 0 ? 'text-red-600 dark:text-red-400' : undefined} />
+                  <DetailItem label="Tổng lỗi" value={(selectedRecord.failed + selectedRecord.balanceError).toLocaleString('vi-VN')} tone={selectedRecord.failed + selectedRecord.balanceError > 0 ? 'text-red-600 dark:text-red-400' : undefined} />
+                </div>
+              </div>
+
+              {selectedRecord.errorSummary && (
+                <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-900/20">
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-orange-800 dark:text-orange-300">
+                    <AlertCircle size={16} />
+                    Chi tiết lỗi
+                  </h3>
+                  <p className="whitespace-pre-wrap break-words font-mono text-sm text-orange-900 dark:text-orange-100">
+                    {selectedRecord.errorSummary}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
