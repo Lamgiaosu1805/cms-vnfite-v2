@@ -646,6 +646,24 @@ export async function fetchRepaymentSchedule(loanId: string): Promise<RepaymentS
   return request(`/loans/${loanId}/repayments`);
 }
 
+/** Báo giá tất toán trước hạn — chỉ xem, không trừ tiền, không đổi trạng thái khoản. */
+export interface EarlySettlementQuote {
+  loanId: string;
+  loanCode: string | null;
+  asOfDate: string;
+  remainingPrincipal: number;
+  interestToDate: number;
+  penaltyOutstanding: number;
+  settlementFeeRate: number;
+  settlementFee: number;
+  totalPayoff: number;
+  settled: boolean;
+}
+
+export async function fetchEarlySettlementQuote(loanId: string): Promise<EarlySettlementQuote> {
+  return request(`/loans/${loanId}/early-settlement/quote`);
+}
+
 /**
  * Ghi nhận một lần trả nợ thủ công (khách trả tiền mặt / chuyển khoản ngoài ví VNFITE).
  * Tiền áp vào kỳ sớm nhất chưa trả — gốc+lãi trước, dư trả phí phạt. Trả về lịch trả nợ mới.
