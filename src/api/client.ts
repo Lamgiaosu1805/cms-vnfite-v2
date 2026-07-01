@@ -916,6 +916,20 @@ export interface AutoDebitSweepResult {
   errorSummary?: string;
 }
 
+export interface AutoDebitAuditItem {
+  id: string;
+  auditId: string;
+  loanId: string;
+  loanCode?: string | null;
+  borrowerId?: string | null;
+  borrowerFullName?: string | null;
+  borrowerPhone?: string | null;
+  resultStatus: 'NO_DUE' | 'NO_BALANCE' | 'BALANCE_ERROR' | 'SETTLED_FULL' | 'SETTLED_PARTIAL' | 'FAILED' | string;
+  amountCollected: number | string;
+  message?: string | null;
+  createdAt?: string | null;
+}
+
 /** Chạy ngay job thu nợ tự động từ ví người gọi vốn. Chỉ ADMIN/SUPER_ADMIN. */
 export async function runAutoDebitSweep(): Promise<AutoDebitSweepResult> {
   return request(`/loans/repayments/auto-debit-sweep`, { method: 'POST' });
@@ -924,6 +938,11 @@ export async function runAutoDebitSweep(): Promise<AutoDebitSweepResult> {
 /** Lịch sử các lần quét auto-debit từ loan-service. */
 export async function fetchAutoDebitAuditList(limit = 200): Promise<AutoDebitSweepResult[]> {
   return request(`/loans/repayments/auto-debit-audit?limit=${limit}`, { method: 'GET' });
+}
+
+/** Chi tiết từng khoản trong một lần quét auto-debit. */
+export async function fetchAutoDebitAuditItems(auditId: string): Promise<AutoDebitAuditItem[]> {
+  return request(`/loans/repayments/auto-debit-audit/${auditId}/items`, { method: 'GET' });
 }
 
 export interface InvestorDistributionRecord {
