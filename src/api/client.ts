@@ -1359,7 +1359,7 @@ export interface ReconciliationSession {
 export interface ReconciliationItem {
   id: string;
   sessionId: string;
-  itemType: 'STALE_DEPOSIT' | 'STALE_WITHDRAWAL' | 'WITHDRAWAL_MB_MISMATCH' | 'FAILED_WITHDRAWAL_MB_SUCCESS';
+  itemType: 'MISSING_TIKLUY_DEPOSIT' | 'STALE_DEPOSIT' | 'STALE_WITHDRAWAL' | 'WITHDRAWAL_MB_MISMATCH' | 'FAILED_WITHDRAWAL_MB_SUCCESS';
   severity: 'HIGH' | 'MEDIUM' | 'LOW';
   walletId: string | null;
   transactionId: string | null;
@@ -1376,8 +1376,9 @@ export interface ReconciliationItem {
   createdAt: string;
 }
 
-export async function runReconciliation(date: string): Promise<ReconciliationSession> {
-  return request(`/reconciliation/run?date=${date}`, { method: 'POST' });
+export async function runReconciliation(date: string, autoFixDeposits = false): Promise<ReconciliationSession> {
+  const q = new URLSearchParams({ date, autoFixDeposits: String(autoFixDeposits) });
+  return request(`/reconciliation/run?${q}`, { method: 'POST' });
 }
 
 export async function fetchReconciliationSessions(page = 0, size = 20): Promise<PagedResponse<ReconciliationSession>> {
@@ -1401,4 +1402,8 @@ export async function resolveReconciliationItem(itemId: string, notes: string): 
 
 export async function markReconciliationItemInvestigating(itemId: string): Promise<void> {
   return request(`/reconciliation/items/${itemId}/investigate`, { method: 'PUT' });
+}
+
+export async function backfillMissingDeposit(itemId: string): Promise<void> {
+  return request(`/reconciliation/items/${itemId}/backfill-deposit`, { method: 'POST' });
 }

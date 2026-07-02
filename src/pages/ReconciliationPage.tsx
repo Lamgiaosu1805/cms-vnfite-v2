@@ -6,6 +6,7 @@ import {
   fetchReconciliationItems,
   resolveReconciliationItem,
   markReconciliationItemInvestigating,
+  backfillMissingDeposit,
   type ReconciliationSession,
   type ReconciliationItem,
 } from '../api/client';
@@ -30,6 +31,7 @@ function todayStr(): string {
 // ─── type label maps ──────────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<string, string> = {
+  MISSING_TIKLUY_DEPOSIT: 'TIKLUY có tiền vào, VNFITE thiếu biến động',
   STALE_DEPOSIT: 'Nạp tiền kẹt PENDING',
   STALE_WITHDRAWAL: 'Rút tiền kẹt đang xử lý',
   WITHDRAWAL_MB_MISMATCH: 'Lệch trạng thái vs MB',
@@ -83,6 +85,19 @@ function SessionStatusBadge({ status }: { status: string }) {
 // ─── Guide section ───────────────────────────────────────────────────────────
 
 const GUIDE_ITEMS = [
+  {
+    type: 'MISSING_TIKLUY_DEPOSIT',
+    severity: 'HIGH',
+    title: 'TIKLUY có tiền vào, VNFITE thiếu biến động',
+    when: 'TIKLUY/MB đã ghi nhận giao dịch nạp tiền vào VA nhưng payment_db.wallet_transactions chưa có referenceId tương ứng.',
+    cause: 'Callback TIKLUY → VNFITE bị chặn, mất hoặc lỗi giữa chừng. Số dư thật ở TIKLUY có thể đúng nhưng lịch sử ví VNFITE thiếu dòng nạp.',
+    steps: [
+      'Đối chiếu VA, số tiền, thời gian, mã FT trong item tra soát.',
+      'Nếu dữ liệu đúng: bấm Bù giao dịch nạp để VNFITE tạo lại dòng DEPOSIT idempotent.',
+      'Có thể bật Tự động bù nạp thiếu khi chạy tra soát để hệ thống tự xử lý các item đã xác minh được từ TIKLUY.',
+      'Sau khi bù, kiểm tra lịch sử biến động ví của khách và số dư sau giao dịch.',
+    ],
+  },
   {
     type: 'STALE_DEPOSIT',
     severity: 'MEDIUM',
@@ -318,8 +333,10 @@ export default function ReconciliationPage() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const [runDate, setRunDate] = useState(todayStr());
+  const [autoFixDeposits, setAutoFixDeposits] = useState(false);
   const [running, setRunning] = useState(false);
   const [runErr, setRunErr] = useState('');
+  const [backfillId, setBackfillId] = useState<string | null>(null);
 
   const [resolveItem, setResolveItem] = useState<ReconciliationItem | null>(null);
 
@@ -364,7 +381,7 @@ export default function ReconciliationPage() {
     setRunning(true);
     setRunErr('');
     try {
-      const session = await runReconciliation(runDate);
+      const session = await runReconciliation(runDate, autoFixDeposits);
       await loadSessions();
       setSelectedSession(session);
     } catch (e: unknown) {
@@ -380,6 +397,20 @@ export default function ReconciliationPage() {
       if (selectedSession) loadItems(selectedSession, statusFilter);
     } catch {
       // silently fail; item list will not refresh
+    }
+  }
+
+  async function handleBackfillDeposit(item: ReconciliationItem) {
+    if (!window.confirm(`Bù giao dịch nạp ${item.referenceId ?? ''} vào lịch sử ví VNFITE?`)) return;
+    setBackfillId(item.id);
+    try {
+      await backfillMissingDeposit(item.id);
+      await loadSessions();
+      if (selectedSession) await loadItems(selectedSession, statusFilter);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể bù giao dịch nạp');
+    } finally {
+      setBackfillId(null);
     }
   }
 
@@ -406,6 +437,15 @@ export default function ReconciliationPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-600 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={autoFixDeposits}
+              onChange={e => setAutoFixDeposits(e.target.checked)}
+              className="accent-red-600"
+            />
+            Tự động bù nạp thiếu
+          </label>
           <input
             type="date"
             value={runDate}
@@ -594,6 +634,15 @@ export default function ReconciliationPage() {
 
                       {item.status !== 'RESOLVED' && (
                         <div className="flex gap-2 pt-1">
+                          {item.itemType === 'MISSING_TIKLUY_DEPOSIT' && (
+                            <button
+                              onClick={() => handleBackfillDeposit(item)}
+                              disabled={backfillId === item.id}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 disabled:opacity-50 transition-colors"
+                            >
+                              {backfillId === item.id ? 'Đang bù...' : 'Bù giao dịch nạp'}
+                            </button>
+                          )}
                           {item.status === 'OPEN' && (
                             <button
                               onClick={() => handleInvestigate(item)}
