@@ -1324,6 +1324,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
 
   const handleReject = () => {
     if (noteInput.trim().length < 3) { setActError('Nhập lý do từ chối.'); return; }
+    if (!window.confirm('Xác nhận từ chối hồ sơ gọi vốn này?')) return;
     runAction(() => rejectLoan(loanId, noteInput.trim()));
   };
 
@@ -1646,18 +1647,23 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 );
               })()}
               <label className="block text-xs text-gray-500 dark:text-gray-400">
-                Ghi chú thẩm định
+                Ghi chú thẩm định / lý do từ chối
                 <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} rows={2} className={inputCls} />
               </label>
               <p className="text-[11px] text-gray-400 dark:text-gray-500">Số liệu điền sẵn từ gợi ý engine — chỉnh nếu cần.</p>
-              <button
-                disabled={acting || hasCic === false}
-                onClick={handlePropose}
-                className={btnPrimary}
-                title={hasCic === false ? 'Cần nhập CIC trước' : undefined}
-              >
-                <Send size={14} />Trình ban lãnh đạo
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  disabled={acting || hasCic === false}
+                  onClick={handlePropose}
+                  className={btnPrimary}
+                  title={hasCic === false ? 'Cần nhập CIC trước' : undefined}
+                >
+                  <Send size={14} />Trình ban lãnh đạo
+                </button>
+                <button disabled={acting} onClick={handleReject} className={btnDanger}>
+                  <X size={14} />Từ chối hồ sơ
+                </button>
+              </div>
               {hasCic === false && (
                 <p className="text-xs text-red-600 dark:text-red-400 flex gap-1.5">
                   <Ban size={13} className="shrink-0 mt-0.5" />Cần nhập kết quả tra CIC trước khi trình ban lãnh đạo — kéo lên khối Điểm tín dụng.
@@ -2484,8 +2490,8 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         {/* Thẩm định */}
         {(loan.reviewedBy || loan.reviewedAt || loan.rejectionReason) && (
           <Section title="Thẩm định">
-            {loan.reviewedBy && <DetailRow label="Người thẩm định" value={loan.reviewedBy} />}
-            {loan.reviewedAt && <DetailRow label="Ngày thẩm định" value={formatVietnamDateTime(loan.reviewedAt)} />}
+            {loan.reviewedBy && <DetailRow label={loan.rejectionReason ? 'Người từ chối' : 'Người thẩm định'} value={loan.reviewedBy} />}
+            {loan.reviewedAt && <DetailRow label={loan.rejectionReason ? 'Thời gian từ chối' : 'Ngày thẩm định'} value={formatVietnamDateTime(loan.reviewedAt)} />}
             {loan.rejectionReason && (
               <DetailRow
                 label="Lý do từ chối"
