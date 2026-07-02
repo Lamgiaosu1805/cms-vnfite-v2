@@ -19,6 +19,7 @@ import DistributionLogPage from './pages/DistributionLogPage';
 import FeeRevenuePage from './pages/FeeRevenuePage';
 import RepaymentDueTodayPage from './pages/RepaymentDueTodayPage';
 import { EarlySettlementsPage } from './pages/EarlySettlementsPage';
+import { BusinessProfilesPage } from './pages/BusinessProfilesPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
@@ -26,6 +27,7 @@ import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './l
 const PAGE_TITLES: Record<TabKey, string> = {
   dashboard: 'Dashboard',
   users: 'Khách hàng',
+  'business-kyc': 'Hồ sơ doanh nghiệp',
   transactions: 'Giao dịch nạp/rút',
   loans: 'Gọi vốn',
   products: 'Sản phẩm gọi vốn',
@@ -341,6 +343,7 @@ export default function App() {
               ? <CustomerDetailPage userId={selectedCustomerId} onBack={handleBackFromCustomer} />
               : <UsersPage onViewCustomer={(user) => handleViewCustomer(user.userId)} />
           )}
+          {tab === 'business-kyc' && <BusinessProfilesPage />}
           {tab === 'transactions' && <TransactionsPage />}
           {tab === 'loans'     && (
             <LoansPage
