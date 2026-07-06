@@ -532,6 +532,73 @@ export async function updateUserStatus(userId: string, status: string): Promise<
   });
 }
 
+export async function fetchUser(userId: string): Promise<CmsUser> {
+  return request(`/users/${userId}`);
+}
+
+// ─── Hồ sơ doanh nghiệp ──────────────────────────────────────────────────────
+
+export type BusinessProfileStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type BusinessType = 'HOUSEHOLD' | 'COMPANY';
+
+export interface BusinessProfile {
+  id: string;
+  userId: string;
+  businessType: BusinessType;
+  businessName: string;
+  registrationNumber: string;
+  taxCode: string | null;
+  issueDate: string | null;        // yyyy-MM-dd
+  issuedBy: string | null;
+  headOfficeAddress: string;
+  businessSector: string | null;
+  representativeName: string;
+  representativeCccd: string;
+  licenseImageId: string;
+  licenseExtra1ImageId: string | null;
+  licenseExtra2ImageId: string | null;
+  status: BusinessProfileStatus;
+  rejectReason: string | null;
+  aiVerdict: string | null;
+  aiSummary: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  /** true nếu CCCD người đại diện KHÁC CCCD eKYC của chủ tài khoản. */
+  representativeMismatch?: boolean | null;
+}
+
+export interface BusinessLicenseAnalysis {
+  verdict: string;
+  trustScore: number | null;
+  summary: string | null;
+  /** JSON string chứa DocumentCheckResult đầy đủ (ownerName, organizationName, findings, consistencyIssues...) */
+  extractedData: string | null;
+}
+
+export async function fetchBusinessProfiles(status = 'PENDING', page = 0, size = 20): Promise<PagedResponse<BusinessProfile>> {
+  const q = new URLSearchParams();
+  if (status) q.set('status', status);
+  q.set('page', String(page));
+  q.set('size', String(size));
+  return request(`/users/business-profiles?${q}`);
+}
+
+export async function fetchBusinessProfile(userId: string): Promise<BusinessProfile> {
+  return request(`/users/${userId}/business-profile`);
+}
+
+export async function decideBusinessProfile(userId: string, approved: boolean, reason?: string): Promise<void> {
+  return request(`/users/${userId}/business-profile/decision`, {
+    method: 'POST',
+    data: { approved, reason },
+  });
+}
+
+export async function analyzeBusinessLicense(userId: string): Promise<BusinessLicenseAnalysis> {
+  return request(`/users/${userId}/business-profile/analyze`, { method: 'POST' });
+}
+
 // ─── Loans ────────────────────────────────────────────────────────────────────
 
 export interface CmsLoan {
