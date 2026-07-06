@@ -1,22 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, CalendarCheck, CheckCircle2, Clock, RefreshCw, XCircle } from 'lucide-react';
+import { AlertCircle, CalendarCheck, CheckCircle2, Clock, Info, RefreshCw, XCircle } from 'lucide-react';
 import { fetchDueTodaySchedules, type DueTodayScheduleItem } from '../api/client';
+import { formatVietnamDate, formatVietnamDateTime, todayVietnamDateString } from '../utils/dateTime';
 
 function formatVND(v: number | undefined | null): string {
   if (v === undefined || v === null) return '—';
   return v.toLocaleString('vi-VN') + ' ₫';
 }
 
-function todayVNIso(): string {
-  const now = new Date();
-  return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(now);
-}
-
-function isoToVN(iso: string): string {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-}
+// Giữ tên ngắn gọn cho các chỗ dùng trong file — ủy quyền toàn bộ cho formatter dùng chung.
+const todayVNIso = todayVietnamDateString;
+const isoToVN = (iso: string) => formatVietnamDate(iso);
 
 function StatusBadge({ status, dpd }: { status: string; dpd: number }) {
   if (status === 'PAID') {
@@ -124,6 +118,10 @@ export default function RepaymentDueTodayPage() {
   const [items, setItems]   = useState<DueTodayScheduleItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError]   = useState<string | null>(null);
+  // Mốc thời điểm dữ liệu được tải — số tiền hiển thị luôn là số liệu HIỆN TẠI
+  // (server cập nhật phí phạt/DPD lúc 01:00 sáng mỗi ngày), không phải snapshot
+  // theo `selectedDate`. Bộ lọc ngày chỉ quyết định danh sách kỳ hiển thị.
+  const [asOf, setAsOf] = useState<string>(() => new Date().toISOString());
 
   const load = useCallback(async (date: string) => {
     setLoading(true);
@@ -131,6 +129,7 @@ export default function RepaymentDueTodayPage() {
     try {
       const data = await fetchDueTodaySchedules(date);
       setItems(data ?? []);
+      setAsOf(new Date().toISOString());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Không tải được dữ liệu');
     } finally {
@@ -154,7 +153,7 @@ export default function RepaymentDueTodayPage() {
           <div>
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Theo dõi trả nợ</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {isoToVN(selectedDate)}
+              Lọc kỳ đến hạn đến ngày {isoToVN(selectedDate)}
               {isToday && <span className="ml-1.5 text-xs font-semibold text-red-600 dark:text-red-400">(Hôm nay)</span>}
               {items.length > 0 && (
                 <> · {groups.length} khoản ({items.length} kỳ) &nbsp;·&nbsp;
@@ -168,20 +167,22 @@ export default function RepaymentDueTodayPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Nút ngày hôm qua / hôm nay / ngày mai */}
+          {/* Nút lùi/tiến ngày cắt của bộ lọc — KHÔNG xem lại số liệu lịch sử, chỉ đổi phạm vi kỳ hiển thị */}
           <button
             onClick={() => {
               const d = new Date(selectedDate + 'T00:00:00');
               d.setDate(d.getDate() - 1);
               setSelectedDate(new Intl.DateTimeFormat('sv-SE').format(d));
             }}
+            title="Lùi ngày cắt của bộ lọc — số tiền hiển thị vẫn là số liệu hiện tại"
             className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-            ← Hôm qua
+            − 1 ngày
           </button>
           <input
             type="date"
             value={selectedDate}
             onChange={e => e.target.value && setSelectedDate(e.target.value)}
+            title="Đến hạn đến ngày (bộ lọc danh sách, không phải xem lại lịch sử)"
             className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-red-300 dark:focus:ring-red-700"
           />
           <button
@@ -190,8 +191,9 @@ export default function RepaymentDueTodayPage() {
               d.setDate(d.getDate() + 1);
               setSelectedDate(new Intl.DateTimeFormat('sv-SE').format(d));
             }}
+            title="Tiến ngày cắt của bộ lọc — số tiền hiển thị vẫn là số liệu hiện tại"
             className="px-2.5 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-            Ngày mai →
+            + 1 ngày
           </button>
           {!isToday && (
             <button
@@ -208,6 +210,16 @@ export default function RepaymentDueTodayPage() {
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
+      </div>
+
+      {/* Banner giải thích: tránh hiểu nhầm số tiền thay đổi theo ngày được chọn */}
+      <div className="flex items-start gap-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 px-4 py-2.5 text-xs text-blue-800 dark:text-blue-300">
+        <Info size={15} className="shrink-0 mt-0.5" />
+        <span>
+          Ô chọn ngày chỉ lọc <b>danh sách kỳ có hạn đến ngày đó</b> — các số tiền (phí phạt, còn lại, tổng nợ)
+          luôn là <b>số liệu hiện tại</b>, được hệ thống cập nhật tự động lúc 01:00 sáng mỗi ngày, không phải số liệu
+          tại thời điểm ngày đã chọn. Số liệu tính đến: <b>{formatVietnamDateTime(asOf)}</b>.
+        </span>
       </div>
 
       {error && (
