@@ -59,3 +59,35 @@ export function todayVietnamDateString(): string {
   const value = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return `${value.year}-${value.month}-${value.day}`;
 }
+
+/**
+ * Đổi giá trị datetime (ISO có offset, hoặc LocalDateTime backend hiểu là giờ VN)
+ * sang chuỗi cho input `datetime-local`, luôn theo giờ Việt Nam — không phụ
+ * thuộc múi giờ hệ điều hành/trình duyệt admin.
+ */
+export function toVietnamLocalInputValue(value: string | null | undefined): string {
+  if (!value) return '';
+  const date = parseVietnamDateTime(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: VIETNAM_TIME_ZONE,
+  }).formatToParts(date);
+  const v = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${v.year}-${v.month}-${v.day}T${v.hour}:${v.minute}`;
+}
+
+/**
+ * Đổi ngược giá trị input `datetime-local` (đã là giờ VN theo
+ * toVietnamLocalInputValue) sang chuỗi LocalDateTime gửi backend — không cộng/trừ
+ * offset vì giá trị nhập vào đã đúng là giờ Việt Nam.
+ */
+export function fromVietnamLocalInputValue(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return value.length === 16 ? `${value}:00` : value;
+}
