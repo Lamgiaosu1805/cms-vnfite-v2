@@ -407,7 +407,11 @@ function NewsEditorModal({ state, onClose, onSaved }: {
                       {uploading ? <Loader2 className="animate-spin" size={15} /> : <ImagePlus size={15} />} Upload
                     </button>
                     <input ref={coverInputRef} type="file" accept="image/*" className="hidden"
-                      onChange={e => e.target.files?.[0] && uploadImage(e.target.files[0], 'cover')} />
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (file) uploadImage(file, 'cover');
+                      }} />
                   </div>
                 </Field>
                 <Field label="Ngày đăng">
@@ -422,7 +426,11 @@ function NewsEditorModal({ state, onClose, onSaved }: {
               <div className="overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900">
                 <EditorToolbar editor={editor} onInsertImage={() => inlineInputRef.current?.click()} uploading={uploading}>
                   <input ref={inlineInputRef} type="file" accept="image/*" className="hidden"
-                    onChange={e => e.target.files?.[0] && uploadImage(e.target.files[0], 'inline')} />
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (file) uploadImage(file, 'inline');
+                    }} />
                 </EditorToolbar>
                 <EditorContent editor={editor} />
               </div>
