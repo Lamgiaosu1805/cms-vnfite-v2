@@ -423,6 +423,69 @@ export interface PagedResponse<T> {
   last?: boolean;
 }
 
+// ─── News ────────────────────────────────────────────────────────────────────
+
+export type NewsType = 'NORMAL' | 'FEATURED';
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  imageUrl: string | null;
+  content?: string | null;
+  newsType: NewsType | string | null;
+  publishedAt: string | null;
+}
+
+export interface NewsPayload {
+  title: string;
+  subtitle?: string | null;
+  imageUrl?: string | null;
+  content?: string | null;
+  newsType: NewsType;
+  publishedAt?: string | null;
+}
+
+export async function fetchNewsList(params: {
+  page?: number;
+  size?: number;
+  type?: NewsType | '';
+} = {}): Promise<PagedResponse<NewsItem>> {
+  const q = new URLSearchParams();
+  q.set('page', String(params.page ?? 0));
+  q.set('size', String(params.size ?? 20));
+  if (params.type) q.set('type', params.type);
+  return request(`/news?${q}`);
+}
+
+export async function fetchNews(id: string): Promise<NewsItem> {
+  return request(`/news/${id}`);
+}
+
+export async function createNews(payload: NewsPayload): Promise<NewsItem> {
+  return request('/news', { method: 'POST', data: payload });
+}
+
+export async function updateNews(id: string, payload: NewsPayload): Promise<NewsItem> {
+  return request(`/news/${id}`, { method: 'PUT', data: payload });
+}
+
+export async function deleteNews(id: string): Promise<void> {
+  return request(`/news/${id}`, { method: 'DELETE' });
+}
+
+export async function uploadNewsImage(file: File): Promise<{ url: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await axiosClient.post<{ url: string }>('/news/images', form);
+  return res.data;
+}
+
+/** Xóa ảnh tin tức mồ côi (đã upload nhưng bài viết bị hủy trước khi lưu). Best-effort, không throw ở nơi gọi cần tự catch nếu cần. */
+export async function deleteNewsImage(url: string): Promise<void> {
+  return request(`/news/images?url=${encodeURIComponent(url)}`, { method: 'DELETE' });
+}
+
 export async function fetchUsers(params: {
   search?: string;
   kycStatus?: string;
@@ -690,16 +753,31 @@ export async function proposeLoan(
   return request(`/loans/${loanId}/propose`, { method: 'PUT', data: payload });
 }
 
-/** Cấp 2 — ban lãnh đạo duyệt (interestRate có thể đã được lãnh đạo sửa). */
-export async function approveLoan(loanId: string, interestRate: number, notes?: string): Promise<void> {
+/** Cấp 2 — ban lãnh đạo duyệt, có thể sửa số tiền, lãi suất và kỳ hạn. */
+export async function approveLoan(
+  loanId: string,
+  payload: { approvedAmount: number; interestRate: number; termMonths: number; notes?: string },
+): Promise<void> {
   return request(`/loans/${loanId}/approve`, {
     method: 'PUT',
-    data: { interestRate, reason: notes },
+    data: {
+      approvedAmount: payload.approvedAmount,
+      interestRate: payload.interestRate,
+      termMonths: payload.termMonths,
+      reason: payload.notes,
+    },
   });
 }
 
 export async function rejectLoan(loanId: string, reason: string): Promise<void> {
   return request(`/loans/${loanId}/reject`, {
+    method: 'PUT',
+    data: { reason },
+  });
+}
+
+export async function cancelLoan(loanId: string, reason: string): Promise<void> {
+  return request(`/loans/${loanId}/cancel`, {
     method: 'PUT',
     data: { reason },
   });

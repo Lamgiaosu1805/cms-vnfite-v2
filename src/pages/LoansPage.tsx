@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
-  proposeLoan, approveLoan, rejectLoan, getStoredAdmin,
+  proposeLoan, approveLoan, rejectLoan, cancelLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
   fetchFileBlob, fetchEarlySettlementQuote,
@@ -1264,6 +1264,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
   const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
   const [amountInput, setAmountInput] = useState('');
   const [rateInput, setRateInput] = useState('');
+  const [termInput, setTermInput] = useState('');
   const [feeRateInput, setFeeRateInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
   const [acting, setActing] = useState(false);
@@ -1290,8 +1291,9 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
     } else if (loan.status === 'PENDING_APPROVAL') {
       setAmountInput(loan.proposedAmount != null ? String(loan.proposedAmount) : '');
       setRateInput(loan.proposedInterestRate != null ? String(loan.proposedInterestRate) : '');
+      setTermInput(loan.termMonths != null ? String(loan.termMonths) : '');
     }
-  }, [loan.status, loan.proposedAmount, loan.proposedInterestRate, data]);
+  }, [loan.status, loan.proposedAmount, loan.proposedInterestRate, loan.termMonths, data]);
 
   const runAction = async (fn: () => Promise<void>) => {
     setActing(true);
@@ -1317,9 +1319,18 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
   };
 
   const handleApprove = () => {
+    const amt = Number(amountInput);
     const rate = Number(rateInput);
-    if (!(rate > 0)) { setActError('Lãi suất duyệt không hợp lệ.'); return; }
-    runAction(() => approveLoan(loanId, rate, noteInput.trim() || undefined));
+    const term = Number(termInput);
+    if (!(amt > 0)) { setActError('Số tiền duyệt không hợp lệ.'); return; }
+    if (!(rate > 0)) { setActError('Lợi suất kỳ vọng duyệt không hợp lệ.'); return; }
+    if (!Number.isInteger(term) || term <= 0) { setActError('Kỳ hạn duyệt không hợp lệ.'); return; }
+    runAction(() => approveLoan(loanId, {
+      approvedAmount: Math.round(amt),
+      interestRate: rate,
+      termMonths: term,
+      notes: noteInput.trim() || undefined,
+    }));
   };
 
   const handleReject = () => {
@@ -1514,7 +1525,8 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 <Send size={13} />Đề xuất của thẩm định viên
               </p>
               <MiniRow label="Số tiền đề xuất" value={formatMoney(loan.proposedAmount)} />
-              <MiniRow label="Lãi suất đề xuất" value={loan.proposedInterestRate != null ? `${loan.proposedInterestRate}%/năm` : '—'} />
+              <MiniRow label="Lợi suất kỳ vọng đề xuất" value={loan.proposedInterestRate != null ? `${loan.proposedInterestRate}%/năm` : '—'} />
+              <MiniRow label="Kỳ hạn hiện tại" value={loan.termMonths != null ? `${loan.termMonths} tháng` : '—'} />
               <MiniRow label="Phí thẩm định" value={loan.appraisalFeeRate != null && loan.appraisalFeeRate > 0 ? `${loan.appraisalFeeRate}%` : '0% (miễn phí)'} />
               {(loan.totalFee != null && loan.totalFee > 0) && (
                 <div className="mt-1 mb-1 rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 px-3 py-2 space-y-1">
@@ -1540,7 +1552,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                   value={aiScoreText ?? <span className="text-amber-600 dark:text-amber-400">Chưa chấm — bấm "Chấm điểm tín dụng" ở khối trên</span>}
                 />
                 <MiniRow
-                  label="Đề xuất lãi suất (QĐ-LSGV)"
+                  label="Đề xuất lợi suất kỳ vọng (QĐ-LSGV)"
                   value={rec
                     ? (rec.serviceAvailable
                         ? `${formatMoney(rec.suggestedAmount)} @ ${rateText(rec.suggestedInterestRate)}`
@@ -1592,7 +1604,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                   value={aiScoreText ?? <span className="text-amber-600 dark:text-amber-400">Chưa chấm điểm</span>}
                 />
                 <MiniRow
-                  label="Đề xuất lãi suất (QĐ-LSGV)"
+                  label="Đề xuất lợi suất kỳ vọng (QĐ-LSGV)"
                   value={rec
                     ? (rec.serviceAvailable
                         ? `${formatMoney(rec.suggestedAmount)} @ ${rateText(rec.suggestedInterestRate)}`
@@ -1609,7 +1621,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                   <input type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)} className={inputCls} />
                 </label>
                 <label className="text-xs text-gray-500 dark:text-gray-400">
-                  Lãi suất (%/năm)
+                  Lợi suất kỳ vọng (%/năm)
                   <input type="number" step="0.1" value={rateInput} onChange={e => setRateInput(e.target.value)} className={inputCls} />
                 </label>
               </div>
@@ -1678,15 +1690,40 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 <ShieldCheck size={13} />Ban lãnh đạo phê duyệt
               </p>
               <label className="block text-xs text-gray-500 dark:text-gray-400">
-                Lãi suất duyệt (%/năm) — có thể sửa trước khi duyệt
-                <input type="number" step="0.1" value={rateInput} onChange={e => setRateInput(e.target.value)} className={inputCls} />
+                Số tiền duyệt lên sàn (VND)
+                <input type="number" value={amountInput} onChange={e => setAmountInput(e.target.value)} className={inputCls} />
               </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="block text-xs text-gray-500 dark:text-gray-400">
+                  Lợi suất kỳ vọng duyệt (%/năm)
+                  <input type="number" step="0.1" value={rateInput} onChange={e => setRateInput(e.target.value)} className={inputCls} />
+                </label>
+                <label className="block text-xs text-gray-500 dark:text-gray-400">
+                  Kỳ hạn duyệt (tháng)
+                  <input type="number" step="1" min="1" value={termInput} onChange={e => setTermInput(e.target.value)} className={inputCls} />
+                </label>
+              </div>
+              {(() => {
+                const amt = Number(amountInput);
+                const fr = Number(loan.appraisalFeeRate ?? 0);
+                if (!(amt > 0) || fr < 0) return null;
+                const fee = Math.round(amt * fr / 100);
+                const vat = Math.round(fee * 0.1);
+                const total = fee + vat;
+                const net = amt - total;
+                return (
+                  <div className="rounded-lg bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 px-3 py-2 space-y-1">
+                    <MiniRow label="Tổng khấu trừ theo số tiền duyệt" value={formatMoney(total)} />
+                    <MiniRow label="Người gọi vốn nhận dự kiến" value={<span className="text-green-700 dark:text-green-400 font-semibold">{formatMoney(net)}</span>} />
+                  </div>
+                );
+              })()}
               <label className="block text-xs text-gray-500 dark:text-gray-400">
                 Ghi chú / lý do (bắt buộc khi từ chối)
                 <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} rows={2} className={inputCls} />
               </label>
               <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                Phê duyệt xong, khoản chuyển sang "Chờ xác nhận" — người gọi vốn phải đồng ý số tiền và lãi suất được duyệt thì khoản mới lên sàn cho nhà đầu tư.
+                Phê duyệt xong, khoản chuyển sang "Chờ xác nhận" — người gọi vốn phải đồng ý số tiền, lợi suất kỳ vọng và kỳ hạn được duyệt thì khoản mới lên sàn cho nhà đầu tư.
               </p>
               <div className="flex gap-2">
                 <button disabled={acting} onClick={handleApprove} className={btnPrimary}>
@@ -2298,6 +2335,82 @@ function ContractsSection({ loanId }: { loanId: string }) {
 
 // ─── Giải ngân (ADMIN) ───────────────────────────────────────────────────────────
 
+const CMS_CANCELLABLE_STATUSES = new Set([
+  'PENDING_REVIEW',
+  'PENDING_APPROVAL',
+  'AWAITING_BORROWER_APPROVAL',
+  'ACTIVE',
+  'FUNDED',
+  'AWAITING_DISBURSEMENT',
+]);
+
+function LoanCancelPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
+  const admin = getStoredAdmin();
+  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const [reason, setReason] = useState('');
+  const [acting, setActing] = useState(false);
+  const [error, setError] = useState('');
+
+  if (!isLeader || !CMS_CANCELLABLE_STATUSES.has(loan.status)) return null;
+
+  const hasInvestorFunds = Number(loan.fundedAmount ?? 0) > 0 || loan.status === 'FUNDED' || loan.status === 'AWAITING_DISBURSEMENT';
+
+  const handleCancel = async () => {
+    const finalReason = reason.trim();
+    if (finalReason.length < 3) {
+      setError('Nhập lý do hủy khoản gọi vốn.');
+      return;
+    }
+    const confirmMessage = hasInvestorFunds
+      ? 'Khoản này đã có nhà đầu tư cam kết. Hệ thống sẽ hủy khoản, hoàn tiền và void hợp đồng liên quan. Xác nhận hủy?'
+      : 'Xác nhận hủy khoản gọi vốn này?';
+    if (!window.confirm(confirmMessage)) return;
+
+    setActing(true);
+    setError('');
+    try {
+      await cancelLoan(loan.loanId, finalReason);
+      onActionDone();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Không thể hủy khoản gọi vốn. Vui lòng thử lại.';
+      setError(msg);
+      setActing(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-red-200 dark:border-red-900/50 shadow-sm p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <Ban size={16} className="text-red-500" />
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Hủy khoản gọi vốn</p>
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Chỉ hủy được trước khi người gọi vốn nhận vốn. Nếu đã có nhà đầu tư cam kết, hệ thống sẽ hoàn tiền và void hợp đồng liên quan.
+      </p>
+      <label className="block text-xs text-gray-500 dark:text-gray-400">
+        Lý do hủy
+        <textarea
+          value={reason}
+          onChange={e => setReason(e.target.value)}
+          rows={2}
+          className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 outline-none focus:ring-2 focus:ring-red-500"
+        />
+      </label>
+      {error && (
+        <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
+      )}
+      <button
+        onClick={handleCancel}
+        disabled={acting}
+        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium disabled:opacity-50"
+      >
+        <X size={15} />
+        {acting ? 'Đang hủy...' : 'Hủy khoản gọi vốn'}
+      </button>
+    </div>
+  );
+}
+
 function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
   const [confirming, setConfirming] = useState(false);
   const [acting, setActing]         = useState(false);
@@ -2542,6 +2655,9 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
 
       {/* Giải ngân — chỉ hiện khi khoản ở trạng thái chờ giải ngân */}
       <DisbursementPanel loan={loan} onActionDone={onActionDone} />
+
+      {/* Hủy trước khi người gọi vốn nhận vốn */}
+      <LoanCancelPanel loan={loan} onActionDone={onActionDone} />
 
       {/* Hợp đồng điện tử (vay + đầu tư) */}
       <ContractsSection loanId={loan.loanId} />
