@@ -15,6 +15,7 @@ import {
 import {
   createNews,
   deleteNews,
+  deleteNewsImage,
   fetchNews,
   fetchNewsList,
   updateNews,
@@ -233,6 +234,7 @@ function NewsEditorModal({ state, onClose, onSaved }: {
   const [error, setError] = useState('');
   const coverInputRef = useRef<HTMLInputElement>(null);
   const inlineInputRef = useRef<HTMLInputElement>(null);
+  const uploadedThisSessionRef = useRef<Set<string>>(new Set());
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -288,6 +290,7 @@ function NewsEditorModal({ state, onClose, onSaved }: {
     setError('');
     try {
       const { url } = await uploadNewsImage(file);
+      uploadedThisSessionRef.current.add(url);
       if (mode === 'cover') {
         setForm(prev => ({ ...prev, imageUrl: url }));
       } else {
@@ -298,6 +301,26 @@ function NewsEditorModal({ state, onClose, onSaved }: {
     } finally {
       setUploading(false);
     }
+  };
+
+  /** Xóa (best-effort) các ảnh đã upload trong phiên này nhưng không nằm trong nội dung/ảnh bìa cuối cùng được giữ lại. */
+  const cleanupOrphanedUploads = (keepUrls: Set<string>) => {
+    const orphans = [...uploadedThisSessionRef.current].filter(url => !keepUrls.has(url));
+    uploadedThisSessionRef.current.clear();
+    orphans.forEach(url => { deleteNewsImage(url).catch(() => undefined); });
+  };
+
+  const extractContentImageUrls = (html: string): string[] => {
+    const urls: string[] = [];
+    const regex = /<img[^>]+src="([^"]+)"/g;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(html))) urls.push(match[1]);
+    return urls;
+  };
+
+  const handleClose = () => {
+    cleanupOrphanedUploads(new Set());
+    onClose();
   };
 
   const submit = async () => {
@@ -321,6 +344,9 @@ function NewsEditorModal({ state, onClose, onSaved }: {
       } else {
         await createNews(payload);
       }
+      const keepUrls = new Set<string>(extractContentImageUrls(payload.content ?? ''));
+      if (payload.imageUrl) keepUrls.add(payload.imageUrl);
+      cleanupOrphanedUploads(keepUrls);
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không lưu được bài viết');
@@ -337,7 +363,7 @@ function NewsEditorModal({ state, onClose, onSaved }: {
             <h3 className="text-base font-bold text-gray-900 dark:text-gray-50">{state.mode === 'edit' ? 'Sửa bài viết' : 'Tạo bài viết'}</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400">Soạn nội dung HTML dùng chung cho app và website</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-900">
+          <button type="button" onClick={handleClose} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-900">
             <X size={18} />
           </button>
         </div>
@@ -418,7 +444,7 @@ function NewsEditorModal({ state, onClose, onSaved }: {
         )}
 
         <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-4 dark:border-gray-800">
-          <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">
+          <button type="button" onClick={handleClose} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800">
             Hủy
           </button>
           <button type="button" onClick={submit} disabled={saving || loading}

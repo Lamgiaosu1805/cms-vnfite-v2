@@ -481,6 +481,11 @@ export async function uploadNewsImage(file: File): Promise<{ url: string }> {
   return res.data;
 }
 
+/** Xóa ảnh tin tức mồ côi (đã upload nhưng bài viết bị hủy trước khi lưu). Best-effort, không throw ở nơi gọi cần tự catch nếu cần. */
+export async function deleteNewsImage(url: string): Promise<void> {
+  return request(`/news/images?url=${encodeURIComponent(url)}`, { method: 'DELETE' });
+}
+
 export async function fetchUsers(params: {
   search?: string;
   kycStatus?: string;
