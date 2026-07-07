@@ -486,6 +486,126 @@ export async function deleteNewsImage(url: string): Promise<void> {
   return request(`/news/images?url=${encodeURIComponent(url)}`, { method: 'DELETE' });
 }
 
+// ─── Tuyển dụng ────────────────────────────────────────────────────────────────
+
+export type JobPostingStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface JobPostingItem {
+  id: string;
+  title: string;
+  position: string | null;
+  salary: string | null;
+  locations: string[];
+  industryType: string | null;
+  workingForm: string | null;
+  experience: string | null;
+  workModel: string | null;
+  degree: string | null;
+  description?: string | null;
+  imageUrl: string | null;
+  status: JobPostingStatus | string;
+  publishedAt: string | null;
+}
+
+export interface JobPostingPayload {
+  title: string;
+  position?: string | null;
+  salary?: string | null;
+  /** CSV các địa điểm cố định, vd: "Hà Nội,TP.HCM" */
+  locations?: string | null;
+  industryType?: string | null;
+  workingForm?: string | null;
+  experience?: string | null;
+  workModel?: string | null;
+  degree?: string | null;
+  description?: string | null;
+  imageUrl?: string | null;
+  status: JobPostingStatus;
+  publishedAt?: string | null;
+}
+
+export async function fetchJobPostings(params: {
+  page?: number;
+  size?: number;
+  status?: JobPostingStatus | '';
+} = {}): Promise<PagedResponse<JobPostingItem>> {
+  const q = new URLSearchParams();
+  q.set('page', String(params.page ?? 0));
+  q.set('size', String(params.size ?? 20));
+  if (params.status) q.set('status', params.status);
+  return request(`/job-postings?${q}`);
+}
+
+export async function fetchJobPosting(id: string): Promise<JobPostingItem> {
+  return request(`/job-postings/${id}`);
+}
+
+export async function createJobPosting(payload: JobPostingPayload): Promise<JobPostingItem> {
+  return request('/job-postings', { method: 'POST', data: payload });
+}
+
+export async function updateJobPosting(id: string, payload: JobPostingPayload): Promise<JobPostingItem> {
+  return request(`/job-postings/${id}`, { method: 'PUT', data: payload });
+}
+
+export async function deleteJobPosting(id: string): Promise<void> {
+  return request(`/job-postings/${id}`, { method: 'DELETE' });
+}
+
+export async function uploadJobImage(file: File): Promise<{ url: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await axiosClient.post<{ url: string }>('/job-postings/images', form);
+  return res.data;
+}
+
+/** Xóa ảnh tin tuyển dụng mồ côi (đã upload nhưng bài viết bị hủy trước khi lưu). Best-effort. */
+export async function deleteJobImage(url: string): Promise<void> {
+  return request(`/job-postings/images?url=${encodeURIComponent(url)}`, { method: 'DELETE' });
+}
+
+export interface JobApplicationItem {
+  id: string;
+  jobPostingId: string;
+  jobPostingTitle: string | null;
+  fullName: string;
+  phoneNumber: string;
+  email: string | null;
+  location: string | null;
+  introduction: string | null;
+  cvFileName: string | null;
+  createdAt: string | null;
+}
+
+export async function fetchJobApplications(params: {
+  jobPostingId?: string;
+  page?: number;
+  size?: number;
+} = {}): Promise<PagedResponse<JobApplicationItem>> {
+  const q = new URLSearchParams();
+  q.set('page', String(params.page ?? 0));
+  q.set('size', String(params.size ?? 20));
+  if (params.jobPostingId) q.set('jobPostingId', params.jobPostingId);
+  return request(`/job-applications?${q}`);
+}
+
+export async function deleteJobApplication(id: string): Promise<void> {
+  return request(`/job-applications/${id}`, { method: 'DELETE' });
+}
+
+/** Tải CV ứng viên qua CMS backend proxy (có JWT) — trigger download trực tiếp trên trình duyệt. */
+export async function downloadJobApplicationCv(id: string, fileName?: string): Promise<void> {
+  const res = await axiosClient.get<Blob>(`/job-applications/${id}/cv`, { responseType: 'blob' });
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName || 'cv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export async function fetchUsers(params: {
   search?: string;
   kycStatus?: string;

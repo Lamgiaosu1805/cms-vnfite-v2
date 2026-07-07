@@ -21,6 +21,7 @@ import RepaymentDueTodayPage from './pages/RepaymentDueTodayPage';
 import { EarlySettlementsPage } from './pages/EarlySettlementsPage';
 import { BusinessProfilesPage } from './pages/BusinessProfilesPage';
 import { NewsManagementPage } from './pages/NewsManagementPage';
+import { RecruitmentManagementPage } from './pages/RecruitmentManagementPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
@@ -33,6 +34,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   loans: 'Gọi vốn',
   products: 'Sản phẩm gọi vốn',
   news: 'Tin tức',
+  recruitment: 'Tuyển dụng',
   admins: 'Quản lý Admin',
   audit: 'Nhật ký quyết định',
   withdrawals: 'Giám sát rút tiền',
@@ -356,6 +358,7 @@ export default function App() {
           )}
           {tab === 'products'    && <LoanProductsPage />}
           {tab === 'news'        && <NewsManagementPage />}
+          {tab === 'recruitment' && <RecruitmentManagementPage />}
           {tab === 'admins'      && <AdminsPage />}
           {tab === 'audit'       && <AuditLogPage />}
           {tab === 'withdrawals'    && <WithdrawalsMonitoringPage />}
