@@ -7,7 +7,7 @@ import {
   Calculator,
 } from 'lucide-react';
 import {
-  fetchLoans, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
+  fetchLoans, fetchLoanById, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
   proposeLoan, approveLoan, rejectLoan, cancelLoan, getStoredAdmin,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
@@ -1781,7 +1781,7 @@ const OFFER_STATUS_LABEL: Record<string, string> = {
   ACCEPTED: 'Đã chốt', PENDING: 'Chờ ký', REJECTED: 'Từ chối', CANCELLED: 'Đã huỷ',
 };
 
-function FundingProgressSection({ loan }: { loan: CmsLoan }) {
+function FundingProgressSection({ loan, onViewCustomer }: { loan: CmsLoan; onViewCustomer?: (userId: string) => void }) {
   const target    = loan.amount || 0;
   const raised    = loan.fundedAmount ?? 0;
   const pct       = target > 0 ? Math.min(100, Math.round((raised / target) * 100)) : 0;
@@ -1830,7 +1830,16 @@ function FundingProgressSection({ loan }: { loan: CmsLoan }) {
               {offers.map(o => (
                 <tr key={o.offerId} className="border-t border-gray-100 dark:border-gray-700">
                   <td className="px-3 py-2 text-gray-800 dark:text-gray-200">
-                    {o.investorName ?? <span className="text-gray-400 italic">Chưa KYC</span>}
+                    {o.investorId && onViewCustomer ? (
+                      <button
+                        onClick={() => onViewCustomer(o.investorId!)}
+                        title="Xem hồ sơ nhà đầu tư"
+                        className="inline-flex items-center gap-1 font-semibold text-red-600 dark:text-red-400 hover:underline"
+                      >
+                        {o.investorName ?? o.investorPhone ?? 'Xem nhà đầu tư'}
+                        <ExternalLink size={11} className="shrink-0" />
+                      </button>
+                    ) : (o.investorName ?? <span className="text-gray-400 italic">Chưa KYC</span>)}
                   </td>
                   <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{o.investorPhone ?? '—'}</td>
                   <td className="px-3 py-2 text-right font-semibold text-gray-900 dark:text-gray-100">{formatMoney(o.amount ?? 0)}</td>
@@ -2481,7 +2490,7 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
   );
 }
 
-function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void }) {
+function LoanDetailPage({ loan, onBack, onActionDone, onViewCustomer }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void; onViewCustomer?: (userId: string) => void }) {
   // Kết quả chấm điểm AI dùng chung cho khối Điểm tín dụng và panel Hỗ trợ thẩm định
   const [creditScore, setCreditScore] = useState<CreditScoreResult | null>(null);
   return (
@@ -2508,7 +2517,21 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Người gọi vốn */}
         <Section title="Người gọi vốn">
-          <DetailRow label="Họ tên" value={loan.borrowerName ?? '—'} />
+          <DetailRow
+            label="Họ tên"
+            value={
+              loan.borrowerId && onViewCustomer ? (
+                <button
+                  onClick={() => onViewCustomer(loan.borrowerId)}
+                  title="Xem hồ sơ khách hàng"
+                  className="inline-flex items-center gap-1 font-semibold text-red-600 dark:text-red-400 hover:underline"
+                >
+                  {loan.borrowerName ?? loan.borrowerPhone ?? shortId(loan.borrowerId)}
+                  <ExternalLink size={12} className="shrink-0" />
+                </button>
+              ) : (loan.borrowerName ?? '—')
+            }
+          />
           <DetailRow label="Số điện thoại" value={loan.borrowerPhone ?? '—'} />
           <DetailRow label="Email" value={loan.borrowerEmail ?? '—'} />
           <DetailRow label="Số CCCD" value={loan.borrowerCccdNumber ?? '—'} />
@@ -2585,7 +2608,7 @@ function LoanDetailPage({ loan, onBack, onActionDone }: { loan: CmsLoan; onBack:
         {/* Tiến độ gọi vốn & Nhà đầu tư */}
         {FUNDING_VISIBLE_STATUSES.includes(loan.status) && (
           <div className="lg:col-span-2">
-            <FundingProgressSection loan={loan} />
+            <FundingProgressSection loan={loan} onViewCustomer={onViewCustomer} />
           </div>
         )}
 
@@ -2688,10 +2711,18 @@ const VN_PROVINCES_2025 = [
 
 interface LoansPageProps {
   status: LoanStatusFilter;
+  /** ID khoản đang mở chi tiết (do App quản lý qua lịch sử điều hướng). null = xem danh sách. */
+  selectedLoanId?: string | null;
+  /** Mở/điều hướng tới 1 khoản (đẩy vào lịch sử). Dùng cho click bảng lẫn link chéo trong chi tiết. */
+  onViewLoan?: (loanId: string) => void;
+  /** Đóng chi tiết khoản — App dùng Back của lịch sử để về đúng nơi đã mở. */
+  onCloseLoan?: () => void;
+  /** Điều hướng tới chi tiết 1 khách hàng (người gọi vốn / nhà đầu tư). */
+  onViewCustomer?: (userId: string) => void;
   onActionDone?: () => void;
 }
 
-export function LoansPage({ status, onActionDone }: LoansPageProps) {
+export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLoan, onViewCustomer, onActionDone }: LoansPageProps) {
   const [data, setData] = useState<{ content: CmsLoan[]; totalElements: number; totalPages: number } | null>(null);
   const [province, setProvince] = useState('');
   const [search, setSearch] = useState('');
@@ -2700,7 +2731,9 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
   const [refresh, setRefresh] = useState(0);
-  const [selectedLoan, setSelectedLoan] = useState<CmsLoan | null>(null);
+  // Object khoản đang mở — resolve từ selectedLoanId (ưu tiên danh sách đã tải, else fetch riêng).
+  const [loanCache, setLoanCache] = useState<CmsLoan | null>(null);
+  const [resolveError, setResolveError] = useState('');
 
   const admin = getStoredAdmin();
   const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
@@ -2781,13 +2814,51 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
       .finally(() => setLoading(false));
   }, [status, province, debouncedSearch, page, refresh]);
 
-  if (selectedLoan) {
+  // Resolve object khoản đang mở: ưu tiên khoản đã có trong danh sách (click từ bảng),
+  // nếu không có (điều hướng chéo từ màn khác) thì fetch riêng theo id.
+  useEffect(() => {
+    if (!selectedLoanId) { setResolveError(''); return; }
+    if (loanCache?.loanId === selectedLoanId) return;
+    const inList = data?.content.find(l => l.loanId === selectedLoanId);
+    if (inList) { setLoanCache(inList); setResolveError(''); return; }
+    let alive = true;
+    setResolveError('');
+    fetchLoanById(selectedLoanId)
+      .then(loan => {
+        if (!alive) return;
+        if (loan) setLoanCache(loan);
+        else setResolveError('Không tìm thấy khoản gọi vốn này.');
+      })
+      .catch((e: Error) => { if (alive) setResolveError(e.message); });
+    return () => { alive = false; };
+  }, [selectedLoanId, data, loanCache]);
+
+  if (selectedLoanId) {
+    if (loanCache && loanCache.loanId === selectedLoanId) {
+      return (
+        <LoanDetailPage
+          loan={loanCache}
+          onBack={() => onCloseLoan?.()}
+          onActionDone={() => { onCloseLoan?.(); setRefresh(r => r + 1); onActionDone?.(); }}
+          onViewCustomer={onViewCustomer}
+        />
+      );
+    }
     return (
-      <LoanDetailPage
-        loan={selectedLoan}
-        onBack={() => setSelectedLoan(null)}
-        onActionDone={() => { setSelectedLoan(null); setRefresh(r => r + 1); onActionDone?.(); }}
-      />
+      <div className="space-y-4">
+        <button
+          onClick={() => onCloseLoan?.()}
+          className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+        >
+          <ArrowLeft size={16} />
+          Quay lại
+        </button>
+        <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+          {resolveError
+            ? resolveError
+            : <><RefreshCw size={18} className="mr-2 inline animate-spin" />Đang tải chi tiết khoản gọi vốn...</>}
+        </div>
+      </div>
     );
   }
 
@@ -2945,7 +3016,7 @@ export function LoansPage({ status, onActionDone }: LoansPageProps) {
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
                     <button
-                      onClick={() => setSelectedLoan(loan)}
+                      onClick={() => onViewLoan?.(loan.loanId)}
                       title="Xem chi tiết"
                       className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                     >

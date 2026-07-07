@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Ban, Check, ChevronLeft, ChevronRight, Copy, Eye, KeyRound, RefreshCw, Search, ShieldCheck, Smartphone, X } from 'lucide-react';
+import { Ban, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, KeyRound, RefreshCw, Search, ShieldCheck, Smartphone, X } from 'lucide-react';
 import {
   decideKyc,
   fetchCustomerDetailWithParams,
@@ -67,6 +67,52 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
       <span className="text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</span>
       <span className="text-sm text-right text-gray-800 dark:text-gray-100">{value || '—'}</span>
     </div>
+  );
+}
+
+/** Mã khoản gọi vốn — bấm để mở chi tiết khoản (điều hướng chéo). */
+function LoanCodeLink({ loanId, loanCode, onViewLoan }: {
+  loanId: string | null | undefined;
+  loanCode: string | null | undefined;
+  onViewLoan?: (loanId: string) => void;
+}) {
+  const label = loanCode || (loanId ? loanId.slice(0, 8) : '—');
+  if (!loanId || !onViewLoan) {
+    return <span className="font-mono font-semibold text-gray-900 dark:text-gray-50">{label}</span>;
+  }
+  return (
+    <button
+      onClick={() => onViewLoan(loanId)}
+      title="Xem chi tiết khoản gọi vốn"
+      className="inline-flex items-center gap-1 font-mono font-semibold text-red-600 dark:text-red-400 hover:underline"
+    >
+      {label}
+      <ExternalLink size={12} className="shrink-0" />
+    </button>
+  );
+}
+
+/** Tên khách hàng (người gọi vốn / nhà đầu tư) — bấm để mở hồ sơ khách hàng đó. */
+function CustomerLink({ userId, name, phone, onViewCustomer, fallback = 'Chưa xác định' }: {
+  userId: string | null | undefined;
+  name: string | null | undefined;
+  phone: string | null | undefined;
+  onViewCustomer?: (userId: string) => void;
+  fallback?: string;
+}) {
+  const label = name || phone || fallback;
+  if (!userId || !onViewCustomer) {
+    return <span className="font-semibold text-gray-900 dark:text-gray-50">{label}</span>;
+  }
+  return (
+    <button
+      onClick={() => onViewCustomer(userId)}
+      title="Xem hồ sơ khách hàng"
+      className="inline-flex max-w-full items-center gap-1 text-left font-semibold text-red-600 dark:text-red-400 hover:underline"
+    >
+      <span className="truncate">{label}</span>
+      <ExternalLink size={12} className="shrink-0" />
+    </button>
   );
 }
 
@@ -227,9 +273,13 @@ function ResetPasswordResultModal({
 interface CustomerDetailPageProps {
   userId: string;
   onBack: () => void;
+  /** Điều hướng tới hồ sơ 1 khách hàng khác (người gọi vốn / nhà đầu tư liên quan). */
+  onViewCustomer?: (userId: string) => void;
+  /** Điều hướng tới chi tiết 1 khoản gọi vốn. */
+  onViewLoan?: (loanId: string) => void;
 }
 
-export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) {
+export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan }: CustomerDetailPageProps) {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [investmentPage, setInvestmentPage] = useState(0);
   const [investmentStatus, setInvestmentStatus] = useState('ACTIVE_PORTFOLIO');
@@ -544,14 +594,17 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
                       {(investmentPageData?.content ?? detail.investments?.investmentHistory ?? []).map(item => (
                         <tr key={item.offerId}>
-                          <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">
-                            {item.loanCode || item.loanId?.slice(0, 8) || '—'}
+                          <td className="py-3">
+                            <LoanCodeLink loanId={item.loanId} loanCode={item.loanCode} onViewLoan={onViewLoan} />
                           </td>
                           <td className="py-3">
                             <div className="max-w-[220px]" title={[item.borrowerName, item.borrowerPhone].filter(Boolean).join(' · ')}>
-                              <p className="truncate font-semibold text-gray-900 dark:text-gray-50">
-                                {item.borrowerName || item.borrowerPhone || 'Chưa xác định'}
-                              </p>
+                              <CustomerLink
+                                userId={item.borrowerId}
+                                name={item.borrowerName}
+                                phone={item.borrowerPhone}
+                                onViewCustomer={onViewCustomer}
+                              />
                               {item.borrowerPhone && (
                                 <p className="mt-0.5 font-mono text-xs text-gray-400 dark:text-gray-500">{item.borrowerPhone}</p>
                               )}
@@ -634,7 +687,9 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                       {detail.loans.content.map(loan => (
                         <Fragment key={loan.loanId}>
                           <tr>
-                            <td className="py-3 font-mono font-semibold text-gray-900 dark:text-gray-50">{loan.loanCode || loan.loanId.slice(0, 8)}</td>
+                            <td className="py-3">
+                              <LoanCodeLink loanId={loan.loanId} loanCode={loan.loanCode} onViewLoan={onViewLoan} />
+                            </td>
                             <td className="py-3 text-gray-700 dark:text-gray-200">{loan.productName || 'Chưa xác định'}</td>
                             <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(loan.amount)}</td>
                             <td className="py-3 text-center text-gray-600 dark:text-gray-300">{loan.interestRate != null ? `${loan.interestRate}%` : '—'}</td>
@@ -661,9 +716,14 @@ export function CustomerDetailPage({ userId, onBack }: CustomerDetailPageProps) 
                                         className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2 dark:border-gray-700 dark:bg-gray-800"
                                       >
                                         <div className="min-w-0">
-                                          <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-50" title={offer.investorName || offer.investorPhone || ''}>
-                                            {offer.investorName || offer.investorPhone || 'Chưa xác định'}
-                                          </p>
+                                          <div className="text-sm" title={offer.investorName || offer.investorPhone || ''}>
+                                            <CustomerLink
+                                              userId={offer.investorId}
+                                              name={offer.investorName}
+                                              phone={offer.investorPhone}
+                                              onViewCustomer={onViewCustomer}
+                                            />
+                                          </div>
                                           {offer.investorPhone && (
                                             <p className="mt-0.5 font-mono text-xs text-gray-400 dark:text-gray-500">{offer.investorPhone}</p>
                                           )}
