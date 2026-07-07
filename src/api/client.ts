@@ -579,6 +579,9 @@ export interface JobApplicationItem {
 
 export async function fetchJobApplications(params: {
   jobPostingId?: string;
+  keyword?: string;
+  fromDate?: string;
+  toDate?: string;
   page?: number;
   size?: number;
 } = {}): Promise<PagedResponse<JobApplicationItem>> {
@@ -586,6 +589,9 @@ export async function fetchJobApplications(params: {
   q.set('page', String(params.page ?? 0));
   q.set('size', String(params.size ?? 20));
   if (params.jobPostingId) q.set('jobPostingId', params.jobPostingId);
+  if (params.keyword) q.set('keyword', params.keyword);
+  if (params.fromDate) q.set('fromDate', params.fromDate);
+  if (params.toDate) q.set('toDate', params.toDate);
   return request(`/job-applications?${q}`);
 }
 

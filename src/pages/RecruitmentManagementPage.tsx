@@ -629,11 +629,37 @@ function JobApplicationsTab() {
   const [deleteTarget, setDeleteTarget] = useState<JobApplicationItem | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const load = async (nextPage = page) => {
+  const [jobPostingId, setJobPostingId] = useState('');
+  const [keywordInput, setKeywordInput] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [jobPostingOptions, setJobPostingOptions] = useState<JobPostingItem[]>([]);
+
+  // Debounce ô tìm kiếm 400ms để tránh gọi API liên tục khi gõ
+  useEffect(() => {
+    const timer = setTimeout(() => setKeyword(keywordInput.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [keywordInput]);
+
+  // Nạp danh sách tin tuyển dụng cho dropdown lọc (1 lần)
+  useEffect(() => {
+    fetchJobPostings({ page: 0, size: 100 })
+      .then(data => setJobPostingOptions(data.content ?? []))
+      .catch(() => undefined);
+  }, []);
+
+  const load = async (nextPage = 0) => {
     setLoading(true);
     setError('');
     try {
-      const data = await fetchJobApplications({ page: nextPage, size: 20 });
+      const data = await fetchJobApplications({
+        page: nextPage, size: 20,
+        jobPostingId: jobPostingId || undefined,
+        keyword: keyword || undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+      });
       setItems(data.content ?? []);
       setPage(data.page ?? nextPage);
       setTotalPages(data.totalPages ?? 0);
@@ -645,7 +671,16 @@ function JobApplicationsTab() {
     }
   };
 
-  useEffect(() => { load(0); }, []);
+  useEffect(() => { load(0); }, [jobPostingId, keyword, fromDate, toDate]);
+
+  const clearFilters = () => {
+    setJobPostingId('');
+    setKeywordInput('');
+    setKeyword('');
+    setFromDate('');
+    setToDate('');
+  };
+  const hasActiveFilters = Boolean(jobPostingId || keyword || fromDate || toDate);
 
   const handleDownload = async (item: JobApplicationItem) => {
     setDownloadingId(item.id);
@@ -674,6 +709,55 @@ function JobApplicationsTab() {
       <div>
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-50">Hồ sơ ứng tuyển</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">{totalElements} hồ sơ ứng viên đã nộp qua website</p>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-950 lg:flex-row lg:flex-wrap lg:items-center">
+        <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-200">
+          <Search size={16} /> Bộ lọc
+        </div>
+        <div className="relative min-w-[220px] flex-1">
+          <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            value={keywordInput}
+            onChange={e => setKeywordInput(e.target.value)}
+            placeholder="Tìm theo tên, SĐT hoặc email…"
+            className="h-10 w-full rounded-lg border border-gray-300 bg-white pl-9 pr-3 text-sm text-gray-900 outline-none focus:border-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+        </div>
+        <select
+          value={jobPostingId}
+          onChange={e => setJobPostingId(e.target.value)}
+          className="h-10 min-w-[200px] rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+        >
+          <option value="">Tất cả tin tuyển dụng</option>
+          {jobPostingOptions.map(opt => (
+            <option key={opt.id} value={opt.id}>{opt.title}</option>
+          ))}
+        </select>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={fromDate}
+            onChange={e => setFromDate(e.target.value)}
+            className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+          <span className="text-sm text-gray-400">–</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={e => setToDate(e.target.value)}
+            className="h-10 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          />
+        </div>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <X size={14} /> Xóa lọc
+          </button>
+        )}
       </div>
 
       {error && (
