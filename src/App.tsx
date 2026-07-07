@@ -66,6 +66,7 @@ type MainHistoryState = {
   tab: TabKey;
   loanStatus: LoanStatusFilter;
   selectedCustomerId: string | null;
+  selectedLoanId: string | null;
 };
 
 function replaceCmsHistory(screen: CmsHistoryScreen) {
@@ -76,17 +77,17 @@ function pushCmsHistory(screen: CmsHistoryScreen) {
   window.history.pushState({ cmsScreen: screen }, '', currentCmsUrl());
 }
 
-function pushMainHistory(tab: TabKey, loanStatus: LoanStatusFilter, selectedCustomerId: string | null) {
+function pushMainHistory(tab: TabKey, loanStatus: LoanStatusFilter, selectedCustomerId: string | null, selectedLoanId: string | null = null) {
   window.history.pushState(
-    { cmsScreen: 'main', tab, loanStatus, selectedCustomerId } satisfies MainHistoryState,
+    { cmsScreen: 'main', tab, loanStatus, selectedCustomerId, selectedLoanId } satisfies MainHistoryState,
     '',
     currentCmsUrl(),
   );
 }
 
-function replaceMainHistory(tab: TabKey, loanStatus: LoanStatusFilter, selectedCustomerId: string | null) {
+function replaceMainHistory(tab: TabKey, loanStatus: LoanStatusFilter, selectedCustomerId: string | null, selectedLoanId: string | null = null) {
   window.history.replaceState(
-    { cmsScreen: 'main', tab, loanStatus, selectedCustomerId } satisfies MainHistoryState,
+    { cmsScreen: 'main', tab, loanStatus, selectedCustomerId, selectedLoanId } satisfies MainHistoryState,
     '',
     currentCmsUrl(),
   );
@@ -101,6 +102,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('cms_theme') === 'dark');
   const [loginNotice, setLoginNotice] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoginNotice(consumeSessionNotice());
@@ -150,6 +152,7 @@ export default function App() {
           setTab(s?.tab ?? 'dashboard');
           setLoanStatus(s?.loanStatus ?? '');
           setSelectedCustomerId(s?.selectedCustomerId ?? null);
+          setSelectedLoanId(s?.selectedLoanId ?? null);
           setState({ screen: 'main', admin: storedAdmin });
         } else {
           replaceCmsHistory('login');
@@ -220,25 +223,43 @@ export default function App() {
 
   function handleTabChange(nextTab: TabKey) {
     const nextLoanStatus = nextTab === 'loans' ? loanStatus : ('' as LoanStatusFilter);
-    pushMainHistory(nextTab, nextLoanStatus, null);
+    pushMainHistory(nextTab, nextLoanStatus, null, null);
     if (nextTab === 'loans') setLoanStatus(nextLoanStatus);
     setSelectedCustomerId(null);
+    setSelectedLoanId(null);
     setTab(nextTab);
   }
 
   function handleLoanStatusChange(nextStatus: LoanStatusFilter) {
-    pushMainHistory('loans', nextStatus, null);
+    pushMainHistory('loans', nextStatus, null, null);
     setLoanStatus(nextStatus);
     setSelectedCustomerId(null);
+    setSelectedLoanId(null);
     setTab('loans');
   }
 
+  /** Mở chi tiết 1 khách hàng — đẩy vào lịch sử để Back quay lại đúng chỗ trước đó. */
   function handleViewCustomer(userId: string) {
-    pushMainHistory('users', loanStatus, userId);
+    pushMainHistory('users', loanStatus, userId, null);
+    setTab('users');
     setSelectedCustomerId(userId);
+    setSelectedLoanId(null);
+  }
+
+  /** Mở chi tiết 1 khoản gọi vốn — điều hướng chéo từ mọi màn, Back quay lại đúng chỗ. */
+  function handleViewLoan(loanId: string) {
+    pushMainHistory('loans', loanStatus, null, loanId);
+    setTab('loans');
+    setSelectedCustomerId(null);
+    setSelectedLoanId(loanId);
   }
 
   function handleBackFromCustomer() {
+    window.history.back();
+  }
+
+  /** Đóng chi tiết khoản — dùng Back của lịch sử để về đúng nơi đã mở (list hoặc khách hàng). */
+  function handleCloseLoan() {
     window.history.back();
   }
 
@@ -299,9 +320,11 @@ export default function App() {
   const { admin } = state;
   const pageTitle = tab === 'users' && selectedCustomerId
     ? 'Chi tiết khách hàng'
-    : tab === 'loans'
-      ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(loanStatus)}`
-      : PAGE_TITLES[tab];
+    : tab === 'loans' && selectedLoanId
+      ? 'Chi tiết khoản gọi vốn'
+      : tab === 'loans'
+        ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(loanStatus)}`
+        : PAGE_TITLES[tab];
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FFF8F7] dark:bg-gray-950">
@@ -344,7 +367,13 @@ export default function App() {
           {tab === 'dashboard' && <DashboardPage />}
           {tab === 'users'     && (
             selectedCustomerId
-              ? <CustomerDetailPage userId={selectedCustomerId} onBack={handleBackFromCustomer} />
+              ? <CustomerDetailPage
+                  key={selectedCustomerId}
+                  userId={selectedCustomerId}
+                  onBack={handleBackFromCustomer}
+                  onViewCustomer={handleViewCustomer}
+                  onViewLoan={handleViewLoan}
+                />
               : <UsersPage onViewCustomer={(user) => handleViewCustomer(user.userId)} />
           )}
           {tab === 'business-kyc' && <BusinessProfilesPage />}
@@ -353,6 +382,10 @@ export default function App() {
             <LoansPage
               key={loanStatus || 'all'}
               status={loanStatus}
+              selectedLoanId={selectedLoanId}
+              onViewLoan={handleViewLoan}
+              onCloseLoan={handleCloseLoan}
+              onViewCustomer={handleViewCustomer}
               onActionDone={() => setLoanCountsRefresh(v => v + 1)}
             />
           )}
