@@ -3,7 +3,7 @@ import {
   fetchAuditLogs, fetchAuditLogById,
   type AuditLogEntry, type AppraisalSuggestion,
 } from '../api/client';
-import { ChevronDown, ChevronUp, Search, X, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Search, X, CheckCircle2, XCircle, Loader2, WalletCards, Ban } from 'lucide-react';
 import { formatVietnamDateTime } from '../utils/dateTime';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -21,6 +21,47 @@ function bandTone(band: string | null): string {
   if (b === 'A') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300';
   if (b === 'B') return 'bg-amber-100  text-amber-800  dark:bg-amber-900/40  dark:text-amber-300';
   return           'bg-red-100    text-red-800    dark:bg-red-900/40    dark:text-red-300';
+}
+
+function decisionBadge(decision: string) {
+  switch (decision) {
+    case 'APPROVED':
+      return {
+        label: 'Duyệt',
+        icon: CheckCircle2,
+        className: 'text-emerald-700 dark:text-emerald-400',
+      };
+    case 'REJECTED':
+      return {
+        label: 'Từ chối',
+        icon: XCircle,
+        className: 'text-red-600 dark:text-red-400',
+      };
+    case 'DISBURSED':
+      return {
+        label: 'Đã giải ngân',
+        icon: WalletCards,
+        className: 'text-blue-700 dark:text-blue-400',
+      };
+    case 'CANCELLED':
+      return {
+        label: 'Đã hủy',
+        icon: Ban,
+        className: 'text-gray-600 dark:text-gray-400',
+      };
+    case 'REPAYMENT_RECORDED':
+      return {
+        label: 'Ghi nhận thanh toán',
+        icon: CheckCircle2,
+        className: 'text-sky-700 dark:text-sky-400',
+      };
+    default:
+      return {
+        label: decision || 'Không rõ',
+        icon: CheckCircle2,
+        className: 'text-gray-600 dark:text-gray-400',
+      };
+  }
 }
 
 // ─── Score Factor mini-row ────────────────────────────────────────────────────
@@ -269,6 +310,9 @@ export function AuditLogPage() {
             <option value="">Tất cả</option>
             <option value="APPROVED">Phê duyệt</option>
             <option value="REJECTED">Từ chối</option>
+            <option value="DISBURSED">Đã giải ngân</option>
+            <option value="CANCELLED">Đã hủy</option>
+            <option value="REPAYMENT_RECORDED">Ghi nhận thanh toán</option>
           </select>
         </div>
 
@@ -331,7 +375,10 @@ export function AuditLogPage() {
               <span />
             </div>
 
-            {entries.map(e => (
+            {entries.map(e => {
+              const badge = decisionBadge(e.decision);
+              const DecisionIcon = badge.icon;
+              return (
               <div key={e.id} className="border-b border-gray-50 dark:border-gray-700/50 last:border-0">
                 {/* Row */}
                 <button
@@ -379,15 +426,9 @@ export function AuditLogPage() {
 
                   {/* Quyết định */}
                   <div className="self-center">
-                    {e.decision === 'APPROVED' ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                        <CheckCircle2 size={13} />Duyệt
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">
-                        <XCircle size={13} />Từ chối
-                      </span>
-                    )}
+                    <span className={`inline-flex items-center gap-1 text-xs font-semibold ${badge.className}`}>
+                      <DecisionIcon size={13} />{badge.label}
+                    </span>
                   </div>
 
                   {/* Người duyệt */}
@@ -412,7 +453,8 @@ export function AuditLogPage() {
                 {/* Detail panel */}
                 {expanded === e.id && <DetailPanel entry={e} />}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

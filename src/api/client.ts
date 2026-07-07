@@ -1301,7 +1301,7 @@ export interface AuditLogEntry {
   /** Chỉ có khi gọi fetchAuditLogById — null trong danh sách */
   appraisalSnapshot: AppraisalSuggestion | null;
   // Quyết định
-  decision: 'APPROVED' | 'REJECTED';
+  decision: 'APPROVED' | 'REJECTED' | 'DISBURSED' | 'REPAYMENT_RECORDED' | 'CANCELLED' | string;
   rejectionReason: string | null;
   decidedBy: string;
   decidedAt: string;
