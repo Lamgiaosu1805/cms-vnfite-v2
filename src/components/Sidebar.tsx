@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownUp, BarChart3, Building2, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Newspaper, Package, ShieldCheck, Users, Wallet, Scale, CalendarClock, Receipt, BadgeCheck } from 'lucide-react';
+import { ArrowDownUp, BarChart3, Briefcase, Building2, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Newspaper, Package, ShieldCheck, Users, Wallet, Scale, CalendarClock, Receipt, BadgeCheck } from 'lucide-react';
 import type { AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
-export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'loans' | 'products' | 'news' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
+export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'loans' | 'products' | 'news' | 'recruitment' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -38,6 +38,7 @@ export function Sidebar({
     { key: 'loans', label: 'Danh sách gọi vốn', icon: <CircleDollarSign size={18} /> },
     { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} /> },
     { key: 'news', label: 'Tin tức', icon: <Newspaper size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { key: 'recruitment', label: 'Tuyển dụng', icon: <Briefcase size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { key: 'withdrawals', label: 'Giám sát rút tiền', icon: <Wallet size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS'] },
     { key: 'reconciliation', label: 'Tra soát giao dịch', icon: <Scale size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS'] },
     { key: 'due-today', label: 'Đến hạn hôm nay', icon: <CalendarCheck size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS'] },
