@@ -35,7 +35,7 @@ function RoleCheckboxGrid({ selected, onChange }: { selected: string[]; onChange
   const toggle = (r: string) =>
     onChange(selected.includes(r) ? selected.filter(x => x !== r) : [...selected, r]);
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
       {CMS_ASSIGNABLE_ROLES.map(r => {
         const on = selected.includes(r);
         return (
@@ -83,7 +83,7 @@ function PermissionCheckboxGrid({ selected, onChange }: { selected: string[]; on
   const toggle = (p: string) =>
     onChange(selected.includes(p) ? selected.filter(x => x !== p) : [...selected, p]);
   return (
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
       {CMS_ASSIGNABLE_PERMISSIONS.map(p => {
         const on = selected.includes(p);
         return (
@@ -155,22 +155,24 @@ function CreateModal({ onCreated, onCancel }: CreateModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+      <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
         <h3 className="mb-4 text-lg font-bold text-gray-800 dark:text-gray-100">Tạo tài khoản Admin</h3>
         <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Họ và tên</label>
-            <input value={fullName} onChange={e => setFullName(e.target.value)}
-              placeholder="Nghiêm Khắc Lâm"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-              style={{ ['--tw-ring-color' as string]: '#C82020' }} />
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Username sẽ tự sinh — vd: lamnk</p>
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="lamnk@vnfite.com"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Họ và tên</label>
+              <input value={fullName} onChange={e => setFullName(e.target.value)}
+                placeholder="Nghiêm Khắc Lâm"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                style={{ ['--tw-ring-color' as string]: '#C82020' }} />
+              <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Username sẽ tự sinh — vd: lamnk</p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Email</label>
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="lamnk@vnfite.com"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400" />
+            </div>
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Vai trò (chọn nhiều được)</label>
@@ -223,7 +225,7 @@ function EditAccessModal({ admin, onSaved, onCancel }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+      <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
         <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Phân quyền cho {admin.fullName}</h3>
         <p className="mb-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
           Một tài khoản có thể mang nhiều vai trò phòng ban. Quyền là hợp của tất cả vai trò được chọn.
