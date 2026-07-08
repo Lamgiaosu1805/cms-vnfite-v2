@@ -80,8 +80,90 @@ export interface AdminInfo {
   username: string;
   fullName: string;
   email: string;
+  /** Vai trò chính / nhãn hiển thị (tương thích token cũ). */
   role: string;
+  /** Toàn bộ vai trò. Token cũ có thể chưa có — fallback về [role]. */
+  roles?: string[];
+  /** Quyền lẻ cấp thêm ngoài vai trò (vd: kế toán được cấp thêm loan.approve). */
+  permissions?: string[];
 }
+
+/** Toàn bộ vai trò của admin; fallback về [role] cho token cũ chưa có mảng roles. */
+export function adminRoles(admin: AdminInfo | null | undefined): string[] {
+  if (!admin) return [];
+  if (admin.roles && admin.roles.length > 0) return admin.roles;
+  return admin.role ? [admin.role] : [];
+}
+
+/** admin có ít nhất một trong các vai trò truyền vào không. */
+export function adminHasAnyRole(admin: AdminInfo | null | undefined, ...roles: string[]): boolean {
+  const mine = adminRoles(admin);
+  return roles.some(r => mine.includes(r));
+}
+
+/** admin có được cấp quyền lẻ cụ thể này không (xem CMS_PERMISSION_LABELS). */
+export function adminHasPermission(admin: AdminInfo | null | undefined, permission: string): boolean {
+  return !!admin?.permissions?.includes(permission);
+}
+
+/** Nhãn tiếng Việt của từng vai trò — dùng cho hiển thị. */
+export const CMS_ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Quản trị hệ thống',
+  ADMIN: 'Quản trị nghiệp vụ',
+  OPS: 'Giám sát / Vận hành',
+  CUSTOMER_SUPPORT: 'Chăm sóc khách hàng',
+  APPRAISER: 'Thẩm định tín dụng',
+  APPROVER: 'Phê duyệt',
+  FINANCE: 'Kế toán / Tài chính',
+  CONTENT: 'Nội dung / Marketing',
+  HR: 'Nhân sự',
+};
+
+/** Các vai trò gán được ở màn Quản lý Admin (không gồm SUPER_ADMIN). */
+export const CMS_ASSIGNABLE_ROLES: string[] = [
+  'CUSTOMER_SUPPORT', 'APPRAISER', 'APPROVER', 'FINANCE', 'CONTENT', 'HR', 'OPS', 'ADMIN',
+];
+
+/** Mô tả các tính năng/menu mà mỗi vai trò mở được — hiển thị dưới mỗi checkbox ở màn Quản lý Admin. */
+export const CMS_ROLE_DESCRIPTIONS: Record<string, string> = {
+  SUPER_ADMIN: 'Toàn quyền hệ thống + Quản lý Admin.',
+  ADMIN: 'Nhãn gộp cũ — coi như có mọi vai trò phòng ban bên dưới.',
+  OPS: 'Dashboard, Giao dịch nạp/rút, xem Danh sách gọi vốn, Giám sát rút tiền, Tra soát giao dịch, Đến hạn hôm nay, Lịch sử thu nợ tự động.',
+  CUSTOMER_SUPPORT: 'Khách hàng (xem/khoá/reset MK/reset thiết bị/blacklist), Duyệt-từ chối KYC, Hồ sơ doanh nghiệp.',
+  APPRAISER: 'Danh sách gọi vốn: đề xuất thẩm định, tra CIC, chấm điểm tín dụng, giải ngân, ghi nhận trả nợ, duyệt/từ chối/huỷ, Nhật ký quyết định.',
+  APPROVER: 'Giống Thẩm định tín dụng + Sửa sản phẩm gọi vốn + Đến hạn hôm nay, Lịch sử thu nợ tự động, Tất toán sớm.',
+  FINANCE: 'Giao dịch nạp/rút, xem Danh sách gọi vốn, Giám sát rút tiền, Tra soát giao dịch, Đến hạn hôm nay, Lịch sử thu nợ tự động, Phân bổ & thuế TNCN, Doanh thu phí, Tất toán sớm.',
+  CONTENT: 'Tin tức, gửi thông báo đẩy (push notification).',
+  HR: 'Tuyển dụng (tin tuyển dụng + hồ sơ ứng tuyển).',
+};
+
+/** Nhãn tiếng Việt của từng quyền lẻ — dùng cho hiển thị ở màn Quản lý Admin. */
+export const CMS_PERMISSION_LABELS: Record<string, string> = {
+  'loan.approve': 'Duyệt khoản gọi vốn',
+  'loan.disburse': 'Giải ngân',
+  'loan.propose': 'Đề xuất thẩm định',
+  'loan.product.edit': 'Sửa sản phẩm gọi vốn',
+  'kyc.decide': 'Duyệt/từ chối KYC',
+  'business.decide': 'Duyệt/từ chối hồ sơ doanh nghiệp',
+  'finance.reconcile': 'Tra soát giao dịch (thao tác)',
+};
+
+/** Mô tả chính xác API/nút bấm mà mỗi quyền lẻ mở được — hiển thị dưới mỗi checkbox. */
+export const CMS_PERMISSION_DESCRIPTIONS: Record<string, string> = {
+  'loan.approve': 'Nút "Phê duyệt" ở khoản đang Chờ lãnh đạo duyệt (PUT /cms/loans/{id}/approve).',
+  'loan.disburse': 'Nút "Giải ngân" ở khoản đang Chờ giải ngân (POST /cms/loans/{id}/disburse).',
+  'loan.propose': 'Form "Trình ban lãnh đạo" ở khoản đang Chờ thẩm định (PUT /cms/loans/{id}/propose).',
+  'loan.product.edit': 'Nút sửa ở màn Sản phẩm gọi vốn (PUT /cms/loans/products/{id}).',
+  'kyc.decide': 'Nút Duyệt/Từ chối KYC ở màn Khách hàng (PUT /cms/users/{id}/kyc).',
+  'business.decide': 'Nút Duyệt/Từ chối ở màn Hồ sơ doanh nghiệp (POST /cms/users/{id}/business-profile/decision).',
+  'finance.reconcile': 'Các nút thao tác (Chạy đối soát, Đánh dấu đang xử lý, Ghi nhận thủ công) ở màn Tra soát giao dịch — không áp dụng cho việc xem danh sách.',
+};
+
+/** Các quyền lẻ gán được ở màn Quản lý Admin. */
+export const CMS_ASSIGNABLE_PERMISSIONS: string[] = [
+  'loan.approve', 'loan.disburse', 'loan.propose', 'loan.product.edit',
+  'kyc.decide', 'business.decide', 'finance.reconcile',
+];
 
 async function request<T>(
   path: string,
@@ -191,6 +273,8 @@ export interface AdminItem {
   email: string;
   fullName: string;
   role: string;
+  roles?: string[];
+  permissions?: string[];
   active: boolean;
   mustChangePassword: boolean;
   totpEnabled: boolean;
@@ -203,6 +287,8 @@ export interface CreateAdminResult {
   email: string;
   fullName: string;
   role: string;
+  roles?: string[];
+  permissions?: string[];
   generatedPassword: string;
 }
 
@@ -218,7 +304,7 @@ export async function listAdmins(): Promise<AdminItem[]> {
 }
 
 export async function createAdmin(payload: {
-  fullName: string; email: string; role: string;
+  fullName: string; email: string; roles: string[]; permissions?: string[];
 }): Promise<CreateAdminResult> {
   return request('/admins', { method: 'POST', data: payload });
 }
@@ -227,8 +313,12 @@ export async function toggleAdminActive(id: string): Promise<void> {
   return request(`/admins/${id}/toggle-active`, { method: 'PUT' });
 }
 
-export async function updateAdminRole(id: string, role: 'ADMIN' | 'OPS'): Promise<AdminItem> {
-  return request(`/admins/${id}/role`, { method: 'PUT', data: { role } });
+export async function updateAdminRoles(id: string, roles: string[]): Promise<AdminItem> {
+  return request(`/admins/${id}/role`, { method: 'PUT', data: { roles } });
+}
+
+export async function updateAdminPermissions(id: string, permissions: string[]): Promise<AdminItem> {
+  return request(`/admins/${id}/permissions`, { method: 'PUT', data: { permissions } });
 }
 
 export async function resetAdminPassword(id: string): Promise<ResetAdminPasswordResult> {

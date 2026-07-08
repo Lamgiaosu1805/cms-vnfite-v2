@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   fetchLoans, fetchLoanById, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
-  proposeLoan, approveLoan, rejectLoan, cancelLoan, getStoredAdmin,
+  proposeLoan, approveLoan, rejectLoan, cancelLoan, getStoredAdmin, adminHasAnyRole, adminHasPermission,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
   fetchFileBlob, fetchEarlySettlementQuote,
@@ -1261,7 +1261,8 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
 
   // Phê duyệt 2 cấp
   const admin = getStoredAdmin();
-  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER') || adminHasPermission(admin, 'loan.approve');
+  const canPropose = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPRAISER', 'APPROVER') || adminHasPermission(admin, 'loan.propose');
   const [amountInput, setAmountInput] = useState('');
   const [rateInput, setRateInput] = useState('');
   const [termInput, setTermInput] = useState('');
@@ -1566,7 +1567,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
             </div>
           )}
 
-          {loan.status === 'PENDING_REVIEW' && (
+          {loan.status === 'PENDING_REVIEW' && (canPropose ? (
             <>
               <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-500">
                 <Send size={13} />Đề xuất trình ban lãnh đạo
@@ -1682,7 +1683,11 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
                 </p>
               )}
             </>
-          )}
+          ) : (
+            <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+              <ShieldCheck size={14} className="text-indigo-500" />Đang chờ thẩm định viên đề xuất.
+            </p>
+          ))}
 
           {loan.status === 'PENDING_APPROVAL' && (isLeader ? (
             <>
@@ -2355,7 +2360,7 @@ const CMS_CANCELLABLE_STATUSES = new Set([
 
 function LoanCancelPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
   const admin = getStoredAdmin();
-  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER');
   const [reason, setReason] = useState('');
   const [acting, setActing] = useState(false);
   const [error, setError] = useState('');
@@ -2426,7 +2431,7 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
   const [error, setError]           = useState('');
 
   const admin = getStoredAdmin();
-  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER') || adminHasPermission(admin, 'loan.disburse');
 
   if (loan.status !== 'AWAITING_DISBURSEMENT') return null;
   if (!isLeader) return null;
@@ -2736,7 +2741,7 @@ export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLo
   const [resolveError, setResolveError] = useState('');
 
   const admin = getStoredAdmin();
-  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER');
   const [sweeping, setSweeping] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [sweepMsg, setSweepMsg] = useState('');
