@@ -12,11 +12,13 @@ import {
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
   fetchFileBlob, fetchEarlySettlementQuote,
+  fetchBusinessAppraisalChecklist, saveBusinessAppraisalChecklist,
   type CmsLoan, type AppraisalSuggestion, type FraudCheck,
   type RepaymentScheduleItem, type LoanContract,
   type LoanDocument, type CreditScoreResult, type DocumentAnalysisResult,
   type ScoreExplanation, type CicLookup, type CicLookupInput,
-  type EarlySettlementQuote,
+  type EarlySettlementQuote, type AppraisalChecklistItem,
+  type BusinessAppraisalChecklistRecord, type BusinessAppraisalStatus,
 } from '../api/client';
 import { Badge } from '../components/Badge';
 import {
@@ -146,6 +148,11 @@ function KycImageCard({
 const CATEGORY_LABEL: Record<string, string> = {
   IDENTITY: 'Định danh', INCOME: 'Thu nhập', EMPLOYMENT: 'Nghề nghiệp',
   REFERENCE: 'Tham chiếu', PURPOSE: 'Mục đích', DOCUMENT: 'Chứng từ', FRAUD: 'Gian lận',
+  BUSINESS_PROFILE: 'Hồ sơ pháp nhân',
+  BUSINESS_CASHFLOW: 'Dòng tiền kinh doanh',
+  BUSINESS_PURPOSE: 'Phương án vốn',
+  BUSINESS_SITE: 'Hoạt động thực tế',
+  CREDIT_HISTORY: 'Lịch sử tín dụng',
 };
 
 const METHOD_LABEL: Record<string, string> = {
@@ -2495,6 +2502,262 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
   );
 }
 
+// ─── Business appraisal section ──────────────────────────────────────────────
+
+const BUSINESS_APPRAISAL_CATEGORIES = new Set([
+  'BUSINESS_PROFILE',
+  'BUSINESS_CASHFLOW',
+  'BUSINESS_PURPOSE',
+  'BUSINESS_SITE',
+  'CREDIT_HISTORY',
+]);
+
+const BUSINESS_APPRAISAL_STATUS: Array<{ value: BusinessAppraisalStatus; label: string; cls: string }> = [
+  { value: 'PENDING', label: 'Chưa kiểm tra', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' },
+  { value: 'PASS', label: 'Đạt', cls: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+  { value: 'FAIL', label: 'Không đạt', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+  { value: 'NEEDS_INFO', label: 'Cần bổ sung', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+  { value: 'NA', label: 'Không áp dụng', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
+];
+
+type BusinessAppraisalDraft = {
+  status: BusinessAppraisalStatus;
+  note: string;
+  evidenceRefs: string;
+};
+
+function isBusinessChecklistItem(item: Pick<AppraisalChecklistItem, 'category'>): boolean {
+  return BUSINESS_APPRAISAL_CATEGORIES.has(item.category);
+}
+
+function BusinessAppraisalSection({ loan }: { loan: CmsLoan }) {
+  const loanId = loan.loanId;
+  const [sourceItems, setSourceItems] = useState<AppraisalChecklistItem[]>([]);
+  const [savedItems, setSavedItems] = useState<Record<string, BusinessAppraisalChecklistRecord>>({});
+  const [drafts, setDrafts] = useState<Record<string, BusinessAppraisalDraft>>({});
+  const [loading, setLoading] = useState(true);
+  const [savingCode, setSavingCode] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    Promise.all([
+      fetchAppraisalSuggestion(loanId, false, null).catch(() => null),
+      fetchBusinessAppraisalChecklist(loanId),
+    ])
+      .then(([suggestion, saved]) => {
+        if (cancelled) return;
+        const businessItems = (suggestion?.manualChecklist ?? []).filter(isBusinessChecklistItem);
+        const savedMap = Object.fromEntries(saved.map(item => [item.checklistCode, item]));
+        setSourceItems(businessItems);
+        setSavedItems(savedMap);
+
+        const nextDrafts: Record<string, BusinessAppraisalDraft> = {};
+        const codes = new Set([
+          ...businessItems.map(item => item.code),
+          ...saved.map(item => item.checklistCode),
+        ]);
+        codes.forEach(code => {
+          const record = savedMap[code];
+          nextDrafts[code] = {
+            status: record?.status ?? 'PENDING',
+            note: record?.note ?? '',
+            evidenceRefs: record?.evidenceRefs ?? '',
+          };
+        });
+        setDrafts(nextDrafts);
+      })
+      .catch(e => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Không tải được checklist thẩm định HKD/DN');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [loanId, tick]);
+
+  const mergedItems: AppraisalChecklistItem[] = (() => {
+    const byCode = new Map<string, AppraisalChecklistItem>();
+    sourceItems.forEach(item => byCode.set(item.code, item));
+    Object.values(savedItems).forEach(item => {
+      if (!byCode.has(item.checklistCode)) {
+        byCode.set(item.checklistCode, {
+          code: item.checklistCode,
+          category: item.category,
+          title: item.title,
+          instruction: item.instruction ?? '',
+          required: item.required,
+        });
+      }
+    });
+    return Array.from(byCode.values());
+  })();
+
+  if (!loading && !error && mergedItems.length === 0) {
+    return null;
+  }
+
+  const summary = mergedItems.reduce<Record<BusinessAppraisalStatus, number>>((acc, item) => {
+    const status = drafts[item.code]?.status ?? savedItems[item.code]?.status ?? 'PENDING';
+    acc[status] = (acc[status] ?? 0) + 1;
+    return acc;
+  }, { PENDING: 0, PASS: 0, FAIL: 0, NEEDS_INFO: 0, NA: 0 });
+
+  const updateDraft = (code: string, patch: Partial<BusinessAppraisalDraft>) => {
+    setDrafts(prev => ({
+      ...prev,
+      [code]: {
+        status: prev[code]?.status ?? 'PENDING',
+        note: prev[code]?.note ?? '',
+        evidenceRefs: prev[code]?.evidenceRefs ?? '',
+        ...patch,
+      },
+    }));
+  };
+
+  const saveItem = async (item: AppraisalChecklistItem) => {
+    const draft = drafts[item.code] ?? { status: 'PENDING' as BusinessAppraisalStatus, note: '', evidenceRefs: '' };
+    setSavingCode(item.code);
+    setError('');
+    try {
+      const saved = await saveBusinessAppraisalChecklist(loanId, item.code, {
+        category: item.category,
+        title: item.title,
+        instruction: item.instruction,
+        required: item.required,
+        status: draft.status,
+        note: draft.note.trim() || null,
+        evidenceRefs: draft.evidenceRefs.trim() || null,
+      });
+      setSavedItems(prev => ({ ...prev, [item.code]: saved }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không lưu được checklist thẩm định HKD/DN');
+    } finally {
+      setSavingCode(null);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-red-500">
+            <Landmark size={15} />Thẩm định HKD/DN
+          </p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Checklist riêng cho hồ sơ gọi vốn hộ kinh doanh/doanh nghiệp: ghi kết quả kiểm tra, ghi chú và fileId/link ảnh thực địa hoặc tài liệu bổ sung.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setTick(v => v + 1)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />Tải lại
+        </button>
+      </div>
+
+      {loading && (
+        <p className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">
+          <RefreshCw size={16} className="animate-spin inline mr-2" />Đang tải checklist HKD/DN...
+        </p>
+      )}
+      {error && <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>}
+
+      {!loading && mergedItems.length > 0 && (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {BUSINESS_APPRAISAL_STATUS.map(status => (
+              <span key={status.value} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${status.cls}`}>
+                {status.label}: {summary[status.value] ?? 0}
+              </span>
+            ))}
+          </div>
+
+          <div className="space-y-3">
+            {mergedItems.map(item => {
+              const draft = drafts[item.code] ?? {
+                status: savedItems[item.code]?.status ?? 'PENDING',
+                note: savedItems[item.code]?.note ?? '',
+                evidenceRefs: savedItems[item.code]?.evidenceRefs ?? '',
+              };
+              const saved = savedItems[item.code];
+              return (
+                <div key={item.code} className="rounded-xl border border-gray-100 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-800/40">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                          {CATEGORY_LABEL[item.category] ?? item.category}
+                        </span>
+                        {item.required && <span className="text-[10px] font-medium text-red-500">* bắt buộc</span>}
+                      </div>
+                      <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">{item.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">{item.instruction}</p>
+                    </div>
+                    <select
+                      value={draft.status}
+                      onChange={e => updateDraft(item.code, { status: e.target.value as BusinessAppraisalStatus })}
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                    >
+                      {BUSINESS_APPRAISAL_STATUS.map(status => (
+                        <option key={status.value} value={status.value}>{status.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Ghi chú/kết quả kiểm tra</span>
+                      <textarea
+                        value={draft.note}
+                        onChange={e => updateDraft(item.code, { note: e.target.value })}
+                        rows={3}
+                        placeholder="VD: Đã gọi xác minh, đối chiếu sao kê 3 tháng, cần bổ sung biên lai thuế..."
+                        className="mt-1 w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Ảnh thực địa/file bổ sung</span>
+                      <textarea
+                        value={draft.evidenceRefs}
+                        onChange={e => updateDraft(item.code, { evidenceRefs: e.target.value })}
+                        rows={3}
+                        placeholder="Dán fileId, link ảnh, link drive hoặc mã biên bản. Mỗi dòng một bằng chứng."
+                        className="mt-1 w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                      {saved?.updatedBy
+                        ? `Lưu bởi ${saved.updatedBy}${saved.updatedAt ? ` · ${formatVietnamDateTime(saved.updatedAt)}` : ''}`
+                        : 'Chưa lưu kết quả thẩm định.'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => saveItem(item)}
+                      disabled={savingCode === item.code}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+                    >
+                      {savingCode === item.code ? <RefreshCw size={14} className="animate-spin" /> : <Check size={14} />}
+                      Lưu mục này
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function LoanDetailPage({ loan, onBack, onActionDone, onViewCustomer }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void; onViewCustomer?: (userId: string) => void }) {
   // Kết quả chấm điểm AI dùng chung cho khối Điểm tín dụng và panel Hỗ trợ thẩm định
   const [creditScore, setCreditScore] = useState<CreditScoreResult | null>(null);
@@ -2679,6 +2942,7 @@ function LoanDetailPage({ loan, onBack, onActionDone, onViewCustomer }: { loan: 
       {/* Chứng từ + điểm tín dụng + hỗ trợ thẩm định */}
       <LoanDocumentsSection loan={loan} />
       <CreditScoreSection loan={loan} score={creditScore} onScore={setCreditScore} />
+      <BusinessAppraisalSection loan={loan} />
       <AppraisalPanel loan={loan} creditScore={creditScore} onActionDone={onActionDone} />
 
       {/* Giải ngân — chỉ hiện khi khoản ở trạng thái chờ giải ngân */}
