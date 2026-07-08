@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  fetchBusinessProfiles, fetchBusinessProfile, decideBusinessProfile, analyzeBusinessLicense,
+  fetchBusinessProfiles, fetchBusinessProfile, decideBusinessProfile, analyzeBusinessLicense, lookupBusinessTax,
   fetchUser, fetchFileBlob, getStoredAdmin, adminHasAnyRole, adminHasPermission,
-  type BusinessProfile, type BusinessProfileStatus, type CmsUser,
+  type BusinessProfile, type BusinessProfileStatus, type BusinessTaxLookupResult, type CmsUser,
 } from '../api/client';
 import { formatVietnamDate, formatVietnamDateTime } from '../utils/dateTime';
 import {
@@ -42,6 +42,16 @@ function DetailRow({ label, value, highlight }: { label: string; value: React.Re
       </span>
     </div>
   );
+}
+
+function MatchBadge({ value, label }: { value: boolean | null | undefined; label: string }) {
+  if (value === true) {
+    return <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">{label}: Khớp</span>;
+  }
+  if (value === false) {
+    return <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-400">{label}: Không khớp</span>;
+  }
+  return <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">{label}: Chưa có</span>;
 }
 
 function LicenseImageCard({ title, fileId }: { title: string; fileId: string | null | undefined }) {
@@ -99,6 +109,10 @@ function BusinessProfileDetail({ userId, onBack, onDecided }: {
   const [aiError, setAiError] = useState('');
   const [aiExtracted, setAiExtracted] = useState<Record<string, unknown> | null>(null);
 
+  const [taxLookup, setTaxLookup] = useState<BusinessTaxLookupResult | null>(null);
+  const [taxLookupLoading, setTaxLookupLoading] = useState(false);
+  const [taxLookupError, setTaxLookupError] = useState('');
+
   const [confirmApprove, setConfirmApprove] = useState(false);
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -113,6 +127,8 @@ function BusinessProfileDetail({ userId, onBack, onDecided }: {
     try {
       const p = await fetchBusinessProfile(userId);
       setProfile(p);
+      setTaxLookup(null);
+      setTaxLookupError('');
       try { setOwner(await fetchUser(userId)); } catch { setOwner(null); }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được hồ sơ doanh nghiệp');
@@ -122,6 +138,23 @@ function BusinessProfileDetail({ userId, onBack, onDecided }: {
   }, [userId]);
 
   useEffect(() => { load(); }, [load]);
+
+  const runTaxLookup = useCallback(async () => {
+    setTaxLookupLoading(true);
+    setTaxLookupError('');
+    try {
+      setTaxLookup(await lookupBusinessTax(userId));
+    } catch (e) {
+      setTaxLookupError(e instanceof Error ? e.message : 'Không tra cứu được VietQR');
+    } finally {
+      setTaxLookupLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!profile || (!profile.taxCode && !profile.registrationNumber)) return;
+    runTaxLookup();
+  }, [profile?.id, profile?.taxCode, profile?.registrationNumber, runTaxLookup]);
 
   const runAnalyze = async () => {
     setAnalyzing(true);
@@ -266,6 +299,72 @@ function BusinessProfileDetail({ userId, onBack, onDecided }: {
             </p>
           )}
         </div>
+      </div>
+
+      {/* Đối chiếu MST qua VietQR */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            <ShieldCheck size={16} className="text-green-500" />
+            Đối chiếu MST qua VietQR <span className="font-normal text-xs text-gray-400 dark:text-gray-500">(chỉ hỗ trợ thẩm định)</span>
+          </h3>
+          <button
+            onClick={runTaxLookup}
+            disabled={taxLookupLoading || (!profile.taxCode && !profile.registrationNumber)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border border-green-300 dark:border-green-700 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/40 disabled:opacity-50 transition-colors">
+            <RefreshCw size={14} className={taxLookupLoading ? 'animate-spin' : ''} />
+            {taxLookupLoading ? 'Đang tra cứu…' : 'Tra cứu VietQR'}
+          </button>
+        </div>
+        {taxLookupError && (
+          <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400">{taxLookupError}</p>
+        )}
+        {taxLookup ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                taxLookup.found
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+              }`}>
+                {taxLookup.found ? 'Tìm thấy dữ liệu' : 'Chưa có dữ liệu'}
+              </span>
+              <MatchBadge value={taxLookup.taxCodeMatched} label="MST" />
+              <MatchBadge value={taxLookup.nameMatched} label="Tên" />
+              <MatchBadge value={taxLookup.addressMatched} label="Địa chỉ" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8">
+              <DetailRow label="Mã tra cứu" value={taxLookup.lookupCode ? <span className="font-mono">{taxLookup.lookupCode}</span> : null} />
+              <DetailRow label="Nguồn" value={taxLookup.source || 'VIETQR'} />
+              <DetailRow label="MST VietQR" value={taxLookup.taxId ? <span className="font-mono">{taxLookup.taxId}</span> : null} highlight={taxLookup.taxCodeMatched === false} />
+              <DetailRow label="Tên VietQR" value={taxLookup.name} highlight={taxLookup.nameMatched === false} />
+              <DetailRow label="Tên viết tắt" value={taxLookup.shortName} />
+              <DetailRow label="Tên quốc tế" value={taxLookup.internationalName} />
+              <DetailRow label="Trạng thái thuế" value={taxLookup.status} />
+              <DetailRow label="Địa chỉ VietQR" value={taxLookup.address} highlight={taxLookup.addressMatched === false} />
+              <DetailRow label="Nguồn dữ liệu" value={taxLookup.dataSource} />
+              <DetailRow label="VietQR cập nhật" value={taxLookup.dataUpdatedAt ? formatVietnamDateTime(taxLookup.dataUpdatedAt) : null} />
+              <DetailRow label="Thời điểm tra" value={taxLookup.checkedAt ? formatVietnamDateTime(taxLookup.checkedAt) : null} />
+            </div>
+            {taxLookup.disclaimer && (
+              <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:bg-gray-800/70 dark:text-gray-400">{taxLookup.disclaimer}</p>
+            )}
+            {taxLookup.warnings && taxLookup.warnings.length > 0 && (
+              <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                <p className="font-semibold mb-1">Lưu ý:</p>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {taxLookup.warnings.map((warning, i) => <li key={i}>{warning}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400 dark:text-gray-500">
+            {profile.taxCode || profile.registrationNumber
+              ? 'Đang chờ tra cứu VietQR...'
+              : 'Hồ sơ chưa có MST hoặc số GCN đăng ký để tra cứu VietQR.'}
+          </p>
+        )}
       </div>
 
       {/* AI phân tích GPKD */}

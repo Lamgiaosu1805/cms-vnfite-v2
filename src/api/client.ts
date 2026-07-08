@@ -855,6 +855,28 @@ export interface BusinessLicenseAnalysis {
   extractedData: string | null;
 }
 
+export interface BusinessTaxLookupResult {
+  source: string;
+  lookupCode: string | null;
+  found: boolean;
+  code?: string | null;
+  desc?: string | null;
+  taxId?: string | null;
+  name?: string | null;
+  internationalName?: string | null;
+  shortName?: string | null;
+  address?: string | null;
+  status?: string | null;
+  dataSource?: string | null;
+  dataUpdatedAt?: string | null;
+  disclaimer?: string | null;
+  checkedAt?: string | null;
+  taxCodeMatched?: boolean | null;
+  nameMatched?: boolean | null;
+  addressMatched?: boolean | null;
+  warnings?: string[];
+}
+
 export async function fetchBusinessProfiles(status = 'PENDING', page = 0, size = 20): Promise<PagedResponse<BusinessProfile>> {
   const q = new URLSearchParams();
   if (status) q.set('status', status);
@@ -876,6 +898,10 @@ export async function decideBusinessProfile(userId: string, approved: boolean, r
 
 export async function analyzeBusinessLicense(userId: string): Promise<BusinessLicenseAnalysis> {
   return request(`/users/${userId}/business-profile/analyze`, { method: 'POST' });
+}
+
+export async function lookupBusinessTax(userId: string): Promise<BusinessTaxLookupResult> {
+  return request(`/users/${userId}/business-profile/tax-lookup`);
 }
 
 // ─── Loans ────────────────────────────────────────────────────────────────────
