@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchBusinessProfiles, fetchBusinessProfile, decideBusinessProfile, analyzeBusinessLicense,
-  fetchUser, fetchFileBlob, getStoredAdmin,
+  fetchUser, fetchFileBlob, getStoredAdmin, adminHasAnyRole,
   type BusinessProfile, type BusinessProfileStatus, type CmsUser,
 } from '../api/client';
 import { formatVietnamDate, formatVietnamDateTime } from '../utils/dateTime';
@@ -104,7 +104,7 @@ function BusinessProfileDetail({ userId, onBack, onDecided }: {
   const [rejectReason, setRejectReason] = useState('');
   const [deciding, setDeciding] = useState(false);
 
-  const isLeader = ['SUPER_ADMIN', 'ADMIN'].includes(getStoredAdmin()?.role ?? '');
+  const isLeader = adminHasAnyRole(getStoredAdmin(), 'SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT');
 
   const load = useCallback(async () => {
     setLoading(true);

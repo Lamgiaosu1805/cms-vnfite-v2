@@ -7,6 +7,7 @@ import {
   fetchFileBlob,
   fetchUsers,
   getStoredAdmin,
+  adminHasAnyRole,
   resetCustomerDevice,
   resetCustomerPassword,
   setCustomerBlacklist,
@@ -215,8 +216,7 @@ function ReasonModal({ title, placeholder, onConfirm, onCancel }: RejectModalPro
 }
 
 function canResetCustomers() {
-  const role = getStoredAdmin()?.role;
-  return role === 'SUPER_ADMIN' || role === 'ADMIN';
+  return adminHasAnyRole(getStoredAdmin(), 'SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT');
 }
 
 function ResetPasswordResultModal({

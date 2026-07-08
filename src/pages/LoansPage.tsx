@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   fetchLoans, fetchLoanById, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
-  proposeLoan, approveLoan, rejectLoan, cancelLoan, getStoredAdmin,
+  proposeLoan, approveLoan, rejectLoan, cancelLoan, getStoredAdmin, adminHasAnyRole,
   fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
   fetchFileBlob, fetchEarlySettlementQuote,
@@ -1261,7 +1261,7 @@ function AppraisalPanel({ loan, creditScore, onActionDone }: {
 
   // Phê duyệt 2 cấp
   const admin = getStoredAdmin();
-  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER');
   const [amountInput, setAmountInput] = useState('');
   const [rateInput, setRateInput] = useState('');
   const [termInput, setTermInput] = useState('');
@@ -2355,7 +2355,7 @@ const CMS_CANCELLABLE_STATUSES = new Set([
 
 function LoanCancelPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone: () => void }) {
   const admin = getStoredAdmin();
-  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER');
   const [reason, setReason] = useState('');
   const [acting, setActing] = useState(false);
   const [error, setError] = useState('');
@@ -2426,7 +2426,7 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
   const [error, setError]           = useState('');
 
   const admin = getStoredAdmin();
-  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER');
 
   if (loan.status !== 'AWAITING_DISBURSEMENT') return null;
   if (!isLeader) return null;
@@ -2736,7 +2736,7 @@ export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLo
   const [resolveError, setResolveError] = useState('');
 
   const admin = getStoredAdmin();
-  const isLeader = admin?.role === 'ADMIN' || admin?.role === 'SUPER_ADMIN';
+  const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER');
   const [sweeping, setSweeping] = useState(false);
   const [collecting, setCollecting] = useState(false);
   const [sweepMsg, setSweepMsg] = useState('');

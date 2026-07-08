@@ -80,8 +80,42 @@ export interface AdminInfo {
   username: string;
   fullName: string;
   email: string;
+  /** Vai trò chính / nhãn hiển thị (tương thích token cũ). */
   role: string;
+  /** Toàn bộ vai trò. Token cũ có thể chưa có — fallback về [role]. */
+  roles?: string[];
 }
+
+/** Toàn bộ vai trò của admin; fallback về [role] cho token cũ chưa có mảng roles. */
+export function adminRoles(admin: AdminInfo | null | undefined): string[] {
+  if (!admin) return [];
+  if (admin.roles && admin.roles.length > 0) return admin.roles;
+  return admin.role ? [admin.role] : [];
+}
+
+/** admin có ít nhất một trong các vai trò truyền vào không. */
+export function adminHasAnyRole(admin: AdminInfo | null | undefined, ...roles: string[]): boolean {
+  const mine = adminRoles(admin);
+  return roles.some(r => mine.includes(r));
+}
+
+/** Nhãn tiếng Việt của từng vai trò — dùng cho hiển thị. */
+export const CMS_ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Quản trị hệ thống',
+  ADMIN: 'Quản trị nghiệp vụ',
+  OPS: 'Giám sát / Vận hành',
+  CUSTOMER_SUPPORT: 'Chăm sóc khách hàng',
+  APPRAISER: 'Thẩm định tín dụng',
+  APPROVER: 'Phê duyệt',
+  FINANCE: 'Kế toán / Tài chính',
+  CONTENT: 'Nội dung / Marketing',
+  HR: 'Nhân sự',
+};
+
+/** Các vai trò gán được ở màn Quản lý Admin (không gồm SUPER_ADMIN). */
+export const CMS_ASSIGNABLE_ROLES: string[] = [
+  'CUSTOMER_SUPPORT', 'APPRAISER', 'APPROVER', 'FINANCE', 'CONTENT', 'HR', 'OPS', 'ADMIN',
+];
 
 async function request<T>(
   path: string,
@@ -191,6 +225,7 @@ export interface AdminItem {
   email: string;
   fullName: string;
   role: string;
+  roles?: string[];
   active: boolean;
   mustChangePassword: boolean;
   totpEnabled: boolean;
@@ -203,6 +238,7 @@ export interface CreateAdminResult {
   email: string;
   fullName: string;
   role: string;
+  roles?: string[];
   generatedPassword: string;
 }
 
@@ -218,7 +254,7 @@ export async function listAdmins(): Promise<AdminItem[]> {
 }
 
 export async function createAdmin(payload: {
-  fullName: string; email: string; role: string;
+  fullName: string; email: string; roles: string[];
 }): Promise<CreateAdminResult> {
   return request('/admins', { method: 'POST', data: payload });
 }
@@ -227,8 +263,8 @@ export async function toggleAdminActive(id: string): Promise<void> {
   return request(`/admins/${id}/toggle-active`, { method: 'PUT' });
 }
 
-export async function updateAdminRole(id: string, role: 'ADMIN' | 'OPS'): Promise<AdminItem> {
-  return request(`/admins/${id}/role`, { method: 'PUT', data: { role } });
+export async function updateAdminRoles(id: string, roles: string[]): Promise<AdminItem> {
+  return request(`/admins/${id}/role`, { method: 'PUT', data: { roles } });
 }
 
 export async function resetAdminPassword(id: string): Promise<ResetAdminPasswordResult> {
