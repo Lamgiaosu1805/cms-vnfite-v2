@@ -155,7 +155,7 @@ function CreateModal({ onCreated, onCancel }: CreateModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
         <h3 className="mb-4 text-lg font-bold text-gray-800 dark:text-gray-100">Tạo tài khoản Admin</h3>
         <div className="space-y-3">
           <div>
@@ -223,7 +223,7 @@ function EditAccessModal({ admin, onSaved, onCancel }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
         <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Phân quyền cho {admin.fullName}</h3>
         <p className="mb-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
           Một tài khoản có thể mang nhiều vai trò phòng ban. Quyền là hợp của tất cả vai trò được chọn.
