@@ -1260,6 +1260,49 @@ export async function analyzeLoanDocument(loanId: string, documentId: string): P
   return request(`/loans/${loanId}/documents/${documentId}/analyze`, { method: 'POST' });
 }
 
+// ─── Checklist thẩm định HKD/DN ──────────────────────────────────────────────
+
+export type BusinessAppraisalStatus = 'PENDING' | 'PASS' | 'FAIL' | 'NEEDS_INFO' | 'NA';
+
+export interface BusinessAppraisalChecklistRecord {
+  id: string;
+  loanId: string;
+  checklistCode: string;
+  category: string;
+  title: string;
+  instruction: string | null;
+  required: boolean;
+  status: BusinessAppraisalStatus;
+  note: string | null;
+  evidenceRefs: string | null;
+  updatedBy: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export async function fetchBusinessAppraisalChecklist(loanId: string): Promise<BusinessAppraisalChecklistRecord[]> {
+  return request(`/loans/${loanId}/business-appraisal`);
+}
+
+export async function saveBusinessAppraisalChecklist(
+  loanId: string,
+  checklistCode: string,
+  payload: {
+    category: string;
+    title: string;
+    instruction?: string | null;
+    required: boolean;
+    status: BusinessAppraisalStatus;
+    note?: string | null;
+    evidenceRefs?: string | null;
+  },
+): Promise<BusinessAppraisalChecklistRecord> {
+  return request(`/loans/${loanId}/business-appraisal/${encodeURIComponent(checklistCode)}`, {
+    method: 'PUT',
+    data: payload,
+  });
+}
+
 /** OPS giải ngân vốn cho người gọi vốn: AWAITING_DISBURSEMENT → DISBURSED. */
 export async function disburseLoan(loanId: string): Promise<CmsLoan> {
   return request(`/loans/${loanId}/disburse`, { method: 'POST' });
