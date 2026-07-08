@@ -10,8 +10,10 @@ import {
   updateAdminPermissions,
   CMS_ASSIGNABLE_ROLES,
   CMS_ROLE_LABELS,
+  CMS_ROLE_DESCRIPTIONS,
   CMS_ASSIGNABLE_PERMISSIONS,
   CMS_PERMISSION_LABELS,
+  CMS_PERMISSION_DESCRIPTIONS,
   type AdminItem,
   type CreateAdminResult,
   type ResetAdminPasswordResult,
@@ -39,14 +41,21 @@ function RoleCheckboxGrid({ selected, onChange }: { selected: string[]; onChange
         return (
           <label
             key={r}
-            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+            className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm transition ${
               on
                 ? 'border-red-400 bg-red-50 dark:border-red-700 dark:bg-red-900/20'
                 : 'border-gray-200 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700/50'
             }`}
           >
-            <input type="checkbox" checked={on} onChange={() => toggle(r)} className="accent-red-600" />
-            <span className="text-gray-800 dark:text-gray-200">{CMS_ROLE_LABELS[r] ?? r}</span>
+            <input type="checkbox" checked={on} onChange={() => toggle(r)} className="mt-0.5 accent-red-600" />
+            <span>
+              <span className="block text-gray-800 dark:text-gray-200">{CMS_ROLE_LABELS[r] ?? r}</span>
+              {CMS_ROLE_DESCRIPTIONS[r] && (
+                <span className="mt-0.5 block text-[11px] leading-snug text-gray-400 dark:text-gray-500">
+                  {CMS_ROLE_DESCRIPTIONS[r]}
+                </span>
+              )}
+            </span>
           </label>
         );
       })}
@@ -80,14 +89,21 @@ function PermissionCheckboxGrid({ selected, onChange }: { selected: string[]; on
         return (
           <label
             key={p}
-            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+            className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm transition ${
               on
                 ? 'border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20'
                 : 'border-gray-200 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700/50'
             }`}
           >
-            <input type="checkbox" checked={on} onChange={() => toggle(p)} className="accent-amber-600" />
-            <span className="text-gray-800 dark:text-gray-200">{CMS_PERMISSION_LABELS[p] ?? p}</span>
+            <input type="checkbox" checked={on} onChange={() => toggle(p)} className="mt-0.5 accent-amber-600" />
+            <span>
+              <span className="block text-gray-800 dark:text-gray-200">{CMS_PERMISSION_LABELS[p] ?? p}</span>
+              {CMS_PERMISSION_DESCRIPTIONS[p] && (
+                <span className="mt-0.5 block text-[11px] leading-snug text-gray-400 dark:text-gray-500">
+                  {CMS_PERMISSION_DESCRIPTIONS[p]}
+                </span>
+              )}
+            </span>
           </label>
         );
       })}

@@ -124,6 +124,19 @@ export const CMS_ASSIGNABLE_ROLES: string[] = [
   'CUSTOMER_SUPPORT', 'APPRAISER', 'APPROVER', 'FINANCE', 'CONTENT', 'HR', 'OPS', 'ADMIN',
 ];
 
+/** Mô tả các tính năng/menu mà mỗi vai trò mở được — hiển thị dưới mỗi checkbox ở màn Quản lý Admin. */
+export const CMS_ROLE_DESCRIPTIONS: Record<string, string> = {
+  SUPER_ADMIN: 'Toàn quyền hệ thống + Quản lý Admin.',
+  ADMIN: 'Nhãn gộp cũ — coi như có mọi vai trò phòng ban bên dưới.',
+  OPS: 'Dashboard, Giao dịch nạp/rút, xem Danh sách gọi vốn, Giám sát rút tiền, Tra soát giao dịch, Đến hạn hôm nay, Lịch sử thu nợ tự động.',
+  CUSTOMER_SUPPORT: 'Khách hàng (xem/khoá/reset MK/reset thiết bị/blacklist), Duyệt-từ chối KYC, Hồ sơ doanh nghiệp.',
+  APPRAISER: 'Danh sách gọi vốn: đề xuất thẩm định, tra CIC, chấm điểm tín dụng, giải ngân, ghi nhận trả nợ, duyệt/từ chối/huỷ, Nhật ký quyết định.',
+  APPROVER: 'Giống Thẩm định tín dụng + Sửa sản phẩm gọi vốn + Đến hạn hôm nay, Lịch sử thu nợ tự động, Tất toán sớm.',
+  FINANCE: 'Giao dịch nạp/rút, xem Danh sách gọi vốn, Giám sát rút tiền, Tra soát giao dịch, Đến hạn hôm nay, Lịch sử thu nợ tự động, Phân bổ & thuế TNCN, Doanh thu phí, Tất toán sớm.',
+  CONTENT: 'Tin tức, gửi thông báo đẩy (push notification).',
+  HR: 'Tuyển dụng (tin tuyển dụng + hồ sơ ứng tuyển).',
+};
+
 /** Nhãn tiếng Việt của từng quyền lẻ — dùng cho hiển thị ở màn Quản lý Admin. */
 export const CMS_PERMISSION_LABELS: Record<string, string> = {
   'loan.approve': 'Duyệt khoản gọi vốn',
@@ -133,6 +146,17 @@ export const CMS_PERMISSION_LABELS: Record<string, string> = {
   'kyc.decide': 'Duyệt/từ chối KYC',
   'business.decide': 'Duyệt/từ chối hồ sơ doanh nghiệp',
   'finance.reconcile': 'Tra soát giao dịch (thao tác)',
+};
+
+/** Mô tả chính xác API/nút bấm mà mỗi quyền lẻ mở được — hiển thị dưới mỗi checkbox. */
+export const CMS_PERMISSION_DESCRIPTIONS: Record<string, string> = {
+  'loan.approve': 'Nút "Phê duyệt" ở khoản đang Chờ lãnh đạo duyệt (PUT /cms/loans/{id}/approve).',
+  'loan.disburse': 'Nút "Giải ngân" ở khoản đang Chờ giải ngân (POST /cms/loans/{id}/disburse).',
+  'loan.propose': 'Form "Trình ban lãnh đạo" ở khoản đang Chờ thẩm định (PUT /cms/loans/{id}/propose).',
+  'loan.product.edit': 'Nút sửa ở màn Sản phẩm gọi vốn (PUT /cms/loans/products/{id}).',
+  'kyc.decide': 'Nút Duyệt/Từ chối KYC ở màn Khách hàng (PUT /cms/users/{id}/kyc).',
+  'business.decide': 'Nút Duyệt/Từ chối ở màn Hồ sơ doanh nghiệp (POST /cms/users/{id}/business-profile/decision).',
+  'finance.reconcile': 'Các nút thao tác (Chạy đối soát, Đánh dấu đang xử lý, Ghi nhận thủ công) ở màn Tra soát giao dịch — không áp dụng cho việc xem danh sách.',
 };
 
 /** Các quyền lẻ gán được ở màn Quản lý Admin. */
