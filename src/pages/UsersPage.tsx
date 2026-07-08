@@ -8,6 +8,7 @@ import {
   fetchUsers,
   getStoredAdmin,
   adminHasAnyRole,
+  adminHasPermission,
   resetCustomerDevice,
   resetCustomerPassword,
   setCustomerBlacklist,
@@ -217,6 +218,11 @@ function ReasonModal({ title, placeholder, onConfirm, onCancel }: RejectModalPro
 
 function canResetCustomers() {
   return adminHasAnyRole(getStoredAdmin(), 'SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT');
+}
+
+function canDecideKyc() {
+  const a = getStoredAdmin();
+  return adminHasAnyRole(a, 'SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT') || adminHasPermission(a, 'kyc.decide');
 }
 
 function ResetPasswordResultModal({
@@ -1026,7 +1032,7 @@ export function UsersPage({ onViewCustomer }: UsersPageProps) {
                       >
                         <Eye size={15} />
                       </button>
-                      {user.kycStatus === 'PENDING' && (
+                      {user.kycStatus === 'PENDING' && canDecideKyc() && (
                         <>
                           <button
                             onClick={() => askApproveKyc(user)}

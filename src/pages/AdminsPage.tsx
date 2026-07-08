@@ -7,8 +7,11 @@ import {
   resetAdminTotp,
   toggleAdminActive,
   updateAdminRoles,
+  updateAdminPermissions,
   CMS_ASSIGNABLE_ROLES,
   CMS_ROLE_LABELS,
+  CMS_ASSIGNABLE_PERMISSIONS,
+  CMS_PERMISSION_LABELS,
   type AdminItem,
   type CreateAdminResult,
   type ResetAdminPasswordResult,
@@ -19,6 +22,11 @@ import { formatVietnamDateTime } from '../utils/dateTime';
 /** Vai trò của một dòng admin — fallback về [role] nếu backend cũ chưa trả roles. */
 function itemRoles(admin: AdminItem): string[] {
   return admin.roles && admin.roles.length > 0 ? admin.roles : (admin.role ? [admin.role] : []);
+}
+
+/** Quyền lẻ của một dòng admin. */
+function itemPermissions(admin: AdminItem): string[] {
+  return admin.permissions ?? [];
 }
 
 function RoleCheckboxGrid({ selected, onChange }: { selected: string[]; onChange: (roles: string[]) => void }) {
@@ -62,6 +70,47 @@ function RoleChips({ roles }: { roles: string[] }) {
   );
 }
 
+function PermissionCheckboxGrid({ selected, onChange }: { selected: string[]; onChange: (permissions: string[]) => void }) {
+  const toggle = (p: string) =>
+    onChange(selected.includes(p) ? selected.filter(x => x !== p) : [...selected, p]);
+  return (
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      {CMS_ASSIGNABLE_PERMISSIONS.map(p => {
+        const on = selected.includes(p);
+        return (
+          <label
+            key={p}
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+              on
+                ? 'border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20'
+                : 'border-gray-200 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <input type="checkbox" checked={on} onChange={() => toggle(p)} className="accent-amber-600" />
+            <span className="text-gray-800 dark:text-gray-200">{CMS_PERMISSION_LABELS[p] ?? p}</span>
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function PermissionChips({ permissions }: { permissions: string[] }) {
+  if (permissions.length === 0) return null;
+  return (
+    <div className="mt-1 flex max-w-[240px] flex-wrap gap-1">
+      {permissions.map(p => (
+        <span
+          key={p}
+          className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+        >
+          + {CMS_PERMISSION_LABELS[p] ?? p}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 interface CreateModalProps {
   onCreated: (result: CreateAdminResult) => void;
   onCancel: () => void;
@@ -71,6 +120,7 @@ function CreateModal({ onCreated, onCancel }: CreateModalProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<string[]>(['CUSTOMER_SUPPORT']);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -79,7 +129,7 @@ function CreateModal({ onCreated, onCancel }: CreateModalProps) {
     if (roles.length === 0) { setError('Chọn ít nhất một vai trò'); return; }
     setLoading(true); setError('');
     try {
-      const result = await createAdmin({ fullName, email, roles });
+      const result = await createAdmin({ fullName, email, roles, permissions });
       onCreated(result);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra');
@@ -110,6 +160,12 @@ function CreateModal({ onCreated, onCancel }: CreateModalProps) {
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Vai trò (chọn nhiều được)</label>
             <RoleCheckboxGrid selected={roles} onChange={setRoles} />
           </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Cấp thêm quyền <span className="font-normal text-gray-400 dark:text-gray-500">(tuỳ chọn — cấp 1 tính năng lẻ của phòng ban khác)</span>
+            </label>
+            <PermissionCheckboxGrid selected={permissions} onChange={setPermissions} />
+          </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20">{error}</p>}
         </div>
         <div className="mt-5 flex justify-end gap-3">
@@ -126,12 +182,13 @@ function CreateModal({ onCreated, onCancel }: CreateModalProps) {
   );
 }
 
-function EditRolesModal({ admin, onSaved, onCancel }: {
+function EditAccessModal({ admin, onSaved, onCancel }: {
   admin: AdminItem;
   onSaved: () => void;
   onCancel: () => void;
 }) {
   const [roles, setRoles] = useState<string[]>(itemRoles(admin));
+  const [permissions, setPermissions] = useState<string[]>(itemPermissions(admin));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -140,9 +197,10 @@ function EditRolesModal({ admin, onSaved, onCancel }: {
     setSaving(true); setError('');
     try {
       await updateAdminRoles(admin.id, roles);
+      await updateAdminPermissions(admin.id, permissions);
       onSaved();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Lỗi đổi vai trò');
+      setError(err instanceof Error ? err.message : 'Lỗi đổi quyền');
       setSaving(false);
     }
   }
@@ -150,11 +208,17 @@ function EditRolesModal({ admin, onSaved, onCancel }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800">
-        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Vai trò của {admin.fullName}</h3>
+        <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Phân quyền cho {admin.fullName}</h3>
         <p className="mb-4 mt-1 text-xs text-gray-500 dark:text-gray-400">
           Một tài khoản có thể mang nhiều vai trò phòng ban. Quyền là hợp của tất cả vai trò được chọn.
         </p>
         <RoleCheckboxGrid selected={roles} onChange={setRoles} />
+
+        <p className="mb-1.5 mt-5 text-sm font-medium text-gray-700 dark:text-gray-300">
+          Cấp thêm quyền <span className="font-normal text-gray-400 dark:text-gray-500">(1 tính năng lẻ của phòng ban khác)</span>
+        </p>
+        <PermissionCheckboxGrid selected={permissions} onChange={setPermissions} />
+
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20">{error}</p>}
         <div className="mt-5 flex justify-end gap-3">
           <button onClick={onCancel} className="rounded-lg border border-gray-200 px-4 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50">Huỷ</button>
@@ -162,7 +226,7 @@ function EditRolesModal({ admin, onSaved, onCancel }: {
             className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
             style={{ background: 'linear-gradient(135deg, #C82020, #8B0A0A)' }}>
             {saving ? <RefreshCw size={15} className="animate-spin" /> : <Check size={15} />}
-            Lưu vai trò
+            Lưu phân quyền
           </button>
         </div>
       </div>
@@ -250,7 +314,7 @@ export function AdminsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const [editRolesFor, setEditRolesFor] = useState<AdminItem | null>(null);
+  const [editAccessFor, setEditAccessFor] = useState<AdminItem | null>(null);
   const [createdResult, setCreatedResult] = useState<CreateAdminResult | null>(null);
   const [resetPasswordResult, setResetPasswordResult] = useState<ResetAdminPasswordResult | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -350,12 +414,15 @@ export function AdminsPage() {
                           {CMS_ROLE_LABELS.SUPER_ADMIN}
                         </span>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <RoleChips roles={itemRoles(admin)} />
+                        <div className="flex items-start gap-2">
+                          <div>
+                            <RoleChips roles={itemRoles(admin)} />
+                            <PermissionChips permissions={itemPermissions(admin)} />
+                          </div>
                           <button
-                            onClick={() => setEditRolesFor(admin)}
+                            onClick={() => setEditAccessFor(admin)}
                             disabled={actionLoadingId === admin.id}
-                            title="Sửa vai trò"
+                            title="Sửa phân quyền"
                             className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50"
                           >
                             <SlidersHorizontal size={12} /> Sửa
@@ -423,11 +490,11 @@ export function AdminsPage() {
           onCancel={() => setShowCreate(false)}
         />
       )}
-      {editRolesFor && (
-        <EditRolesModal
-          admin={editRolesFor}
-          onSaved={() => { setEditRolesFor(null); load(); }}
-          onCancel={() => setEditRolesFor(null)}
+      {editAccessFor && (
+        <EditAccessModal
+          admin={editAccessFor}
+          onSaved={() => { setEditAccessFor(null); load(); }}
+          onCancel={() => setEditAccessFor(null)}
         />
       )}
       {createdResult && (

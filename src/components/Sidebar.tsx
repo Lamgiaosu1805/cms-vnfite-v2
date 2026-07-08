@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowDownUp, BarChart3, Briefcase, Building2, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Newspaper, Package, ShieldCheck, Users, Wallet, Scale, CalendarClock, Receipt, BadgeCheck } from 'lucide-react';
-import { adminRoles, CMS_ROLE_LABELS, type AdminInfo } from '../api/client';
+import { adminRoles, adminHasPermission, CMS_ROLE_LABELS, type AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
 export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'loans' | 'products' | 'news' | 'recruitment' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
@@ -31,17 +31,18 @@ export function Sidebar({
   }, [activeTab]);
 
   // roles của mỗi mục = tập vai trò được phép (khớp @PreAuthorize backend).
-  const allItems: { key: TabKey; label: string; icon: React.ReactNode; roles?: string[] }[] = [
+  // permissions = quyền lẻ cũng mở được mục này (vd: được cấp loan.approve dù không có vai trò phòng ban).
+  const allItems: { key: TabKey; label: string; icon: React.ReactNode; roles?: string[]; permissions?: string[] }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE', 'CUSTOMER_SUPPORT'] },
-    { key: 'users', label: 'Khách hàng', icon: <Users size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'CUSTOMER_SUPPORT'] },
-    { key: 'business-kyc', label: 'Hồ sơ doanh nghiệp', icon: <Building2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT'] },
+    { key: 'users', label: 'Khách hàng', icon: <Users size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'CUSTOMER_SUPPORT'], permissions: ['kyc.decide'] },
+    { key: 'business-kyc', label: 'Hồ sơ doanh nghiệp', icon: <Building2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT'], permissions: ['business.decide'] },
     { key: 'transactions', label: 'Giao dịch nạp/rút', icon: <ArrowDownUp size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'] },
-    { key: 'loans', label: 'Danh sách gọi vốn', icon: <CircleDollarSign size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'] },
-    { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'APPROVER'] },
+    { key: 'loans', label: 'Danh sách gọi vốn', icon: <CircleDollarSign size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'], permissions: ['loan.approve', 'loan.disburse', 'loan.propose'] },
+    { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'APPROVER'], permissions: ['loan.product.edit'] },
     { key: 'news', label: 'Tin tức', icon: <Newspaper size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CONTENT'] },
     { key: 'recruitment', label: 'Tuyển dụng', icon: <Briefcase size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
     { key: 'withdrawals', label: 'Giám sát rút tiền', icon: <Wallet size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'] },
-    { key: 'reconciliation', label: 'Tra soát giao dịch', icon: <Scale size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'] },
+    { key: 'reconciliation', label: 'Tra soát giao dịch', icon: <Scale size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'], permissions: ['finance.reconcile'] },
     { key: 'due-today', label: 'Đến hạn hôm nay', icon: <CalendarCheck size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE', 'APPROVER'] },
     { key: 'auto-debit-audit', label: 'Lịch sử thu nợ tự động', icon: <CalendarClock size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE', 'APPROVER'] },
     { key: 'distribution-log', label: 'Phân bổ & thuế TNCN', icon: <Receipt size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
@@ -51,7 +52,10 @@ export function Sidebar({
     { key: 'admins', label: 'Quản lý Admin', icon: <ShieldCheck size={18} />, roles: ['SUPER_ADMIN'] },
   ];
   const myRoles = adminRoles(admin);
-  const navItems = allItems.filter(item => !item.roles || item.roles.some(r => myRoles.includes(r)));
+  const navItems = allItems.filter(item =>
+    !item.roles
+    || item.roles.some(r => myRoles.includes(r))
+    || (item.permissions ?? []).some(p => adminHasPermission(admin, p)));
 
   return (
     <aside className="w-60 h-full overflow-y-auto flex flex-col shrink-0 text-white"

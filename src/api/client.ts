@@ -84,6 +84,8 @@ export interface AdminInfo {
   role: string;
   /** Toàn bộ vai trò. Token cũ có thể chưa có — fallback về [role]. */
   roles?: string[];
+  /** Quyền lẻ cấp thêm ngoài vai trò (vd: kế toán được cấp thêm loan.approve). */
+  permissions?: string[];
 }
 
 /** Toàn bộ vai trò của admin; fallback về [role] cho token cũ chưa có mảng roles. */
@@ -97,6 +99,11 @@ export function adminRoles(admin: AdminInfo | null | undefined): string[] {
 export function adminHasAnyRole(admin: AdminInfo | null | undefined, ...roles: string[]): boolean {
   const mine = adminRoles(admin);
   return roles.some(r => mine.includes(r));
+}
+
+/** admin có được cấp quyền lẻ cụ thể này không (xem CMS_PERMISSION_LABELS). */
+export function adminHasPermission(admin: AdminInfo | null | undefined, permission: string): boolean {
+  return !!admin?.permissions?.includes(permission);
 }
 
 /** Nhãn tiếng Việt của từng vai trò — dùng cho hiển thị. */
@@ -115,6 +122,23 @@ export const CMS_ROLE_LABELS: Record<string, string> = {
 /** Các vai trò gán được ở màn Quản lý Admin (không gồm SUPER_ADMIN). */
 export const CMS_ASSIGNABLE_ROLES: string[] = [
   'CUSTOMER_SUPPORT', 'APPRAISER', 'APPROVER', 'FINANCE', 'CONTENT', 'HR', 'OPS', 'ADMIN',
+];
+
+/** Nhãn tiếng Việt của từng quyền lẻ — dùng cho hiển thị ở màn Quản lý Admin. */
+export const CMS_PERMISSION_LABELS: Record<string, string> = {
+  'loan.approve': 'Duyệt khoản gọi vốn',
+  'loan.disburse': 'Giải ngân',
+  'loan.propose': 'Đề xuất thẩm định',
+  'loan.product.edit': 'Sửa sản phẩm gọi vốn',
+  'kyc.decide': 'Duyệt/từ chối KYC',
+  'business.decide': 'Duyệt/từ chối hồ sơ doanh nghiệp',
+  'finance.reconcile': 'Tra soát giao dịch (thao tác)',
+};
+
+/** Các quyền lẻ gán được ở màn Quản lý Admin. */
+export const CMS_ASSIGNABLE_PERMISSIONS: string[] = [
+  'loan.approve', 'loan.disburse', 'loan.propose', 'loan.product.edit',
+  'kyc.decide', 'business.decide', 'finance.reconcile',
 ];
 
 async function request<T>(
@@ -226,6 +250,7 @@ export interface AdminItem {
   fullName: string;
   role: string;
   roles?: string[];
+  permissions?: string[];
   active: boolean;
   mustChangePassword: boolean;
   totpEnabled: boolean;
@@ -239,6 +264,7 @@ export interface CreateAdminResult {
   fullName: string;
   role: string;
   roles?: string[];
+  permissions?: string[];
   generatedPassword: string;
 }
 
@@ -254,7 +280,7 @@ export async function listAdmins(): Promise<AdminItem[]> {
 }
 
 export async function createAdmin(payload: {
-  fullName: string; email: string; roles: string[];
+  fullName: string; email: string; roles: string[]; permissions?: string[];
 }): Promise<CreateAdminResult> {
   return request('/admins', { method: 'POST', data: payload });
 }
@@ -265,6 +291,10 @@ export async function toggleAdminActive(id: string): Promise<void> {
 
 export async function updateAdminRoles(id: string, roles: string[]): Promise<AdminItem> {
   return request(`/admins/${id}/role`, { method: 'PUT', data: { roles } });
+}
+
+export async function updateAdminPermissions(id: string, permissions: string[]): Promise<AdminItem> {
+  return request(`/admins/${id}/permissions`, { method: 'PUT', data: { permissions } });
 }
 
 export async function resetAdminPassword(id: string): Promise<ResetAdminPasswordResult> {
