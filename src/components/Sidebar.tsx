@@ -3,7 +3,7 @@ import { ArrowDownUp, BarChart3, Briefcase, Building2, CalendarCheck, ChevronDow
 import { adminRoles, adminHasPermission, CMS_ROLE_LABELS, type AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
-export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'loans' | 'products' | 'news' | 'recruitment' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
+export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'loans' | 'business-loans' | 'products' | 'news' | 'recruitment' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -38,6 +38,7 @@ export function Sidebar({
     { key: 'business-kyc', label: 'Hồ sơ doanh nghiệp', icon: <Building2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT'], permissions: ['business.decide'] },
     { key: 'transactions', label: 'Giao dịch nạp/rút', icon: <ArrowDownUp size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'] },
     { key: 'loans', label: 'Danh sách gọi vốn', icon: <CircleDollarSign size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'], permissions: ['loan.approve', 'loan.disburse', 'loan.propose'] },
+    { key: 'business-loans', label: 'Gọi vốn doanh nghiệp', icon: <Building2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'], permissions: ['loan.approve', 'loan.disburse', 'loan.propose'] },
     { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'APPROVER'], permissions: ['loan.product.edit'] },
     { key: 'news', label: 'Tin tức', icon: <Newspaper size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CONTENT'] },
     { key: 'recruitment', label: 'Tuyển dụng', icon: <Briefcase size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },

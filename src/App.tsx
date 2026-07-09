@@ -32,6 +32,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   'business-kyc': 'Hồ sơ doanh nghiệp',
   transactions: 'Giao dịch nạp/rút',
   loans: 'Gọi vốn',
+  'business-loans': 'Gọi vốn doanh nghiệp',
   products: 'Sản phẩm gọi vốn',
   news: 'Tin tức',
   recruitment: 'Tuyển dụng',
@@ -254,6 +255,13 @@ export default function App() {
     setSelectedLoanId(loanId);
   }
 
+  function handleViewBusinessLoan(loanId: string) {
+    pushMainHistory('business-loans', loanStatus, null, loanId);
+    setTab('business-loans');
+    setSelectedCustomerId(null);
+    setSelectedLoanId(loanId);
+  }
+
   function handleBackFromCustomer() {
     window.history.back();
   }
@@ -320,7 +328,7 @@ export default function App() {
   const { admin } = state;
   const pageTitle = tab === 'users' && selectedCustomerId
     ? 'Chi tiết khách hàng'
-    : tab === 'loans' && selectedLoanId
+    : (tab === 'loans' || tab === 'business-loans') && selectedLoanId
       ? 'Chi tiết khoản gọi vốn'
       : tab === 'loans'
         ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(loanStatus)}`
@@ -384,6 +392,20 @@ export default function App() {
               status={loanStatus}
               selectedLoanId={selectedLoanId}
               onViewLoan={handleViewLoan}
+              onCloseLoan={handleCloseLoan}
+              onViewCustomer={handleViewCustomer}
+              onActionDone={() => setLoanCountsRefresh(v => v + 1)}
+            />
+          )}
+          {tab === 'business-loans' && (
+            <LoansPage
+              key="business-loans"
+              status=""
+              selectedLoanId={selectedLoanId}
+              productCategories={['BUSINESS', 'ENTERPRISE']}
+              showStatusFilter
+              title="Gọi vốn doanh nghiệp"
+              onViewLoan={handleViewBusinessLoan}
               onCloseLoan={handleCloseLoan}
               onViewCustomer={handleViewCustomer}
               onActionDone={() => setLoanCountsRefresh(v => v + 1)}

@@ -927,6 +927,7 @@ export interface CmsLoan {
   borrowerBackImageId: string | null;
   borrowerPortraitImageId: string | null;
   productName: string | null;
+  productCategory: 'INDIVIDUAL' | 'BUSINESS' | 'ENTERPRISE' | string | null;
   amount: number;
   /** Tổng tiền nhà đầu tư đã cam kết (offer ACCEPTED) — tiến độ gọi vốn */
   fundedAmount: number | null;
@@ -975,6 +976,7 @@ export async function fetchLoans(params: {
   status?: string;
   province?: string;
   search?: string;
+  productCategories?: string[];
   page?: number;
   size?: number;
 }): Promise<PagedResponse<CmsLoan>> {
@@ -982,6 +984,7 @@ export async function fetchLoans(params: {
   if (params.status)   q.set('status',   params.status);
   if (params.province) q.set('province', params.province);
   if (params.search)   q.set('search',   params.search);
+  if (params.productCategories?.length) q.set('productCategories', params.productCategories.join(','));
   q.set('page', String(params.page ?? 0));
   q.set('size', String(params.size ?? 20));
   return request(`/loans?${q}`);
