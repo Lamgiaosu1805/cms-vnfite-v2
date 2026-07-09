@@ -28,9 +28,24 @@ const STATUS_BADGE: Record<string, { cls: string; label: string }> = {
   REJECTED: { cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', label: 'Từ chối' },
 };
 
+const AI_VERDICT: Record<string, { cls: string; label: string }> = {
+  CONSISTENT: { cls: 'text-green-600 dark:text-green-400', label: 'Nhất quán' },
+  SUSPICIOUS: { cls: 'text-amber-600 dark:text-amber-400', label: 'Cần kiểm tra' },
+  HIGH_RISK: { cls: 'text-red-600 dark:text-red-400', label: 'Rủi ro cao' },
+  UNREADABLE: { cls: 'text-gray-400 dark:text-gray-500', label: 'Không đọc được' },
+  ERROR: { cls: 'text-red-600 dark:text-red-400', label: 'Lỗi phân tích' },
+};
+
 function StatusBadge({ status }: { status: string }) {
   const cfg = STATUS_BADGE[status] ?? { cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400', label: status };
   return <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${cfg.cls}`}>{cfg.label}</span>;
+}
+
+function AiVerdictText({ verdict }: { verdict: string | null | undefined }) {
+  if (!verdict) return <span className="text-xs text-gray-300 dark:text-gray-600">—</span>;
+  const normalized = verdict.toUpperCase();
+  const cfg = AI_VERDICT[normalized] ?? { cls: 'text-gray-500 dark:text-gray-400', label: verdict };
+  return <span className={`text-xs font-semibold ${cfg.cls}`}>{cfg.label}</span>;
 }
 
 function DetailRow({ label, value, highlight }: { label: string; value: React.ReactNode; highlight?: boolean }) {
@@ -95,10 +110,11 @@ function LicenseImageCard({ title, fileId }: { title: string; fileId: string | n
 
 // ─── Detail view ─────────────────────────────────────────────────────────────
 
-function BusinessProfileDetail({ userId, onBack, onDecided }: {
+function BusinessProfileDetail({ userId, onBack, onDecided, onAnalyzed }: {
   userId: string;
   onBack: () => void;
   onDecided: () => void;
+  onAnalyzed: () => void;
 }) {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [owner, setOwner] = useState<CmsUser | null>(null);
@@ -165,6 +181,7 @@ function BusinessProfileDetail({ userId, onBack, onDecided }: {
       try { extracted = result.extractedData ? JSON.parse(result.extractedData) : null; } catch { extracted = null; }
       setAiExtracted(extracted);
       setProfile(prev => prev ? { ...prev, aiVerdict: result.verdict, aiSummary: result.summary } : prev);
+      onAnalyzed();
     } catch (e) {
       setAiError(e instanceof Error ? e.message : 'Phân tích AI thất bại');
     } finally {
@@ -386,9 +403,7 @@ function BusinessProfileDetail({ userId, onBack, onDecided }: {
         {profile.aiVerdict ? (
           <div className="space-y-2">
             <DetailRow label="Kết luận AI" value={
-              <span className={`font-semibold ${profile.aiVerdict === 'CONSISTENT' ? 'text-green-600 dark:text-green-400' : profile.aiVerdict === 'UNREADABLE' ? 'text-gray-500 dark:text-gray-400' : 'text-red-600 dark:text-red-400'}`}>
-                {profile.aiVerdict}
-              </span>
+              <AiVerdictText verdict={profile.aiVerdict} />
             } />
             {profile.aiSummary && (
               <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/70 rounded-lg px-3 py-2">{profile.aiSummary}</p>
@@ -504,6 +519,7 @@ export function BusinessProfilesPage() {
         userId={selectedUserId}
         onBack={() => setSelectedUserId(null)}
         onDecided={() => setRefresh(v => v + 1)}
+        onAnalyzed={() => setRefresh(v => v + 1)}
       />
     );
   }
@@ -591,11 +607,7 @@ export function BusinessProfilesPage() {
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatVietnamDate(p.createdAt)}</td>
                     <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                     <td className="px-4 py-3">
-                      {p.aiVerdict ? (
-                        <span className={`text-xs font-semibold ${p.aiVerdict === 'CONSISTENT' ? 'text-green-600 dark:text-green-400' : p.aiVerdict === 'UNREADABLE' ? 'text-gray-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {p.aiVerdict}
-                        </span>
-                      ) : <span className="text-xs text-gray-300 dark:text-gray-600">—</span>}
+                      <AiVerdictText verdict={p.aiVerdict} />
                     </td>
                   </tr>
                 ))}
