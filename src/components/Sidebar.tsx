@@ -9,9 +9,12 @@ interface SidebarProps {
   admin: AdminInfo;
   activeTab: TabKey;
   activeLoanStatus: LoanStatusFilter;
+  activeBusinessLoanStatus: LoanStatusFilter;
   loanStatusCounts: Record<string, number>;
+  businessLoanStatusCounts: Record<string, number>;
   onTabChange: (tab: TabKey) => void;
   onLoanStatusChange: (status: LoanStatusFilter) => void;
+  onBusinessLoanStatusChange: (status: LoanStatusFilter) => void;
   onLogout: () => void;
 }
 
@@ -19,15 +22,20 @@ export function Sidebar({
   admin,
   activeTab,
   activeLoanStatus,
+  activeBusinessLoanStatus,
   loanStatusCounts,
+  businessLoanStatusCounts,
   onTabChange,
   onLoanStatusChange,
+  onBusinessLoanStatusChange,
   onLogout,
 }: SidebarProps) {
   const [loanMenuOpen, setLoanMenuOpen] = useState(activeTab === 'loans');
+  const [businessLoanMenuOpen, setBusinessLoanMenuOpen] = useState(activeTab === 'business-loans');
 
   useEffect(() => {
     if (activeTab !== 'loans') setLoanMenuOpen(false);
+    if (activeTab !== 'business-loans') setBusinessLoanMenuOpen(false);
   }, [activeTab]);
 
   // roles của mỗi mục = tập vai trò được phép (khớp @PreAuthorize backend).
@@ -38,7 +46,7 @@ export function Sidebar({
     { key: 'business-kyc', label: 'Hồ sơ doanh nghiệp', icon: <Building2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT'], permissions: ['business.decide'] },
     { key: 'transactions', label: 'Giao dịch nạp/rút', icon: <ArrowDownUp size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'] },
     { key: 'loans', label: 'Danh sách gọi vốn', icon: <CircleDollarSign size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'], permissions: ['loan.approve', 'loan.disburse', 'loan.propose'] },
-    { key: 'business-loans', label: 'Gọi vốn doanh nghiệp', icon: <Building2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'], permissions: ['loan.approve', 'loan.disburse', 'loan.propose'] },
+    { key: 'business-loans', label: 'Gọi vốn DN / Hộ KD', icon: <Building2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'], permissions: ['loan.approve', 'loan.disburse', 'loan.propose'] },
     { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'APPROVER'], permissions: ['loan.product.edit'] },
     { key: 'news', label: 'Tin tức', icon: <Newspaper size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CONTENT'] },
     { key: 'recruitment', label: 'Tuyển dụng', icon: <Briefcase size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
@@ -98,6 +106,15 @@ export function Sidebar({
                 }
                 return;
               }
+              if (key === 'business-loans') {
+                if (activeTab === 'business-loans') {
+                  setBusinessLoanMenuOpen(value => !value);
+                } else {
+                  setBusinessLoanMenuOpen(true);
+                  onTabChange(key);
+                }
+                return;
+              }
               onTabChange(key);
             }}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
@@ -113,6 +130,12 @@ export function Sidebar({
                 <ChevronDown
                   size={14}
                   className={`transition-transform ${activeTab === 'loans' ? 'opacity-90' : 'opacity-60'} ${loanMenuOpen ? 'rotate-180' : ''}`}
+                />
+              )}
+              {key === 'business-loans' && (
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform ${activeTab === 'business-loans' ? 'opacity-90' : 'opacity-60'} ${businessLoanMenuOpen ? 'rotate-180' : ''}`}
                 />
               )}
             </button>
@@ -139,6 +162,35 @@ export function Sidebar({
                       <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
                       <span className="min-w-7 rounded-full bg-white/10 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
                         {loanStatusCounts[item.value] ?? 0}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {key === 'business-loans' && activeTab === 'business-loans' && businessLoanMenuOpen && (
+              <div className="mt-1.5 ml-4 space-y-0.5 border-l border-white/10 pl-2">
+                {LOAN_STATUS_OPTIONS.map(item => {
+                  const selected = activeBusinessLoanStatus === item.value;
+                  return (
+                    <button
+                      key={item.value || 'all-business'}
+                      type="button"
+                      onClick={() => {
+                        setBusinessLoanMenuOpen(true);
+                        onBusinessLoanStatusChange(item.value);
+                      }}
+                      className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
+                      style={selected
+                        ? { background: 'rgba(255,255,255,0.14)', color: '#ffffff' }
+                        : { color: 'rgba(255,255,255,0.65)' }}
+                      onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.08)'; }}
+                      onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.background = ''; }}
+                    >
+                      <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                      <span className="min-w-7 rounded-full bg-white/10 px-1.5 py-0.5 text-center text-[10px] font-bold text-white">
+                        {businessLoanStatusCounts[item.value] ?? 0}
                       </span>
                     </button>
                   );
