@@ -32,7 +32,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   'business-kyc': 'Hồ sơ doanh nghiệp',
   transactions: 'Giao dịch nạp/rút',
   loans: 'Gọi vốn',
-  'business-loans': 'Gọi vốn doanh nghiệp',
+  'business-loans': 'Gọi vốn DN / Hộ KD',
   products: 'Sản phẩm gọi vốn',
   news: 'Tin tức',
   recruitment: 'Tuyển dụng',
@@ -66,6 +66,7 @@ type MainHistoryState = {
   cmsScreen: 'main';
   tab: TabKey;
   loanStatus: LoanStatusFilter;
+  businessLoanStatus: LoanStatusFilter;
   selectedCustomerId: string | null;
   selectedLoanId: string | null;
 };
@@ -78,17 +79,29 @@ function pushCmsHistory(screen: CmsHistoryScreen) {
   window.history.pushState({ cmsScreen: screen }, '', currentCmsUrl());
 }
 
-function pushMainHistory(tab: TabKey, loanStatus: LoanStatusFilter, selectedCustomerId: string | null, selectedLoanId: string | null = null) {
+function pushMainHistory(
+  tab: TabKey,
+  loanStatus: LoanStatusFilter,
+  selectedCustomerId: string | null,
+  selectedLoanId: string | null = null,
+  businessLoanStatus: LoanStatusFilter = '',
+) {
   window.history.pushState(
-    { cmsScreen: 'main', tab, loanStatus, selectedCustomerId, selectedLoanId } satisfies MainHistoryState,
+    { cmsScreen: 'main', tab, loanStatus, businessLoanStatus, selectedCustomerId, selectedLoanId } satisfies MainHistoryState,
     '',
     currentCmsUrl(),
   );
 }
 
-function replaceMainHistory(tab: TabKey, loanStatus: LoanStatusFilter, selectedCustomerId: string | null, selectedLoanId: string | null = null) {
+function replaceMainHistory(
+  tab: TabKey,
+  loanStatus: LoanStatusFilter,
+  selectedCustomerId: string | null,
+  selectedLoanId: string | null = null,
+  businessLoanStatus: LoanStatusFilter = '',
+) {
   window.history.replaceState(
-    { cmsScreen: 'main', tab, loanStatus, selectedCustomerId, selectedLoanId } satisfies MainHistoryState,
+    { cmsScreen: 'main', tab, loanStatus, businessLoanStatus, selectedCustomerId, selectedLoanId } satisfies MainHistoryState,
     '',
     currentCmsUrl(),
   );
@@ -98,7 +111,9 @@ export default function App() {
   const [state, setState] = useState<AppState>({ screen: 'loading' });
   const [tab, setTab] = useState<TabKey>('dashboard');
   const [loanStatus, setLoanStatus] = useState<LoanStatusFilter>('');
+  const [businessLoanStatus, setBusinessLoanStatus] = useState<LoanStatusFilter>('');
   const [loanStatusCounts, setLoanStatusCounts] = useState<Record<string, number>>({});
+  const [businessLoanStatusCounts, setBusinessLoanStatusCounts] = useState<Record<string, number>>({});
   const [loanCountsRefresh, setLoanCountsRefresh] = useState(0);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('cms_theme') === 'dark');
   const [loginNotice, setLoginNotice] = useState('');
@@ -152,6 +167,7 @@ export default function App() {
           const s = event.state as MainHistoryState | undefined;
           setTab(s?.tab ?? 'dashboard');
           setLoanStatus(s?.loanStatus ?? '');
+          setBusinessLoanStatus(s?.businessLoanStatus ?? '');
           setSelectedCustomerId(s?.selectedCustomerId ?? null);
           setSelectedLoanId(s?.selectedLoanId ?? null);
           setState({ screen: 'main', admin: storedAdmin });
@@ -185,6 +201,29 @@ export default function App() {
       })
       .catch(() => {
         if (!cancelled) setLoanStatusCounts({});
+      });
+    return () => { cancelled = true; };
+  }, [state.screen, loanCountsRefresh]);
+
+  useEffect(() => {
+    if (state.screen !== 'main') return;
+    let cancelled = false;
+    Promise.all(
+      LOAN_STATUS_OPTIONS.map(async item => {
+        const result = await fetchLoans({
+          status: item.value || undefined,
+          productCategories: ['BUSINESS', 'ENTERPRISE'],
+          page: 0,
+          size: 1,
+        });
+        return [item.value, result.totalElements] as const;
+      }),
+    )
+      .then(entries => {
+        if (!cancelled) setBusinessLoanStatusCounts(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (!cancelled) setBusinessLoanStatusCounts({});
       });
     return () => { cancelled = true; };
   }, [state.screen, loanCountsRefresh]);
@@ -224,19 +263,29 @@ export default function App() {
 
   function handleTabChange(nextTab: TabKey) {
     const nextLoanStatus = nextTab === 'loans' ? loanStatus : ('' as LoanStatusFilter);
-    pushMainHistory(nextTab, nextLoanStatus, null, null);
+    const nextBusinessLoanStatus = nextTab === 'business-loans' ? businessLoanStatus : ('' as LoanStatusFilter);
+    pushMainHistory(nextTab, nextLoanStatus, null, null, nextBusinessLoanStatus);
     if (nextTab === 'loans') setLoanStatus(nextLoanStatus);
+    if (nextTab === 'business-loans') setBusinessLoanStatus(nextBusinessLoanStatus);
     setSelectedCustomerId(null);
     setSelectedLoanId(null);
     setTab(nextTab);
   }
 
   function handleLoanStatusChange(nextStatus: LoanStatusFilter) {
-    pushMainHistory('loans', nextStatus, null, null);
+    pushMainHistory('loans', nextStatus, null, null, '');
     setLoanStatus(nextStatus);
     setSelectedCustomerId(null);
     setSelectedLoanId(null);
     setTab('loans');
+  }
+
+  function handleBusinessLoanStatusChange(nextStatus: LoanStatusFilter) {
+    pushMainHistory('business-loans', '', null, null, nextStatus);
+    setBusinessLoanStatus(nextStatus);
+    setSelectedCustomerId(null);
+    setSelectedLoanId(null);
+    setTab('business-loans');
   }
 
   /** Mở chi tiết 1 khách hàng — đẩy vào lịch sử để Back quay lại đúng chỗ trước đó. */
@@ -256,7 +305,7 @@ export default function App() {
   }
 
   function handleViewBusinessLoan(loanId: string) {
-    pushMainHistory('business-loans', loanStatus, null, loanId);
+    pushMainHistory('business-loans', '', null, loanId, businessLoanStatus);
     setTab('business-loans');
     setSelectedCustomerId(null);
     setSelectedLoanId(loanId);
@@ -330,9 +379,11 @@ export default function App() {
     ? 'Chi tiết khách hàng'
     : (tab === 'loans' || tab === 'business-loans') && selectedLoanId
       ? 'Chi tiết khoản gọi vốn'
-      : tab === 'loans'
-        ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(loanStatus)}`
-        : PAGE_TITLES[tab];
+    : tab === 'loans'
+      ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(loanStatus)}`
+      : tab === 'business-loans'
+        ? `${PAGE_TITLES[tab]} · ${loanStatusLabel(businessLoanStatus)}`
+      : PAGE_TITLES[tab];
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FFF8F7] dark:bg-gray-950">
@@ -340,9 +391,12 @@ export default function App() {
         admin={admin}
         activeTab={tab}
         activeLoanStatus={loanStatus}
+        activeBusinessLoanStatus={businessLoanStatus}
         loanStatusCounts={loanStatusCounts}
+        businessLoanStatusCounts={businessLoanStatusCounts}
         onTabChange={handleTabChange}
         onLoanStatusChange={handleLoanStatusChange}
+        onBusinessLoanStatusChange={handleBusinessLoanStatusChange}
         onLogout={handleLogout}
       />
 
@@ -400,11 +454,10 @@ export default function App() {
           {tab === 'business-loans' && (
             <LoansPage
               key="business-loans"
-              status=""
+              status={businessLoanStatus}
               selectedLoanId={selectedLoanId}
               productCategories={['BUSINESS', 'ENTERPRISE']}
-              showStatusFilter
-              title="Gọi vốn doanh nghiệp"
+              title="Gọi vốn DN / Hộ KD"
               onViewLoan={handleViewBusinessLoan}
               onCloseLoan={handleCloseLoan}
               onViewCustomer={handleViewCustomer}

@@ -3165,7 +3165,7 @@ export function LoansPage({
               {title}
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Quản lý riêng các khoản gọi vốn thuộc sản phẩm Hộ kinh doanh và Doanh nghiệp.
+              Quản lý riêng các khoản gọi vốn thuộc sản phẩm Doanh nghiệp / Hộ kinh doanh.
             </p>
           </div>
         </div>
@@ -3244,7 +3244,7 @@ export function LoansPage({
         </button>
         {data && (
           <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
-            {loanStatusLabel(effectiveStatus)} · {data.totalElements} khoản{title ? ' doanh nghiệp' : ''}
+            {loanStatusLabel(effectiveStatus)} · {data.totalElements} khoản{title ? ' DN / Hộ KD' : ''}
             {province ? ` tại ${province}` : ''}
             {debouncedSearch ? ` · "${debouncedSearch}"` : ''}
           </span>
