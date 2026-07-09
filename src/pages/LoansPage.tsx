@@ -174,6 +174,29 @@ function rateText(x: number | null | undefined): string {
   return x == null ? '—' : `${x}%/năm`;
 }
 
+function isBusinessFundingLoan(loan: Pick<CmsLoan, 'productCategory'>): boolean {
+  return loan.productCategory === 'BUSINESS' || loan.productCategory === 'ENTERPRISE';
+}
+
+function displayFundraiserName(loan: CmsLoan): string {
+  if (isBusinessFundingLoan(loan) && loan.businessName) {
+    return loan.businessName;
+  }
+  return loan.borrowerName ?? shortId(loan.borrowerId);
+}
+
+function displayFundraiserSubText(loan: CmsLoan): string | null {
+  if (isBusinessFundingLoan(loan)) {
+    const representative = loan.businessRepresentativeName || loan.borrowerName;
+    const parts = [
+      representative ? `ĐD: ${representative}` : null,
+      loan.borrowerPhone ?? null,
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  }
+  return loan.borrowerPhone;
+}
+
 const inputCls =
   'mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 ' +
   'text-gray-800 dark:text-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-500';
@@ -3300,12 +3323,12 @@ export function LoansPage({
                   </td>
                   <td className="px-4 py-3.5 text-center align-middle">
                     <TruncatedText
-                      value={loan.borrowerName ?? shortId(loan.borrowerId)}
+                      value={displayFundraiserName(loan)}
                       className="mx-auto max-w-[160px] font-medium text-gray-800 dark:text-gray-200 text-xs"
                     />
-                    {loan.borrowerPhone && (
+                    {displayFundraiserSubText(loan) && (
                       <TruncatedText
-                        value={loan.borrowerPhone}
+                        value={displayFundraiserSubText(loan)}
                         className="mx-auto mt-1 max-w-[160px] font-mono text-[11px] text-gray-400 dark:text-gray-500"
                       />
                     )}

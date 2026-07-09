@@ -926,6 +926,9 @@ export interface CmsLoan {
   borrowerFrontImageId: string | null;
   borrowerBackImageId: string | null;
   borrowerPortraitImageId: string | null;
+  businessType: 'HOUSEHOLD' | 'COMPANY' | string | null;
+  businessName: string | null;
+  businessRepresentativeName: string | null;
   productName: string | null;
   productCategory: 'INDIVIDUAL' | 'BUSINESS' | 'ENTERPRISE' | string | null;
   amount: number;
