@@ -172,18 +172,35 @@ function BusinessProfileDetail({ userId, onBack, onDecided, onAnalyzed }: {
     runTaxLookup();
   }, [profile?.id, profile?.taxCode, profile?.registrationNumber, runTaxLookup]);
 
+  const applyAiResult = (verdict: string | null | undefined, summary: string | null | undefined, extractedData?: string | null) => {
+    let extracted: Record<string, unknown> | null = null;
+    try { extracted = extractedData ? JSON.parse(extractedData) : null; } catch { extracted = null; }
+    setAiExtracted(extracted);
+    setProfile(prev => prev ? { ...prev, aiVerdict: verdict ?? null, aiSummary: summary ?? null } : prev);
+    onAnalyzed();
+  };
+
   const runAnalyze = async () => {
     setAnalyzing(true);
     setAiError('');
     try {
       const result = await analyzeBusinessLicense(userId);
-      let extracted: Record<string, unknown> | null = null;
-      try { extracted = result.extractedData ? JSON.parse(result.extractedData) : null; } catch { extracted = null; }
-      setAiExtracted(extracted);
-      setProfile(prev => prev ? { ...prev, aiVerdict: result.verdict, aiSummary: result.summary } : prev);
-      onAnalyzed();
+      applyAiResult(result.verdict, result.summary, result.extractedData);
     } catch (e) {
-      setAiError(e instanceof Error ? e.message : 'Phân tích AI thất bại');
+      const message = e instanceof Error ? e.message : 'Phân tích AI thất bại';
+      try {
+        const latest = await fetchBusinessProfile(userId);
+        if (latest.aiVerdict || latest.aiSummary) {
+          setProfile(latest);
+          setAiExtracted(null);
+          setAiError('');
+          onAnalyzed();
+        } else {
+          setAiError(message);
+        }
+      } catch {
+        setAiError(message);
+      }
     } finally {
       setAnalyzing(false);
     }
