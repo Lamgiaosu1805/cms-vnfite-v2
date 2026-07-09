@@ -4,7 +4,7 @@ import {
   Sparkles, AlertTriangle, ClipboardList, Gauge, Wallet, CircleDollarSign,
   Send, Check, X, ShieldCheck, Search, FileText, Download, Brain, ExternalLink,
   TrendingDown, TrendingUp, Lightbulb, PlusCircle, FileSearch, Ban, ShieldAlert, Landmark, Hourglass, HandCoins,
-  Calculator,
+  Calculator, Building2,
 } from 'lucide-react';
 import {
   fetchLoans, fetchLoanById, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
@@ -22,7 +22,7 @@ import {
 } from '../api/client';
 import { Badge } from '../components/Badge';
 import {
-  loanStatusLabel, type LoanStatusFilter,
+  LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter,
   CONTRACT_TYPE_LABEL, CONTRACT_STATUS_LABEL,
 } from '../loanConstants';
 import {
@@ -158,6 +158,12 @@ const CATEGORY_LABEL: Record<string, string> = {
 const METHOD_LABEL: Record<string, string> = {
   EMI_MONTHLY: 'Gốc + lãi đều hàng tháng',
   INTEREST_MONTHLY_PRINCIPAL_QUARTERLY: 'Lãi tháng · gốc theo quý',
+};
+
+const PRODUCT_CATEGORY_LABEL: Record<string, string> = {
+  INDIVIDUAL: 'Cá nhân',
+  BUSINESS: 'Hộ kinh doanh',
+  ENTERPRISE: 'Doanh nghiệp',
 };
 
 function ratioPct(x: number | null | undefined): string {
@@ -2982,6 +2988,11 @@ interface LoansPageProps {
   status: LoanStatusFilter;
   /** ID khoản đang mở chi tiết (do App quản lý qua lịch sử điều hướng). null = xem danh sách. */
   selectedLoanId?: string | null;
+  /** Lọc theo loại sản phẩm. Dùng cho màn quản lý gọi vốn HKD/DN. */
+  productCategories?: string[];
+  /** Hiện bộ lọc trạng thái ngay trong trang thay vì dùng submenu sidebar. */
+  showStatusFilter?: boolean;
+  title?: string;
   /** Mở/điều hướng tới 1 khoản (đẩy vào lịch sử). Dùng cho click bảng lẫn link chéo trong chi tiết. */
   onViewLoan?: (loanId: string) => void;
   /** Đóng chi tiết khoản — App dùng Back của lịch sử để về đúng nơi đã mở. */
@@ -2991,8 +3002,19 @@ interface LoansPageProps {
   onActionDone?: () => void;
 }
 
-export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLoan, onViewCustomer, onActionDone }: LoansPageProps) {
+export function LoansPage({
+  status,
+  selectedLoanId = null,
+  productCategories,
+  showStatusFilter = false,
+  title,
+  onViewLoan,
+  onCloseLoan,
+  onViewCustomer,
+  onActionDone,
+}: LoansPageProps) {
   const [data, setData] = useState<{ content: CmsLoan[]; totalElements: number; totalPages: number } | null>(null);
+  const [localStatus, setLocalStatus] = useState<LoanStatusFilter>('');
   const [province, setProvince] = useState('');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -3010,6 +3032,7 @@ export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLo
   const [collecting, setCollecting] = useState(false);
   const [sweepMsg, setSweepMsg] = useState('');
   const [sweepError, setSweepError] = useState(false);
+  const effectiveStatus = showStatusFilter ? localStatus : status;
 
   const handleExpireSweep = async () => {
     if (!window.confirm(
@@ -3072,16 +3095,17 @@ export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLo
     setLoading(true);
     setError('');
     fetchLoans({
-      status: status || undefined,
+      status: effectiveStatus || undefined,
       province: province || undefined,
       search: debouncedSearch || undefined,
+      productCategories,
       page,
       size: 20,
     })
       .then(setData)
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [status, province, debouncedSearch, page, refresh]);
+  }, [effectiveStatus, province, debouncedSearch, page, refresh, productCategories]);
 
   // Resolve object khoản đang mở: ưu tiên khoản đã có trong danh sách (click từ bảng),
   // nếu không có (điều hướng chéo từ màn khác) thì fetch riêng theo id.
@@ -3133,6 +3157,20 @@ export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLo
 
   return (
     <div className="space-y-4">
+      {title && (
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-gray-100">
+              <Building2 size={19} className="text-red-500" />
+              {title}
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Quản lý riêng các khoản gọi vốn thuộc sản phẩm Hộ kinh doanh và Doanh nghiệp.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 flex flex-wrap gap-3 items-center">
         <div className="relative min-w-[280px] flex-1 sm:flex-none">
@@ -3154,6 +3192,18 @@ export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLo
             </button>
           )}
         </div>
+
+        {showStatusFilter && (
+          <select
+            value={localStatus}
+            onChange={e => { setLocalStatus(e.target.value as LoanStatusFilter); setPage(0); }}
+            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 outline-none focus:ring-2 focus:ring-red-500"
+          >
+            {LOAN_STATUS_OPTIONS.map(item => (
+              <option key={item.value || 'all'} value={item.value}>{item.label}</option>
+            ))}
+          </select>
+        )}
 
         {/* Tỉnh / Thành phố */}
         <select
@@ -3194,7 +3244,7 @@ export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLo
         </button>
         {data && (
           <span className="text-sm text-gray-400 dark:text-gray-500 ml-auto">
-            {loanStatusLabel(status)} · {data.totalElements} khoản
+            {loanStatusLabel(effectiveStatus)} · {data.totalElements} khoản{title ? ' doanh nghiệp' : ''}
             {province ? ` tại ${province}` : ''}
             {debouncedSearch ? ` · "${debouncedSearch}"` : ''}
           </span>
@@ -3265,6 +3315,11 @@ export function LoansPage({ status, selectedLoanId = null, onViewLoan, onCloseLo
                       value={loan.productName ?? 'Chưa xác định'}
                       className="mx-auto max-w-[180px] text-gray-600 dark:text-gray-400 text-xs"
                     />
+                    {loan.productCategory && loan.productCategory !== 'INDIVIDUAL' && (
+                      <span className="mt-1 inline-flex rounded-full bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                        {PRODUCT_CATEGORY_LABEL[loan.productCategory] ?? loan.productCategory}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3.5 text-center font-semibold text-gray-800 dark:text-gray-200 align-middle text-xs whitespace-nowrap">
                     {formatMoney(loan.amount)}
