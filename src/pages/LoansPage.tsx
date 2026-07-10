@@ -9,7 +9,7 @@ import {
 import {
   fetchLoans, fetchLoanById, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
   proposeLoan, approveLoan, rejectLoan, cancelLoan, getStoredAdmin, adminHasAnyRole, adminHasPermission,
-  fetchLoanContracts, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
+  fetchLoanContracts, confirmPaperSignature, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
   fetchFileBlob, fetchEarlySettlementQuote,
   fetchBusinessAppraisalChecklist, saveBusinessAppraisalChecklist,
@@ -2297,6 +2297,15 @@ function ContractsSection({ loanId }: { loanId: string }) {
   };
 
   const signedCount = contracts?.filter(c => c.status === 'SIGNED').length ?? 0;
+  const confirmPaper = async (contractId: string) => {
+    if (!window.confirm('Xác nhận đã kiểm tra và nhận đủ khế ước giấy đã ký?')) return;
+    try {
+      await confirmPaperSignature(contractId);
+      setContracts(await fetchLoanContracts(loanId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không thể xác nhận ký giấy.');
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -2305,7 +2314,7 @@ function ContractsSection({ loanId }: { loanId: string }) {
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Hợp đồng điện tử</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Khế ước đầu tư</p>
           {contracts && (
             <span className="text-xs text-gray-400 dark:text-gray-500">
               {signedCount}/{contracts.length} đã ký
@@ -2336,6 +2345,7 @@ function ContractsSection({ loanId }: { loanId: string }) {
                 <th className="px-4 py-2 font-semibold text-center">Trạng thái</th>
                 <th className="px-4 py-2 font-semibold">Ngày ký</th>
                 <th className="px-4 py-2 font-semibold text-center">Bản HĐ</th>
+                <th className="px-4 py-2 font-semibold text-center">Ký giấy</th>
               </tr>
             </thead>
             <tbody>
@@ -2354,6 +2364,11 @@ function ContractsSection({ loanId }: { loanId: string }) {
                     <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${CONTRACT_STATUS_CLS[c.status] ?? ''}`}>
                       {CONTRACT_STATUS_LABEL[c.status] ?? c.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    {c.status === 'PENDING_SIGNATURE' ? (
+                      <button onClick={() => confirmPaper(c.id)} className="text-red-600 dark:text-red-400 hover:underline font-semibold">Xác nhận</button>
+                    ) : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {c.signedAt ? formatVietnamDateTime(c.signedAt) : '—'}
