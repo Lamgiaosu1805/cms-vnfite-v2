@@ -1121,6 +1121,10 @@ export async function fetchLoanContracts(loanId: string): Promise<LoanContract[]
   return request(`/loans/${loanId}/contracts`);
 }
 
+export async function confirmPaperSignature(contractId: string): Promise<LoanContract> {
+  return request(`/loans/contracts/${contractId}/confirm-paper-signature`, { method: 'POST' });
+}
+
 // ─── Chứng từ & điểm tín dụng ────────────────────────────────────────────────
 
 export interface LoanDocument {
