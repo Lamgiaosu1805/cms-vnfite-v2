@@ -1344,12 +1344,14 @@ export async function disburseLoan(loanId: string): Promise<CmsLoan> {
   return request(`/loans/${loanId}/disburse`, { method: 'POST' });
 }
 
-/** Kết quả chạy job hết hạn gọi vốn / ký khế ước. */
+/** Kết quả chạy job hết hạn gọi vốn / ký khế ước / xác nhận điều khoản. */
 export interface FundingExpiryResult {
   activeExpired: number;
   activeFailed: number;
   fundedStuck: number;
   fundedFailed: number;
+  awaitingApprovalExpired: number;
+  awaitingApprovalFailed: number;
 }
 
 /**

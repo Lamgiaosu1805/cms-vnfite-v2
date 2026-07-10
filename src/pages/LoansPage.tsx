@@ -3074,16 +3074,17 @@ export function LoansPage({
 
   const handleExpireSweep = async () => {
     if (!window.confirm(
-      'Chạy job hết hạn ngay?\n\nCác khoản ACTIVE quá hạn gọi vốn và FUNDED quá hạn ký khế ước sẽ bị HỦY và HOÀN TIỀN cho nhà đầu tư.'
+      'Chạy job hết hạn ngay?\n\nCác khoản ACTIVE quá hạn gọi vốn, FUNDED quá hạn ký khế ước, và AWAITING_BORROWER_APPROVAL quá hạn xác nhận điều khoản sẽ bị HỦY (kèm HOÀN TIỀN cho nhà đầu tư nếu đã có vốn góp).'
     )) return;
     setSweeping(true);
     setSweepMsg('');
     setSweepError(false);
     try {
       const r = await runFundingExpirySweep();
-      const failed = r.activeFailed + r.fundedFailed;
+      const failed = r.activeFailed + r.fundedFailed + r.awaitingApprovalFailed;
       setSweepMsg(
-        `Đã xử lý: ${r.activeExpired} khoản hết hạn gọi vốn, ${r.fundedStuck} khoản hết hạn ký khế ước.`
+        `Đã xử lý: ${r.activeExpired} khoản hết hạn gọi vốn, ${r.fundedStuck} khoản hết hạn ký khế ước, `
+        + `${r.awaitingApprovalExpired} khoản hết hạn xác nhận điều khoản.`
         + (failed > 0 ? ` (${failed} khoản lỗi — kiểm tra log loan-service)` : '')
       );
       setRefresh(x => x + 1);
@@ -3257,7 +3258,7 @@ export function LoansPage({
           <button
             onClick={handleExpireSweep}
             disabled={sweeping}
-            title="Hủy & hoàn tiền các khoản quá hạn gọi vốn / ký khế ước (thay vì chờ job tự động 01:30)"
+            title="Hủy các khoản quá hạn gọi vốn / ký khế ước / xác nhận điều khoản (kèm hoàn tiền nếu có) — thay vì chờ job tự động 01:30"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 text-sm font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
           >
             <Hourglass size={15} className={sweeping ? 'animate-spin' : ''} />
