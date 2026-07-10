@@ -504,7 +504,7 @@ function BusinessProfileDetail({ userId, onBack, onDecided, onAnalyzed }: {
 // ─── List page ───────────────────────────────────────────────────────────────
 
 export function BusinessProfilesPage() {
-  const [status, setStatus] = useState<BusinessProfileStatus | ''>('PENDING');
+  const [status, setStatus] = useState<BusinessProfileStatus | ''>('APPROVED');
   const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -513,6 +513,7 @@ export function BusinessProfilesPage() {
   const [error, setError] = useState('');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -529,6 +530,15 @@ export function BusinessProfilesPage() {
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [status, page, refresh]);
+
+  // Badge số hồ sơ chờ duyệt trên tab "Chờ duyệt" — luôn cập nhật bất kể tab nào đang chọn.
+  useEffect(() => {
+    let cancelled = false;
+    fetchBusinessProfiles('PENDING', 0, 1)
+      .then(data => { if (!cancelled) setPendingCount(data.totalElements ?? 0); })
+      .catch(() => { /* best-effort — không hiện badge nếu lỗi */ });
+    return () => { cancelled = true; };
+  }, [refresh]);
 
   if (selectedUserId) {
     return (
@@ -563,12 +573,21 @@ export function BusinessProfilesPage() {
           <button
             key={tab.value || 'all'}
             onClick={() => { setStatus(tab.value); setPage(0); }}
-            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
               status === tab.value
                 ? 'bg-red-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
             }`}>
             {tab.label}
+            {tab.value === 'PENDING' && pendingCount > 0 && (
+              <span className={`inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full text-xs font-bold ${
+                status === tab.value
+                  ? 'bg-white/25 text-white'
+                  : 'bg-red-600 text-white'
+              }`}>
+                {pendingCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
