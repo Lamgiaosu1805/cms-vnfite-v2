@@ -79,6 +79,11 @@ npm run preview
 - Keep side effects and API calls predictable and centralized.
 - Use `Asia/Ho_Chi_Minh` for all date/time behavior and the shared `src/utils/dateTime.ts` formatter. Display zero-padded `dd/MM/yyyy` dates (for example `22/01/2021`) and do not rely on the browser timezone.
 
+## Business vs Personal Display
+
+- Loans with `productCategory` `BUSINESS`/`ENTERPRISE` must show the business/household name (not the individual owner's name) everywhere a fundraiser is displayed, and must appear only under the business's own profile (`BusinessProfilesPage.tsx`), never under the personal customer detail page (`UsersPage.tsx`). See `CLAUDE.md` section "Tách biệt Cá nhân / Doanh nghiệp / Hộ kinh doanh" for the full rule and file references.
+- The "Xác nhận" (confirm paper signature) button in the loan contracts table only applies to `contractType === 'LOAN_AGREEMENT'`, never to `INVESTMENT` contracts.
+
 ## Git
 
 - Do not commit or push unless the user explicitly asks.
