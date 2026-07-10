@@ -2366,7 +2366,9 @@ function ContractsSection({ loanId }: { loanId: string }) {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-center">
-                    {c.status === 'PENDING_SIGNATURE' ? (
+                    {/* Chỉ ký giấy ở hợp đồng vay (khoản gọi vốn) — hợp đồng đầu tư được chấp
+                        nhận & khóa tiền ngay khi đặt lệnh, không còn bước ký riêng. */}
+                    {c.status === 'PENDING_SIGNATURE' && c.contractType === 'LOAN_AGREEMENT' ? (
                       <button onClick={() => confirmPaper(c.id)} className="text-red-600 dark:text-red-400 hover:underline font-semibold">Xác nhận</button>
                     ) : '—'}
                   </td>
@@ -2802,7 +2804,7 @@ function BusinessAppraisalSection({ loan }: { loan: CmsLoan }) {
   );
 }
 
-function LoanDetailPage({ loan, onBack, onActionDone, onViewCustomer }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void; onViewCustomer?: (userId: string) => void }) {
+function LoanDetailPage({ loan, onBack, onActionDone, onViewCustomer, onViewBusinessProfile }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void; onViewCustomer?: (userId: string) => void; onViewBusinessProfile?: (userId: string) => void }) {
   // Kết quả chấm điểm AI dùng chung cho khối Điểm tín dụng và panel Hỗ trợ thẩm định
   const [creditScore, setCreditScore] = useState<CreditScoreResult | null>(null);
   return (
@@ -2827,46 +2829,80 @@ function LoanDetailPage({ loan, onBack, onActionDone, onViewCustomer }: { loan: 
 
       {/* Content */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Người gọi vốn */}
-        <Section title="Người gọi vốn">
-          <DetailRow
-            label="Họ tên"
-            value={
-              loan.borrowerId && onViewCustomer ? (
-                <button
-                  onClick={() => onViewCustomer(loan.borrowerId)}
-                  title="Xem hồ sơ khách hàng"
-                  className="inline-flex items-center gap-1 font-semibold text-red-600 dark:text-red-400 hover:underline"
-                >
-                  {loan.borrowerName ?? loan.borrowerPhone ?? shortId(loan.borrowerId)}
-                  <ExternalLink size={12} className="shrink-0" />
-                </button>
-              ) : (loan.borrowerName ?? '—')
-            }
-          />
-          <DetailRow label="Số điện thoại" value={loan.borrowerPhone ?? '—'} />
-          <DetailRow label="Email" value={loan.borrowerEmail ?? '—'} />
-          <DetailRow label="Số CCCD" value={loan.borrowerCccdNumber ?? '—'} />
-          <DetailRow label="Trạng thái KYC" value={<Badge value={loan.borrowerKycStatus ?? 'NONE'} />} />
-          <DetailRow label="Trạng thái tài khoản" value={loan.borrowerAccountStatus ?? '—'} />
-          <DetailRow label="Ngày sinh" value={loan.borrowerDateOfBirth ? formatVietnamDate(loan.borrowerDateOfBirth) : '—'} />
-          <DetailRow label="Giới tính" value={loan.borrowerGender ?? '—'} />
-          <DetailRow label="Địa chỉ thường trú" value={loan.borrowerPermanentAddress ?? '—'} />
-          <DetailRow label="Quê quán" value={loan.borrowerHometown ?? '—'} />
-          <DetailRow label="Ngày cấp CCCD" value={loan.borrowerIssueDate ? formatVietnamDate(loan.borrowerIssueDate) : '—'} />
-          <DetailRow label="Nơi cấp CCCD" value={loan.borrowerIssuingAuthority ?? '—'} />
-          <DetailRow label="Ngày hết hạn CCCD" value={loan.borrowerExpiryDate ? formatVietnamDate(loan.borrowerExpiryDate) : '—'} />
-          {loan.currentAddress && (
+        {/* Người gọi vốn — khoản DN/HKD hiện thông tin doanh nghiệp, khoản cá nhân hiện thông tin cá nhân. */}
+        {isBusinessFundingLoan(loan) ? (
+          <Section title="Doanh nghiệp / Hộ kinh doanh gọi vốn">
             <DetailRow
-              label="Địa chỉ nơi ở hiện tại"
-              value={[loan.currentAddress, loan.commune, loan.province].filter(Boolean).join(', ')}
+              label="Tên doanh nghiệp/hộ KD"
+              value={
+                loan.borrowerId && onViewBusinessProfile ? (
+                  <button
+                    onClick={() => onViewBusinessProfile(loan.borrowerId)}
+                    title="Xem hồ sơ doanh nghiệp"
+                    className="inline-flex items-center gap-1 font-semibold text-red-600 dark:text-red-400 hover:underline"
+                  >
+                    {loan.businessName ?? loan.borrowerName ?? shortId(loan.borrowerId)}
+                    <ExternalLink size={12} className="shrink-0" />
+                  </button>
+                ) : (loan.businessName ?? loan.borrowerName ?? '—')
+              }
             />
-          )}
-          <DetailRow
-            label="Mã khách hàng"
-            value={<span className="font-mono text-gray-400 dark:text-gray-500">{shortId(loan.borrowerId)}</span>}
-          />
-        </Section>
+            <DetailRow label="Loại hình" value={loan.businessType === 'HOUSEHOLD' ? 'Hộ kinh doanh' : loan.businessType === 'COMPANY' ? 'Công ty' : (loan.businessType ?? '—')} />
+            <DetailRow label="Người đại diện" value={loan.businessRepresentativeName ?? loan.borrowerName ?? '—'} />
+            <DetailRow label="Số điện thoại" value={loan.borrowerPhone ?? '—'} />
+            <DetailRow label="Email" value={loan.borrowerEmail ?? '—'} />
+            {loan.currentAddress && (
+              <DetailRow
+                label="Địa chỉ"
+                value={[loan.currentAddress, loan.commune, loan.province].filter(Boolean).join(', ')}
+              />
+            )}
+            <DetailRow
+              label="Mã tài khoản chủ sở hữu"
+              value={<span className="font-mono text-gray-400 dark:text-gray-500">{shortId(loan.borrowerId)}</span>}
+            />
+          </Section>
+        ) : (
+          <Section title="Người gọi vốn">
+            <DetailRow
+              label="Họ tên"
+              value={
+                loan.borrowerId && onViewCustomer ? (
+                  <button
+                    onClick={() => onViewCustomer(loan.borrowerId)}
+                    title="Xem hồ sơ khách hàng"
+                    className="inline-flex items-center gap-1 font-semibold text-red-600 dark:text-red-400 hover:underline"
+                  >
+                    {loan.borrowerName ?? loan.borrowerPhone ?? shortId(loan.borrowerId)}
+                    <ExternalLink size={12} className="shrink-0" />
+                  </button>
+                ) : (loan.borrowerName ?? '—')
+              }
+            />
+            <DetailRow label="Số điện thoại" value={loan.borrowerPhone ?? '—'} />
+            <DetailRow label="Email" value={loan.borrowerEmail ?? '—'} />
+            <DetailRow label="Số CCCD" value={loan.borrowerCccdNumber ?? '—'} />
+            <DetailRow label="Trạng thái KYC" value={<Badge value={loan.borrowerKycStatus ?? 'NONE'} />} />
+            <DetailRow label="Trạng thái tài khoản" value={loan.borrowerAccountStatus ?? '—'} />
+            <DetailRow label="Ngày sinh" value={loan.borrowerDateOfBirth ? formatVietnamDate(loan.borrowerDateOfBirth) : '—'} />
+            <DetailRow label="Giới tính" value={loan.borrowerGender ?? '—'} />
+            <DetailRow label="Địa chỉ thường trú" value={loan.borrowerPermanentAddress ?? '—'} />
+            <DetailRow label="Quê quán" value={loan.borrowerHometown ?? '—'} />
+            <DetailRow label="Ngày cấp CCCD" value={loan.borrowerIssueDate ? formatVietnamDate(loan.borrowerIssueDate) : '—'} />
+            <DetailRow label="Nơi cấp CCCD" value={loan.borrowerIssuingAuthority ?? '—'} />
+            <DetailRow label="Ngày hết hạn CCCD" value={loan.borrowerExpiryDate ? formatVietnamDate(loan.borrowerExpiryDate) : '—'} />
+            {loan.currentAddress && (
+              <DetailRow
+                label="Địa chỉ nơi ở hiện tại"
+                value={[loan.currentAddress, loan.commune, loan.province].filter(Boolean).join(', ')}
+              />
+            )}
+            <DetailRow
+              label="Mã khách hàng"
+              value={<span className="font-mono text-gray-400 dark:text-gray-500">{shortId(loan.borrowerId)}</span>}
+            />
+          </Section>
+        )}
 
         {/* Khoản gọi vốn */}
         <Section title="Khoản gọi vốn">
@@ -3037,6 +3073,8 @@ interface LoansPageProps {
   onCloseLoan?: () => void;
   /** Điều hướng tới chi tiết 1 khách hàng (người gọi vốn / nhà đầu tư). */
   onViewCustomer?: (userId: string) => void;
+  /** Điều hướng tới hồ sơ doanh nghiệp — dùng cho khoản gọi vốn category BUSINESS/ENTERPRISE. */
+  onViewBusinessProfile?: (userId: string) => void;
   onActionDone?: () => void;
 }
 
@@ -3049,6 +3087,7 @@ export function LoansPage({
   onViewLoan,
   onCloseLoan,
   onViewCustomer,
+  onViewBusinessProfile,
   onActionDone,
 }: LoansPageProps) {
   const [data, setData] = useState<{ content: CmsLoan[]; totalElements: number; totalPages: number } | null>(null);
@@ -3173,6 +3212,7 @@ export function LoansPage({
           onBack={() => onCloseLoan?.()}
           onActionDone={() => { onCloseLoan?.(); setRefresh(r => r + 1); onActionDone?.(); }}
           onViewCustomer={onViewCustomer}
+          onViewBusinessProfile={onViewBusinessProfile}
         />
       );
     }

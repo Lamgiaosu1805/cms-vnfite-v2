@@ -283,9 +283,11 @@ interface CustomerDetailPageProps {
   onViewCustomer?: (userId: string) => void;
   /** Điều hướng tới chi tiết 1 khoản gọi vốn. */
   onViewLoan?: (loanId: string) => void;
+  /** Điều hướng tới hồ sơ doanh nghiệp — dùng khi khách hàng có khoản gọi vốn DN/HKD. */
+  onViewBusinessProfile?: (userId: string) => void;
 }
 
-export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan }: CustomerDetailPageProps) {
+export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan, onViewBusinessProfile }: CustomerDetailPageProps) {
   const [detail, setDetail] = useState<CustomerDetail | null>(null);
   const [investmentPage, setInvestmentPage] = useState(0);
   const [investmentStatus, setInvestmentStatus] = useState('ACTIVE_PORTFOLIO');
@@ -296,6 +298,10 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan 
   const profile = detail?.profile;
   const showAdminReset = canResetCustomers();
   const investmentPageData = detail?.investments?.investmentHistoryPage;
+  // Khoản gọi vốn DN/HKD hiển thị ở Hồ sơ doanh nghiệp, không lặp lại ở đây — trang cá nhân chỉ hiện khoản cá nhân.
+  const isBusinessCategory = (category: string | null | undefined) => category === 'BUSINESS' || category === 'ENTERPRISE';
+  const individualLoans = detail?.loans.content.filter(loan => !isBusinessCategory(loan.productCategory)) ?? [];
+  const businessLoanCount = (detail?.loans.content.length ?? 0) - individualLoans.length;
 
   useEffect(() => {
     let alive = true;
@@ -673,9 +679,22 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan 
 
               <section className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-5">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-50">Các khoản gọi vốn</h3>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-50">Các khoản gọi vốn cá nhân</h3>
                   <span className="text-xs text-gray-400 dark:text-gray-500">Hiển thị 30 khoản gần nhất</span>
                 </div>
+                {businessLoanCount > 0 && (
+                  <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                    Khách hàng còn {businessLoanCount} khoản gọi vốn dưới tư cách Doanh nghiệp / Hộ kinh doanh —{' '}
+                    {onViewBusinessProfile ? (
+                      <button
+                        onClick={() => onViewBusinessProfile(userId)}
+                        className="font-semibold text-red-600 dark:text-red-400 hover:underline"
+                      >
+                        xem tại Hồ sơ doanh nghiệp
+                      </button>
+                    ) : 'xem tại Hồ sơ doanh nghiệp'}.
+                  </p>
+                )}
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
@@ -690,7 +709,7 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan 
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
-                      {detail.loans.content.map(loan => (
+                      {individualLoans.map(loan => (
                         <Fragment key={loan.loanId}>
                           <tr>
                             <td className="py-3">
@@ -749,9 +768,9 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan 
                           </tr>
                         </Fragment>
                       ))}
-                      {detail.loans.content.length === 0 && (
+                      {individualLoans.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="py-8 text-center text-gray-400 dark:text-gray-500">Chưa có khoản gọi vốn</td>
+                          <td colSpan={7} className="py-8 text-center text-gray-400 dark:text-gray-500">Chưa có khoản gọi vốn cá nhân</td>
                         </tr>
                       )}
                     </tbody>

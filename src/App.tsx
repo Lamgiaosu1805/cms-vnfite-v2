@@ -69,6 +69,8 @@ type MainHistoryState = {
   businessLoanStatus: LoanStatusFilter;
   selectedCustomerId: string | null;
   selectedLoanId: string | null;
+  /** User đang mở sẵn ở tab Hồ sơ doanh nghiệp — điều hướng chéo từ khoản gọi vốn DN/HKD. */
+  selectedBusinessProfileUserId: string | null;
 };
 
 function replaceCmsHistory(screen: CmsHistoryScreen) {
@@ -85,9 +87,10 @@ function pushMainHistory(
   selectedCustomerId: string | null,
   selectedLoanId: string | null = null,
   businessLoanStatus: LoanStatusFilter = '',
+  selectedBusinessProfileUserId: string | null = null,
 ) {
   window.history.pushState(
-    { cmsScreen: 'main', tab, loanStatus, businessLoanStatus, selectedCustomerId, selectedLoanId } satisfies MainHistoryState,
+    { cmsScreen: 'main', tab, loanStatus, businessLoanStatus, selectedCustomerId, selectedLoanId, selectedBusinessProfileUserId } satisfies MainHistoryState,
     '',
     currentCmsUrl(),
   );
@@ -99,9 +102,10 @@ function replaceMainHistory(
   selectedCustomerId: string | null,
   selectedLoanId: string | null = null,
   businessLoanStatus: LoanStatusFilter = '',
+  selectedBusinessProfileUserId: string | null = null,
 ) {
   window.history.replaceState(
-    { cmsScreen: 'main', tab, loanStatus, businessLoanStatus, selectedCustomerId, selectedLoanId } satisfies MainHistoryState,
+    { cmsScreen: 'main', tab, loanStatus, businessLoanStatus, selectedCustomerId, selectedLoanId, selectedBusinessProfileUserId } satisfies MainHistoryState,
     '',
     currentCmsUrl(),
   );
@@ -119,6 +123,7 @@ export default function App() {
   const [loginNotice, setLoginNotice] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
+  const [selectedBusinessProfileUserId, setSelectedBusinessProfileUserId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoginNotice(consumeSessionNotice());
@@ -170,6 +175,7 @@ export default function App() {
           setBusinessLoanStatus(s?.businessLoanStatus ?? '');
           setSelectedCustomerId(s?.selectedCustomerId ?? null);
           setSelectedLoanId(s?.selectedLoanId ?? null);
+          setSelectedBusinessProfileUserId(s?.selectedBusinessProfileUserId ?? null);
           setState({ screen: 'main', admin: storedAdmin });
         } else {
           replaceCmsHistory('login');
@@ -192,7 +198,12 @@ export default function App() {
     let cancelled = false;
     Promise.all(
       LOAN_STATUS_OPTIONS.map(async item => {
-        const result = await fetchLoans({ status: item.value || undefined, page: 0, size: 1 });
+        const result = await fetchLoans({
+          status: item.value || undefined,
+          productCategories: ['INDIVIDUAL'],
+          page: 0,
+          size: 1,
+        });
         return [item.value, result.totalElements] as const;
       }),
     )
@@ -269,6 +280,7 @@ export default function App() {
     if (nextTab === 'business-loans') setBusinessLoanStatus(nextBusinessLoanStatus);
     setSelectedCustomerId(null);
     setSelectedLoanId(null);
+    setSelectedBusinessProfileUserId(null);
     setTab(nextTab);
   }
 
@@ -277,6 +289,7 @@ export default function App() {
     setLoanStatus(nextStatus);
     setSelectedCustomerId(null);
     setSelectedLoanId(null);
+    setSelectedBusinessProfileUserId(null);
     setTab('loans');
   }
 
@@ -285,6 +298,7 @@ export default function App() {
     setBusinessLoanStatus(nextStatus);
     setSelectedCustomerId(null);
     setSelectedLoanId(null);
+    setSelectedBusinessProfileUserId(null);
     setTab('business-loans');
   }
 
@@ -294,6 +308,16 @@ export default function App() {
     setTab('users');
     setSelectedCustomerId(userId);
     setSelectedLoanId(null);
+    setSelectedBusinessProfileUserId(null);
+  }
+
+  /** Mở hồ sơ doanh nghiệp — điều hướng chéo từ khoản gọi vốn DN/HKD hoặc trang khách hàng cá nhân. */
+  function handleViewBusinessProfile(userId: string) {
+    pushMainHistory('business-kyc', loanStatus, null, null, businessLoanStatus, userId);
+    setTab('business-kyc');
+    setSelectedCustomerId(null);
+    setSelectedLoanId(null);
+    setSelectedBusinessProfileUserId(userId);
   }
 
   /** Mở chi tiết 1 khoản gọi vốn — điều hướng chéo từ mọi màn, Back quay lại đúng chỗ. */
@@ -302,11 +326,13 @@ export default function App() {
     setTab('loans');
     setSelectedCustomerId(null);
     setSelectedLoanId(loanId);
+    setSelectedBusinessProfileUserId(null);
   }
 
   function handleViewBusinessLoan(loanId: string) {
     pushMainHistory('business-loans', '', null, loanId, businessLoanStatus);
     setTab('business-loans');
+    setSelectedBusinessProfileUserId(null);
     setSelectedCustomerId(null);
     setSelectedLoanId(loanId);
   }
@@ -435,19 +461,27 @@ export default function App() {
                   onBack={handleBackFromCustomer}
                   onViewCustomer={handleViewCustomer}
                   onViewLoan={handleViewLoan}
+                  onViewBusinessProfile={handleViewBusinessProfile}
                 />
               : <UsersPage onViewCustomer={(user) => handleViewCustomer(user.userId)} />
           )}
-          {tab === 'business-kyc' && <BusinessProfilesPage />}
+          {tab === 'business-kyc' && (
+            <BusinessProfilesPage
+              initialUserId={selectedBusinessProfileUserId}
+              onViewLoan={handleViewBusinessLoan}
+            />
+          )}
           {tab === 'transactions' && <TransactionsPage />}
           {tab === 'loans'     && (
             <LoansPage
               key={loanStatus || 'all'}
               status={loanStatus}
               selectedLoanId={selectedLoanId}
+              productCategories={['INDIVIDUAL']}
               onViewLoan={handleViewLoan}
               onCloseLoan={handleCloseLoan}
               onViewCustomer={handleViewCustomer}
+              onViewBusinessProfile={handleViewBusinessProfile}
               onActionDone={() => setLoanCountsRefresh(v => v + 1)}
             />
           )}
@@ -461,6 +495,7 @@ export default function App() {
               onViewLoan={handleViewBusinessLoan}
               onCloseLoan={handleCloseLoan}
               onViewCustomer={handleViewCustomer}
+              onViewBusinessProfile={handleViewBusinessProfile}
               onActionDone={() => setLoanCountsRefresh(v => v + 1)}
             />
           )}

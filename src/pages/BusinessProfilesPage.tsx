@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchBusinessProfiles, fetchBusinessProfile, decideBusinessProfile, analyzeBusinessLicense, lookupBusinessTax,
-  fetchUser, fetchFileBlob, getStoredAdmin, adminHasAnyRole, adminHasPermission,
-  type BusinessProfile, type BusinessProfileStatus, type BusinessTaxLookupResult, type CmsUser,
+  fetchUser, fetchFileBlob, fetchCustomerDetailWithParams, getStoredAdmin, adminHasAnyRole, adminHasPermission,
+  type BusinessProfile, type BusinessProfileStatus, type BusinessTaxLookupResult, type CmsUser, type CmsLoan,
 } from '../api/client';
 import { formatVietnamDate, formatVietnamDateTime } from '../utils/dateTime';
+import { Badge } from '../components/Badge';
 import {
   ArrowLeft, Building2, Check, ChevronLeft, ChevronRight, Loader2, RefreshCw,
   ShieldAlert, ShieldCheck, Sparkles, X,
 } from 'lucide-react';
+
+function formatMoney(n: number | null | undefined) {
+  if (n == null) return '—';
+  return Math.round(n).toLocaleString('en-US') + ' đ';
+}
+
+function isBusinessFundingCategory(category: string | null | undefined) {
+  return category === 'BUSINESS' || category === 'ENTERPRISE';
+}
 
 const STATUS_TABS: { value: BusinessProfileStatus | ''; label: string }[] = [
   { value: 'PENDING', label: 'Chờ duyệt' },
@@ -110,16 +120,22 @@ function LicenseImageCard({ title, fileId }: { title: string; fileId: string | n
 
 // ─── Detail view ─────────────────────────────────────────────────────────────
 
-function BusinessProfileDetail({ userId, onBack, onDecided, onAnalyzed }: {
+function BusinessProfileDetail({ userId, onBack, onDecided, onAnalyzed, onViewLoan }: {
   userId: string;
   onBack: () => void;
   onDecided: () => void;
   onAnalyzed: () => void;
+  onViewLoan?: (loanId: string) => void;
 }) {
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [owner, setOwner] = useState<CmsUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Khoản gọi vốn của doanh nghiệp này (category BUSINESS/ENTERPRISE) — tách biệt khỏi
+  // Chi tiết khách hàng cá nhân, chỉ hiện ở đây.
+  const [businessLoans, setBusinessLoans] = useState<CmsLoan[]>([]);
+  const [businessLoansLoading, setBusinessLoansLoading] = useState(false);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [aiError, setAiError] = useState('');
@@ -146,6 +162,11 @@ function BusinessProfileDetail({ userId, onBack, onDecided, onAnalyzed }: {
       setTaxLookup(null);
       setTaxLookupError('');
       try { setOwner(await fetchUser(userId)); } catch { setOwner(null); }
+      setBusinessLoansLoading(true);
+      try {
+        const detail = await fetchCustomerDetailWithParams(userId, {});
+        setBusinessLoans(detail.loans.content.filter(loan => isBusinessFundingCategory(loan.productCategory)));
+      } catch { setBusinessLoans([]); } finally { setBusinessLoansLoading(false); }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không tải được hồ sơ doanh nghiệp');
     } finally {
@@ -447,6 +468,55 @@ function BusinessProfileDetail({ userId, onBack, onDecided, onAnalyzed }: {
         )}
       </div>
 
+      {/* Khoản gọi vốn của doanh nghiệp — tách biệt khỏi khoản cá nhân, chỉ hiện ở đây */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100">Khoản gọi vốn của doanh nghiệp</h3>
+          {businessLoansLoading && <Loader2 size={14} className="animate-spin text-gray-400" />}
+        </div>
+        {businessLoans.length === 0 ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500">
+            {businessLoansLoading ? 'Đang tải...' : 'Chưa có khoản gọi vốn dưới tư cách doanh nghiệp/hộ kinh doanh này.'}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-700 text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  <th className="py-2 text-left">Mã khoản</th>
+                  <th className="py-2 text-left">Sản phẩm</th>
+                  <th className="py-2 text-right">Số tiền</th>
+                  <th className="py-2 text-center">Trạng thái</th>
+                  <th className="py-2 text-right">Ngày tạo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-gray-700/60">
+                {businessLoans.map(loan => (
+                  <tr key={loan.loanId}>
+                    <td className="py-3">
+                      {onViewLoan ? (
+                        <button
+                          onClick={() => onViewLoan(loan.loanId)}
+                          className="font-mono font-semibold text-red-600 dark:text-red-400 hover:underline"
+                        >
+                          {loan.loanCode ?? loan.loanId.slice(0, 8)}
+                        </button>
+                      ) : (
+                        <span className="font-mono text-gray-700 dark:text-gray-200">{loan.loanCode ?? loan.loanId.slice(0, 8)}</span>
+                      )}
+                    </td>
+                    <td className="py-3 text-gray-700 dark:text-gray-200">{loan.productName || 'Chưa xác định'}</td>
+                    <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(loan.amount)}</td>
+                    <td className="py-3 text-center"><Badge value={loan.status} /></td>
+                    <td className="py-3 text-right text-gray-500 dark:text-gray-400">{formatVietnamDateTime(loan.createdAt, '-')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Ảnh GPKD */}
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
         <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 mb-3">Ảnh giấy chứng nhận đăng ký kinh doanh</h3>
@@ -503,7 +573,11 @@ function BusinessProfileDetail({ userId, onBack, onDecided, onAnalyzed }: {
 
 // ─── List page ───────────────────────────────────────────────────────────────
 
-export function BusinessProfilesPage() {
+export function BusinessProfilesPage({ initialUserId, onViewLoan }: {
+  /** Mở sẵn hồ sơ doanh nghiệp của user này — dùng cho điều hướng chéo từ khoản gọi vốn/khách hàng. */
+  initialUserId?: string | null;
+  onViewLoan?: (loanId: string) => void;
+} = {}) {
   const [status, setStatus] = useState<BusinessProfileStatus | ''>('APPROVED');
   const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
   const [totalElements, setTotalElements] = useState(0);
@@ -511,9 +585,13 @@ export function BusinessProfilesPage() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(initialUserId ?? null);
   const [refresh, setRefresh] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (initialUserId) setSelectedUserId(initialUserId);
+  }, [initialUserId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -547,6 +625,7 @@ export function BusinessProfilesPage() {
         onBack={() => setSelectedUserId(null)}
         onDecided={() => setRefresh(v => v + 1)}
         onAnalyzed={() => setRefresh(v => v + 1)}
+        onViewLoan={onViewLoan}
       />
     );
   }
