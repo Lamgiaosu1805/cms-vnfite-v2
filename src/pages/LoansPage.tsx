@@ -2482,9 +2482,23 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
   const [confirming, setConfirming] = useState(false);
   const [acting, setActing]         = useState(false);
   const [error, setError]           = useState('');
+  const [loanContract, setLoanContract] = useState<LoanContract | null | undefined>(undefined);
 
   const admin = getStoredAdmin();
   const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER') || adminHasPermission(admin, 'loan.disburse');
+  const shouldCheck = loan.status === 'AWAITING_DISBURSEMENT' && isLeader;
+
+  useEffect(() => {
+    if (!shouldCheck) return;
+    let cancelled = false;
+    fetchLoanContracts(loan.loanId)
+      .then(list => {
+        if (cancelled) return;
+        setLoanContract(list.find(c => c.contractType === 'LOAN_AGREEMENT') ?? null);
+      })
+      .catch(() => { if (!cancelled) setLoanContract(null); });
+    return () => { cancelled = true; };
+  }, [shouldCheck, loan.loanId]);
 
   if (loan.status !== 'AWAITING_DISBURSEMENT') return null;
   if (!isLeader) return null;
@@ -2502,12 +2516,34 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
     }
   };
 
+  // Kiểm tra chéo với hợp đồng vay thực tế — không chỉ dựa vào status của khoản,
+  // để tránh bấm nhầm Giải ngân nếu dữ liệu chưa đồng bộ.
+  const isConfirmedSigned = loanContract?.status === 'SIGNED';
+
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-orange-200 dark:border-orange-900/50 shadow-sm p-5 space-y-3">
       <div className="flex items-center gap-2">
         <CircleDollarSign size={16} className="text-orange-500" />
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Giải ngân vốn cho người gọi vốn</p>
       </div>
+
+      {loanContract === undefined && (
+        <p className="text-xs text-gray-400 dark:text-gray-500">Đang kiểm tra hợp đồng vay đã ký...</p>
+      )}
+
+      {loanContract !== undefined && !isConfirmedSigned && (
+        <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+          Chưa xác định được hợp đồng vay đã ký (LOAN_AGREEMENT) cho khoản này — kiểm tra lại mục "Khế ước đầu tư" bên dưới trước khi giải ngân.
+        </p>
+      )}
+
+      {isConfirmedSigned && (
+        <p className="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2">
+          Đã xác nhận ký hợp đồng vay {loanContract.contractNo ? `(${loanContract.contractNo})` : ''}
+          {loanContract.signedAt ? ` lúc ${formatVietnamDateTime(loanContract.signedAt)}` : ''}.
+        </p>
+      )}
+
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Người gọi vốn đã ký hợp đồng vay. Bấm <span className="font-semibold">Giải ngân</span> để chuyển vốn
         và sinh lịch thanh toán tính từ ngày giải ngân. Thao tác này không thể hoàn tác.
@@ -2517,7 +2553,7 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
         <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
       )}
 
-      {!confirming ? (
+      {!isConfirmedSigned ? null : !confirming ? (
         <button
           onClick={() => setConfirming(true)}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium"
