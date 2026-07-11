@@ -9,7 +9,7 @@ import {
 import {
   fetchLoans, fetchLoanById, fetchAppraisalSuggestion, fetchRepaymentSchedule, recordRepayment,
   proposeLoan, approveLoan, rejectLoan, cancelLoan, getStoredAdmin, adminHasAnyRole, adminHasPermission,
-  fetchLoanContracts, confirmPaperSignature, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
+  fetchLoanContracts, confirmAllPaperSignatures, disburseLoan, fetchLoanDocuments, evaluateLoanCreditScore, fetchLatestLoanCreditScore,
   fetchCicLookup, saveCicLookup, analyzeLoanDocument, runFundingExpirySweep, runAutoDebitSweep,
   fetchFileBlob, fetchEarlySettlementQuote,
   fetchBusinessAppraisalChecklist, saveBusinessAppraisalChecklist,
@@ -2275,7 +2275,7 @@ const CONTRACT_STATUS_CLS: Record<string, string> = {
   VOIDED: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
 };
 
-function ContractsSection({ loanId }: { loanId: string }) {
+function ContractsSection({ loanId, onContractsChanged }: { loanId: string; onContractsChanged?: () => Promise<void> }) {
   const [contracts, setContracts] = useState<LoanContract[] | null>(null);
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
@@ -2297,11 +2297,13 @@ function ContractsSection({ loanId }: { loanId: string }) {
   };
 
   const signedCount = contracts?.filter(c => c.status === 'SIGNED').length ?? 0;
-  const confirmPaper = async (contractId: string) => {
-    if (!window.confirm('Xác nhận đã kiểm tra và nhận đủ khế ước giấy đã ký?')) return;
+  const pendingCount = contracts?.filter(c => c.status === 'PENDING_SIGNATURE').length ?? 0;
+  const confirmAllPaper = async () => {
+    if (!window.confirm(`Xác nhận đã kiểm tra và nhận đủ ${pendingCount} khế ước giấy còn chờ ký?`)) return;
     try {
-      await confirmPaperSignature(contractId);
+      await confirmAllPaperSignatures(loanId);
       setContracts(await fetchLoanContracts(loanId));
+      await onContractsChanged?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể xác nhận ký giấy.');
     }
@@ -2314,7 +2316,7 @@ function ContractsSection({ loanId }: { loanId: string }) {
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Khế ước đầu tư</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-red-500">Khế ước giấy</p>
           {contracts && (
             <span className="text-xs text-gray-400 dark:text-gray-500">
               {signedCount}/{contracts.length} đã ký
@@ -2345,7 +2347,6 @@ function ContractsSection({ loanId }: { loanId: string }) {
                 <th className="px-4 py-2 font-semibold text-center">Trạng thái</th>
                 <th className="px-4 py-2 font-semibold">Ngày ký</th>
                 <th className="px-4 py-2 font-semibold text-center">Bản HĐ</th>
-                <th className="px-4 py-2 font-semibold text-center">Ký giấy</th>
               </tr>
             </thead>
             <tbody>
@@ -2365,13 +2366,6 @@ function ContractsSection({ loanId }: { loanId: string }) {
                       {CONTRACT_STATUS_LABEL[c.status] ?? c.status}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-center">
-                    {/* Chỉ ký giấy ở hợp đồng vay (khoản gọi vốn) — hợp đồng đầu tư được chấp
-                        nhận & khóa tiền ngay khi đặt lệnh, không còn bước ký riêng. */}
-                    {c.status === 'PENDING_SIGNATURE' && c.contractType === 'LOAN_AGREEMENT' ? (
-                      <button onClick={() => confirmPaper(c.id)} className="text-red-600 dark:text-red-400 hover:underline font-semibold">Xác nhận</button>
-                    ) : '—'}
-                  </td>
                   <td className="px-4 py-2.5 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {c.signedAt ? formatVietnamDateTime(c.signedAt) : '—'}
                   </td>
@@ -2390,6 +2384,15 @@ function ContractsSection({ loanId }: { loanId: string }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {open && contracts && pendingCount > 0 && (
+        <div className="px-4 pb-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Xác nhận sau khi đã kiểm tra đủ chữ ký giấy của tất cả các bên.</p>
+          <button onClick={confirmAllPaper} className="shrink-0 rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700">
+            Xác nhận đã ký giấy
+          </button>
         </div>
       )}
 
@@ -2482,7 +2485,7 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
   const [confirming, setConfirming] = useState(false);
   const [acting, setActing]         = useState(false);
   const [error, setError]           = useState('');
-  const [loanContract, setLoanContract] = useState<LoanContract | null | undefined>(undefined);
+  const [contracts, setContracts] = useState<LoanContract[] | undefined>(undefined);
 
   const admin = getStoredAdmin();
   const isLeader = adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'APPROVER') || adminHasPermission(admin, 'loan.disburse');
@@ -2494,9 +2497,9 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
     fetchLoanContracts(loan.loanId)
       .then(list => {
         if (cancelled) return;
-        setLoanContract(list.find(c => c.contractType === 'LOAN_AGREEMENT') ?? null);
+        setContracts(list);
       })
-      .catch(() => { if (!cancelled) setLoanContract(null); });
+      .catch(() => { if (!cancelled) setContracts([]); });
     return () => { cancelled = true; };
   }, [shouldCheck, loan.loanId]);
 
@@ -2518,7 +2521,7 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
 
   // Kiểm tra chéo với hợp đồng vay thực tế — không chỉ dựa vào status của khoản,
   // để tránh bấm nhầm Giải ngân nếu dữ liệu chưa đồng bộ.
-  const isConfirmedSigned = loanContract?.status === 'SIGNED';
+  const hasAllPaperContracts = (contracts?.length ?? 0) > 0 && contracts?.every(c => c.status === 'SIGNED');
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-orange-200 dark:border-orange-900/50 shadow-sm p-5 space-y-3">
@@ -2527,25 +2530,25 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
         <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">Giải ngân vốn cho người gọi vốn</p>
       </div>
 
-      {loanContract === undefined && (
-        <p className="text-xs text-gray-400 dark:text-gray-500">Đang kiểm tra hợp đồng vay đã ký...</p>
+      {contracts === undefined && (
+        <p className="text-xs text-gray-400 dark:text-gray-500">Đang kiểm tra khế ước giấy đã ký...</p>
       )}
 
-      {loanContract !== undefined && !isConfirmedSigned && (
+      {contracts !== undefined && !hasAllPaperContracts && (
         <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
-          Chưa xác định được hợp đồng vay đã ký (LOAN_AGREEMENT) cho khoản này — kiểm tra lại mục "Khế ước đầu tư" bên dưới trước khi giải ngân.
+          Chưa xác nhận đủ khế ước giấy của người gọi vốn và nhà đầu tư — chưa thể giải ngân.
         </p>
       )}
 
-      {isConfirmedSigned && (
+      {hasAllPaperContracts && (
         <p className="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg px-3 py-2">
-          Đã xác nhận ký hợp đồng vay {loanContract.contractNo ? `(${loanContract.contractNo})` : ''}
-          {loanContract.signedAt ? ` lúc ${formatVietnamDateTime(loanContract.signedAt)}` : ''}.
+          Đã xác nhận đủ khế ước giấy của người gọi vốn và toàn bộ nhà đầu tư.
         </p>
       )}
 
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Người gọi vốn đã ký hợp đồng vay. Bấm <span className="font-semibold">Giải ngân</span> để chuyển vốn
+        Chỉ bấm <span className="font-semibold">Giải ngân</span> sau khi CMS đã xác nhận đủ khế ước giấy.
+        Khi đó hệ thống sẽ chuyển vốn
         và sinh lịch thanh toán tính từ ngày giải ngân. Thao tác này không thể hoàn tác.
       </p>
 
@@ -2553,7 +2556,7 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
         <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{error}</p>
       )}
 
-      {!isConfirmedSigned ? null : !confirming ? (
+      {!hasAllPaperContracts ? null : !confirming ? (
         <button
           onClick={() => setConfirming(true)}
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium"
@@ -2840,7 +2843,7 @@ function BusinessAppraisalSection({ loan }: { loan: CmsLoan }) {
   );
 }
 
-function LoanDetailPage({ loan, onBack, onActionDone, onViewCustomer, onViewBusinessProfile }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void; onViewCustomer?: (userId: string) => void; onViewBusinessProfile?: (userId: string) => void }) {
+function LoanDetailPage({ loan, onBack, onActionDone, onContractsChanged, onViewCustomer, onViewBusinessProfile }: { loan: CmsLoan; onBack: () => void; onActionDone: () => void; onContractsChanged: () => Promise<void>; onViewCustomer?: (userId: string) => void; onViewBusinessProfile?: (userId: string) => void }) {
   // Kết quả chấm điểm AI dùng chung cho khối Điểm tín dụng và panel Hỗ trợ thẩm định
   const [creditScore, setCreditScore] = useState<CreditScoreResult | null>(null);
   return (
@@ -3067,8 +3070,8 @@ function LoanDetailPage({ loan, onBack, onActionDone, onViewCustomer, onViewBusi
       {/* Hủy trước khi người gọi vốn nhận vốn */}
       <LoanCancelPanel loan={loan} onActionDone={onActionDone} />
 
-      {/* Hợp đồng điện tử (vay + đầu tư) */}
-      <ContractsSection loanId={loan.loanId} />
+      {/* Khế ước giấy của người gọi vốn và từng nhà đầu tư. */}
+      <ContractsSection loanId={loan.loanId} onContractsChanged={onContractsChanged} />
 
       {/* Lịch thanh toán — hiển thị cho mọi trạng thái (tự ẩn nếu chưa có lịch) */}
       <RepaymentScheduleSection loanId={loan.loanId} loanStatus={loan.status} />
@@ -3250,6 +3253,11 @@ export function LoansPage({
           loan={loanCache}
           onBack={() => onCloseLoan?.()}
           onActionDone={() => { onCloseLoan?.(); setRefresh(r => r + 1); onActionDone?.(); }}
+          onContractsChanged={async () => {
+            const updatedLoan = await fetchLoanById(selectedLoanId);
+            if (!updatedLoan) throw new Error('Không tải lại được trạng thái khoản gọi vốn.');
+            setLoanCache(updatedLoan);
+          }}
           onViewCustomer={onViewCustomer}
           onViewBusinessProfile={onViewBusinessProfile}
         />

@@ -1121,8 +1121,8 @@ export async function fetchLoanContracts(loanId: string): Promise<LoanContract[]
   return request(`/loans/${loanId}/contracts`);
 }
 
-export async function confirmPaperSignature(contractId: string): Promise<LoanContract> {
-  return request(`/loans/contracts/${contractId}/confirm-paper-signature`, { method: 'POST' });
+export async function confirmAllPaperSignatures(loanId: string): Promise<LoanContract[]> {
+  return request(`/loans/${loanId}/confirm-all-paper-signatures`, { method: 'POST' });
 }
 
 // ─── Chứng từ & điểm tín dụng ────────────────────────────────────────────────
