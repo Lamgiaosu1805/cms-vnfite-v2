@@ -3135,7 +3135,8 @@ export function LoansPage({
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
   const [refresh, setRefresh] = useState(0);
-  // Object khoản đang mở — resolve từ selectedLoanId (ưu tiên danh sách đã tải, else fetch riêng).
+  // Object khoản đang mở luôn lấy từ API chi tiết. API danh sách chỉ trả số tiền đã được đầu tư,
+  // không kèm danh sách lệnh của nhà đầu tư để tránh truy vấn nặng cho cả bảng.
   const [loanCache, setLoanCache] = useState<CmsLoan | null>(null);
   const [resolveError, setResolveError] = useState('');
 
@@ -3221,15 +3222,17 @@ export function LoansPage({
       .finally(() => setLoading(false));
   }, [effectiveStatus, province, debouncedSearch, page, refresh, productCategories]);
 
-  // Resolve object khoản đang mở: ưu tiên khoản đã có trong danh sách (click từ bảng),
-  // nếu không có (điều hướng chéo từ màn khác) thì fetch riêng theo id.
+  // API chi tiết chứa offers; không dùng object từ API danh sách ở đây vì sẽ làm tiến độ
+  // hiển thị đủ vốn nhưng danh sách nhà đầu tư trống.
   useEffect(() => {
-    if (!selectedLoanId) { setResolveError(''); return; }
-    if (loanCache?.loanId === selectedLoanId) return;
-    const inList = data?.content.find(l => l.loanId === selectedLoanId);
-    if (inList) { setLoanCache(inList); setResolveError(''); return; }
+    if (!selectedLoanId) {
+      setResolveError('');
+      setLoanCache(null);
+      return;
+    }
     let alive = true;
     setResolveError('');
+    setLoanCache(null);
     fetchLoanById(selectedLoanId)
       .then(loan => {
         if (!alive) return;
@@ -3238,7 +3241,7 @@ export function LoansPage({
       })
       .catch((e: Error) => { if (alive) setResolveError(e.message); });
     return () => { alive = false; };
-  }, [selectedLoanId, data, loanCache]);
+  }, [selectedLoanId]);
 
   if (selectedLoanId) {
     if (loanCache && loanCache.loanId === selectedLoanId) {
