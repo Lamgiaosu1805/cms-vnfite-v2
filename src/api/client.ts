@@ -128,11 +128,11 @@ export const CMS_ASSIGNABLE_ROLES: string[] = [
 export const CMS_ROLE_DESCRIPTIONS: Record<string, string> = {
   SUPER_ADMIN: 'Toàn quyền hệ thống + Quản lý Admin.',
   ADMIN: 'Nhãn gộp cũ — coi như có mọi vai trò phòng ban bên dưới.',
-  OPS: 'Dashboard, Giao dịch nạp/rút, xem Danh sách gọi vốn, Giám sát rút tiền, Tra soát giao dịch, Đến hạn hôm nay, Lịch sử thu nợ tự động.',
+  OPS: 'Dashboard, Giao dịch nạp/rút, xem Gọi vốn cá nhân, Giám sát rút tiền, Tra soát giao dịch, Đến hạn hôm nay, Lịch sử thu nợ tự động.',
   CUSTOMER_SUPPORT: 'Khách hàng (xem/khoá/reset MK/reset thiết bị/blacklist), Duyệt-từ chối KYC, Hồ sơ doanh nghiệp.',
-  APPRAISER: 'Danh sách gọi vốn: đề xuất thẩm định, tra CIC, chấm điểm tín dụng, giải ngân, ghi nhận trả nợ, duyệt/từ chối/huỷ, Nhật ký quyết định.',
+  APPRAISER: 'Gọi vốn cá nhân: đề xuất thẩm định, tra CIC, chấm điểm tín dụng, giải ngân, ghi nhận trả nợ, duyệt/từ chối/huỷ, Nhật ký quyết định.',
   APPROVER: 'Giống Thẩm định tín dụng + Sửa sản phẩm gọi vốn + Đến hạn hôm nay, Lịch sử thu nợ tự động, Tất toán sớm.',
-  FINANCE: 'Giao dịch nạp/rút, xem Danh sách gọi vốn, Giám sát rút tiền, Tra soát giao dịch, Đến hạn hôm nay, Lịch sử thu nợ tự động, Phân bổ & thuế TNCN, Doanh thu phí, Tất toán sớm.',
+  FINANCE: 'Giao dịch nạp/rút, xem Gọi vốn cá nhân, Giám sát rút tiền, Tra soát giao dịch, Đến hạn hôm nay, Lịch sử thu nợ tự động, Phân bổ & thuế TNCN, Doanh thu phí, Tất toán sớm.',
   CONTENT: 'Tin tức, gửi thông báo đẩy (push notification).',
   HR: 'Tuyển dụng (tin tuyển dụng + hồ sơ ứng tuyển).',
 };
