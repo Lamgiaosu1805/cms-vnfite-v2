@@ -2519,9 +2519,14 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
     }
   };
 
-  // Kiểm tra chéo với hợp đồng vay thực tế — không chỉ dựa vào status của khoản,
-  // để tránh bấm nhầm Giải ngân nếu dữ liệu chưa đồng bộ.
-  const hasAllPaperContracts = (contracts?.length ?? 0) > 0 && contracts?.every(c => c.status === 'SIGNED');
+  // Kiểm tra chéo với hợp đồng thực tế — không chỉ dựa vào status khoản.
+  const hasLoanAgreement = contracts?.some(c => c.contractType === 'LOAN_AGREEMENT') ?? false;
+  const acceptedOfferCount = loan.offers?.filter(offer => offer.status === 'ACCEPTED').length ?? 0;
+  const investmentContractCount = contracts?.filter(c => c.contractType === 'INVESTMENT').length ?? 0;
+  const hasAllPaperContracts = (contracts?.length ?? 0) > 0
+    && hasLoanAgreement
+    && investmentContractCount >= acceptedOfferCount
+    && contracts?.every(c => c.status === 'SIGNED');
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-orange-200 dark:border-orange-900/50 shadow-sm p-5 space-y-3">
@@ -2536,7 +2541,11 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
 
       {contracts !== undefined && !hasAllPaperContracts && (
         <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
-          Chưa xác nhận đủ khế ước giấy của người gọi vốn và nhà đầu tư — chưa thể giải ngân.
+          {!hasLoanAgreement
+            ? 'Chưa có khế ước vay của người gọi vốn — chưa thể giải ngân.'
+            : investmentContractCount < acceptedOfferCount
+              ? 'Thiếu khế ước đầu tư tương ứng với lệnh đã chốt — chưa thể giải ngân.'
+              : 'Chưa xác nhận đủ khế ước giấy của người gọi vốn và nhà đầu tư — chưa thể giải ngân.'}
         </p>
       )}
 
