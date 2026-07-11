@@ -993,14 +993,10 @@ export async function fetchLoans(params: {
   return request(`/loans?${q}`);
 }
 
-/**
- * Lấy chi tiết 1 khoản theo loanId — dùng cho điều hướng chéo (deep-link) từ màn khác.
- * Tận dụng search của /loans (khớp cả id đầy đủ) rồi lọc đúng loanId để chắc chắn.
- */
+/** Lấy chi tiết khoản, bao gồm danh sách lệnh đầu tư. */
 export async function fetchLoanById(loanId: string): Promise<CmsLoan | null> {
   if (!loanId) return null;
-  const res = await fetchLoans({ search: loanId, size: 20 });
-  return res.content.find(loan => loan.loanId === loanId) ?? null;
+  return request(`/loans/${encodeURIComponent(loanId)}`);
 }
 
 /** Cấp 1 — thẩm định viên đề xuất số tiền + lãi suất + % phí trình ban lãnh đạo. */
