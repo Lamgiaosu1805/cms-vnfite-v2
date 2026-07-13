@@ -122,7 +122,7 @@ export function ManualDepositsPage({ onActionDone }: { onActionDone?: () => void
                   <td className="px-4 py-3"><p className="font-medium text-gray-900 dark:text-gray-100">{item.customerName || 'Chưa có tên'}</p><p className="text-xs text-gray-400 dark:text-gray-500">{item.customerPhone || item.userId}</p></td>
                   <td className="px-4 py-3">{item.ownerType === 'BUSINESS' ? 'Doanh nghiệp' : 'Cá nhân'}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right font-bold text-gray-900 dark:text-gray-100">{money(item.amount)}</td>
-                  <td className="px-4 py-3"><button onClick={() => viewBill(item)} className="inline-flex max-w-56 items-center gap-1 text-red-600 hover:underline dark:text-red-400"><Eye size={15} /><span className="truncate">{item.billFileName || 'Xem bill'}</span></button></td>
+                  <td className="px-4 py-3"><button onClick={() => viewBill(item)} className="inline-flex items-center gap-1 text-red-600 hover:underline dark:text-red-400"><Eye size={15} /><span>Xem bill</span></button></td>
                   <td className="px-4 py-3 text-center"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${current.classes}`}>{current.label}</span></td>
                   <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
                     {item.rejectionReason && <p className="text-red-600 dark:text-red-400">{item.rejectionReason}</p>}
