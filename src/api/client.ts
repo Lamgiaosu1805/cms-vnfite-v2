@@ -797,6 +797,37 @@ export async function fetchSystemTransactions(params: {
   return request(`/transactions?${q}`);
 }
 
+export interface CmsManualDepositRequest {
+  id: string;
+  userId: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  walletId: string;
+  ownerType: 'PERSONAL' | 'BUSINESS';
+  amount: number;
+  billFileId: string;
+  billFileName: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  rejectionReason: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+export async function fetchManualDeposits(status = '', page = 0, size = 20): Promise<PagedResponse<CmsManualDepositRequest>> {
+  const q = new URLSearchParams({ page: String(page), size: String(size) });
+  if (status) q.set('status', status);
+  return request(`/transactions/manual-deposits?${q}`);
+}
+
+export async function approveManualDeposit(requestId: string): Promise<CmsManualDepositRequest> {
+  return request(`/transactions/manual-deposits/${requestId}/approve`, { method: 'POST' });
+}
+
+export async function rejectManualDeposit(requestId: string, reason: string): Promise<CmsManualDepositRequest> {
+  return request(`/transactions/manual-deposits/${requestId}/reject`, { method: 'POST', data: { reason } });
+}
+
 export async function decideKyc(userId: string, decision: 'APPROVED' | 'REJECTED', reason?: string): Promise<void> {
   return request(`/users/${userId}/kyc-decision`, {
     method: 'POST',
