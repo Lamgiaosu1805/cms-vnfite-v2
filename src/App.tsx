@@ -13,6 +13,7 @@ import { AdminsPage } from './pages/AdminsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { ManualDepositsPage } from './pages/ManualDepositsPage';
+import { OtpIpUnblockRequestsPage } from './pages/OtpIpUnblockRequestsPage';
 import WithdrawalsMonitoringPage from './pages/WithdrawalsMonitoringPage';
 import ReconciliationPage from './pages/ReconciliationPage';
 import AutoDebitAuditPage from './pages/AutoDebitAuditPage';
@@ -33,6 +34,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   'business-kyc': 'Hồ sơ doanh nghiệp',
   transactions: 'Giao dịch nạp/rút',
   'manual-deposits': 'Duyệt bill nạp tiền',
+  'otp-unblock-requests': 'Mở chặn OTP',
   loans: 'Gọi vốn',
   'business-loans': 'Gọi vốn DN / Hộ KD',
   products: 'Sản phẩm gọi vốn',
@@ -491,6 +493,7 @@ export default function App() {
           )}
           {tab === 'transactions' && <TransactionsPage />}
           {tab === 'manual-deposits' && <ManualDepositsPage onActionDone={() => setManualDepositCountRefresh(value => value + 1)} />}
+          {tab === 'otp-unblock-requests' && <OtpIpUnblockRequestsPage />}
           {tab === 'loans'     && (
             <LoansPage
               key={loanStatus || 'all'}
