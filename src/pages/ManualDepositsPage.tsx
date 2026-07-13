@@ -124,7 +124,12 @@ export function ManualDepositsPage({ onActionDone }: { onActionDone?: () => void
                   <td className="whitespace-nowrap px-4 py-3 text-right font-bold text-gray-900 dark:text-gray-100">{money(item.amount)}</td>
                   <td className="px-4 py-3"><button onClick={() => viewBill(item)} className="inline-flex max-w-56 items-center gap-1 text-red-600 hover:underline dark:text-red-400"><Eye size={15} /><span className="truncate">{item.billFileName || 'Xem bill'}</span></button></td>
                   <td className="px-4 py-3 text-center"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${current.classes}`}>{current.label}</span></td>
-                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{item.rejectionReason || (item.reviewedBy ? `${item.reviewedBy} · ${dateTime(item.reviewedAt)}` : '—')}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                    {item.rejectionReason && <p className="text-red-600 dark:text-red-400">{item.rejectionReason}</p>}
+                    {item.reviewedBy
+                      ? <p className={item.rejectionReason ? 'mt-1' : ''}>{item.reviewedBy} · {dateTime(item.reviewedAt)}</p>
+                      : item.rejectionReason ? <p className="mt-1 text-gray-400 dark:text-gray-500">Chưa có thông tin người xử lý</p> : '—'}
+                  </td>
                   <td className="px-4 py-3 text-right">{item.status === 'PENDING' && <div className="inline-flex gap-2"><button disabled={actingId === item.id} onClick={() => reject(item)} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/60 dark:text-red-400"><X size={14} /> Từ chối</button><button disabled={actingId === item.id} onClick={() => approve(item)} className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"><Check size={14} /> Duyệt</button></div>}</td>
                 </tr>;
               })}
