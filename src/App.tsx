@@ -12,6 +12,7 @@ import { LoanProductsPage } from './pages/LoanProductsPage';
 import { AdminsPage } from './pages/AdminsPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { TransactionsPage } from './pages/TransactionsPage';
+import { ManualDepositsPage } from './pages/ManualDepositsPage';
 import WithdrawalsMonitoringPage from './pages/WithdrawalsMonitoringPage';
 import ReconciliationPage from './pages/ReconciliationPage';
 import AutoDebitAuditPage from './pages/AutoDebitAuditPage';
@@ -31,6 +32,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   users: 'Khách hàng',
   'business-kyc': 'Hồ sơ doanh nghiệp',
   transactions: 'Giao dịch nạp/rút',
+  'manual-deposits': 'Duyệt bill nạp tiền',
   loans: 'Gọi vốn',
   'business-loans': 'Gọi vốn DN / Hộ KD',
   products: 'Sản phẩm gọi vốn',
@@ -472,6 +474,7 @@ export default function App() {
             />
           )}
           {tab === 'transactions' && <TransactionsPage />}
+          {tab === 'manual-deposits' && <ManualDepositsPage />}
           {tab === 'loans'     && (
             <LoansPage
               key={loanStatus || 'all'}
