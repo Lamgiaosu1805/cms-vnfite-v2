@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { checkSetupRequired, clearSession, consumeSessionNotice, fetchLoans, getStoredAdmin, type AdminInfo, type LoginResult } from './api/client';
+import { checkSetupRequired, clearSession, consumeSessionNotice, fetchLoans, fetchManualDeposits, getStoredAdmin, type AdminInfo, type LoginResult } from './api/client';
 import { LoginPage } from './pages/LoginPage';
 import { SetupPage } from './pages/SetupPage';
 import { ChangePasswordPage } from './pages/ChangePasswordPage';
@@ -121,6 +121,8 @@ export default function App() {
   const [loanStatusCounts, setLoanStatusCounts] = useState<Record<string, number>>({});
   const [businessLoanStatusCounts, setBusinessLoanStatusCounts] = useState<Record<string, number>>({});
   const [loanCountsRefresh, setLoanCountsRefresh] = useState(0);
+  const [manualDepositPendingCount, setManualDepositPendingCount] = useState(0);
+  const [manualDepositCountRefresh, setManualDepositCountRefresh] = useState(0);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('cms_theme') === 'dark');
   const [loginNotice, setLoginNotice] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
@@ -146,6 +148,19 @@ export default function App() {
         setState({ screen: 'login' });
       });
   }, []);
+
+  useEffect(() => {
+    if (state.screen !== 'main') return;
+    let active = true;
+    const load = () => {
+      fetchManualDeposits('PENDING', 0, 1)
+        .then(result => { if (active) setManualDepositPendingCount(result.totalElements); })
+        .catch(() => { if (active) setManualDepositPendingCount(0); });
+    };
+    load();
+    const timer = window.setInterval(load, 30_000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [state.screen, manualDepositCountRefresh]);
 
   useEffect(() => {
     function handleBrowserBack(event: PopStateEvent) {
@@ -422,6 +437,7 @@ export default function App() {
         activeBusinessLoanStatus={businessLoanStatus}
         loanStatusCounts={loanStatusCounts}
         businessLoanStatusCounts={businessLoanStatusCounts}
+        manualDepositPendingCount={manualDepositPendingCount}
         onTabChange={handleTabChange}
         onLoanStatusChange={handleLoanStatusChange}
         onBusinessLoanStatusChange={handleBusinessLoanStatusChange}
@@ -474,7 +490,7 @@ export default function App() {
             />
           )}
           {tab === 'transactions' && <TransactionsPage />}
-          {tab === 'manual-deposits' && <ManualDepositsPage />}
+          {tab === 'manual-deposits' && <ManualDepositsPage onActionDone={() => setManualDepositCountRefresh(value => value + 1)} />}
           {tab === 'loans'     && (
             <LoansPage
               key={loanStatus || 'all'}
