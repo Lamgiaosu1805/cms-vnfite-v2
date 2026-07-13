@@ -20,7 +20,7 @@ const STATUS: Record<CmsManualDepositRequest['status'], { label: string; classes
   REJECTED: { label: 'Từ chối', classes: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
 };
 
-export function ManualDepositsPage() {
+export function ManualDepositsPage({ onActionDone }: { onActionDone?: () => void }) {
   const [data, setData] = useState<PagedResponse<CmsManualDepositRequest> | null>(null);
   const [status, setStatus] = useState('PENDING');
   const [page, setPage] = useState(0);
@@ -28,6 +28,7 @@ export function ManualDepositsPage() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);
+  const [billPreview, setBillPreview] = useState<{ item: CmsManualDepositRequest; url: string | null } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -41,19 +42,37 @@ export function ManualDepositsPage() {
   }, [status, page, reload]);
 
   async function viewBill(item: CmsManualDepositRequest) {
+    setBillPreview({ item, url: null });
     try {
       const url = await fetchFileBlob(item.billFileId);
-      window.open(url, '_blank', 'noopener,noreferrer');
+      setBillPreview(current => current?.item.id === item.id ? { item, url } : current);
     } catch (err) {
+      setBillPreview(null);
       setError(err instanceof Error ? err.message : 'Không thể mở bill.');
     }
   }
+
+  function closeBillPreview() {
+    setBillPreview(current => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+
+  useEffect(() => {
+    if (!billPreview) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeBillPreview();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [billPreview]);
 
   async function approve(item: CmsManualDepositRequest) {
     if (!window.confirm(`Duyệt bill nạp ${money(item.amount)}? Tiền sẽ được cộng ngay vào ví VNFITE của khách.`)) return;
     setActingId(item.id);
     setError('');
-    try { await approveManualDeposit(item.id); setReload(value => value + 1); }
+    try { await approveManualDeposit(item.id); setReload(value => value + 1); onActionDone?.(); }
     catch (err) { setError(err instanceof Error ? err.message : 'Không thể duyệt bill.'); }
     finally { setActingId(null); }
   }
@@ -64,7 +83,7 @@ export function ManualDepositsPage() {
     if (!reason.trim()) { setError('Vui lòng nhập lý do từ chối.'); return; }
     setActingId(item.id);
     setError('');
-    try { await rejectManualDeposit(item.id, reason.trim()); setReload(value => value + 1); }
+    try { await rejectManualDeposit(item.id, reason.trim()); setReload(value => value + 1); onActionDone?.(); }
     catch (err) { setError(err instanceof Error ? err.message : 'Không thể từ chối bill.'); }
     finally { setActingId(null); }
   }
@@ -115,6 +134,35 @@ export function ManualDepositsPage() {
         </div>
         <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-sm dark:border-gray-800"><span className="text-gray-500 dark:text-gray-400">Trang {(data?.page ?? page) + 1}/{Math.max(data?.totalPages ?? 1, 1)}</span><div className="flex gap-2"><button disabled={page === 0 || loading} onClick={() => setPage(value => value - 1)} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:opacity-40 dark:border-gray-700">Trước</button><button disabled={!data || page >= data.totalPages - 1 || loading} onClick={() => setPage(value => value + 1)} className="rounded-lg border border-gray-200 px-3 py-1.5 disabled:opacity-40 dark:border-gray-700">Sau</button></div></div>
       </div>
+
+      {billPreview && (
+        <div
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+          onMouseDown={event => { if (event.target === event.currentTarget) closeBillPreview(); }}
+          role="dialog"
+        >
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-950">
+            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-800">
+              <div className="min-w-0">
+                <h3 className="truncate text-base font-bold text-gray-900 dark:text-gray-50">Bill chuyển khoản</h3>
+                <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">{billPreview.item.billFileName || 'Ảnh bill nạp tiền'}</p>
+              </div>
+              <button aria-label="Đóng modal bill" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" onClick={closeBillPreview} type="button"><X size={18} /></button>
+            </div>
+            <div className="min-h-56 overflow-auto bg-gray-50 p-4 dark:bg-gray-900">
+              {billPreview.url ? (
+                <img alt="Bill chuyển khoản" className="mx-auto max-h-[70vh] max-w-full rounded-md object-contain shadow-sm" src={billPreview.url} />
+              ) : (
+                <div className="flex min-h-56 items-center justify-center text-sm text-gray-500 dark:text-gray-400"><RefreshCw className="mr-2 animate-spin" size={16} /> Đang tải bill...</div>
+              )}
+            </div>
+            <div className="flex justify-end border-t border-gray-200 px-5 py-3 dark:border-gray-800">
+              <button className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800" onClick={closeBillPreview} type="button">Đóng (Esc)</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

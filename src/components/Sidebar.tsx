@@ -12,6 +12,7 @@ interface SidebarProps {
   activeBusinessLoanStatus: LoanStatusFilter;
   loanStatusCounts: Record<string, number>;
   businessLoanStatusCounts: Record<string, number>;
+  manualDepositPendingCount: number;
   onTabChange: (tab: TabKey) => void;
   onLoanStatusChange: (status: LoanStatusFilter) => void;
   onBusinessLoanStatusChange: (status: LoanStatusFilter) => void;
@@ -25,6 +26,7 @@ export function Sidebar({
   activeBusinessLoanStatus,
   loanStatusCounts,
   businessLoanStatusCounts,
+  manualDepositPendingCount,
   onTabChange,
   onLoanStatusChange,
   onBusinessLoanStatusChange,
@@ -138,6 +140,11 @@ export function Sidebar({
                   size={14}
                   className={`transition-transform ${activeTab === 'business-loans' ? 'opacity-90' : 'opacity-60'} ${businessLoanMenuOpen ? 'rotate-180' : ''}`}
                 />
+              )}
+              {key === 'manual-deposits' && manualDepositPendingCount > 0 && (
+                <span className="min-w-5 rounded-full bg-[#E8A030] px-1.5 py-0.5 text-center text-[10px] font-bold text-[#5a2b00]">
+                  {manualDepositPendingCount > 99 ? '99+' : manualDepositPendingCount}
+                </span>
               )}
             </button>
 
