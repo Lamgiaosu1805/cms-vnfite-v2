@@ -828,6 +828,26 @@ export async function rejectManualDeposit(requestId: string, reason: string): Pr
   return request(`/transactions/manual-deposits/${requestId}/reject`, { method: 'POST', data: { reason } });
 }
 
+export interface OtpIpUnblockRequest {
+  id: string;
+  ipAddress: string;
+  phone: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requesterNote?: string | null;
+  reviewNote?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+}
+
+export async function fetchOtpIpUnblockRequests(status = 'PENDING'): Promise<PagedResponse<OtpIpUnblockRequest>> {
+  return request(`/security/otp-ip-unblock-requests?${new URLSearchParams({ status, page: '0', size: '100' })}`);
+}
+
+export async function decideOtpIpUnblockRequest(requestId: string, approved: boolean, reason = ''): Promise<OtpIpUnblockRequest> {
+  return request(`/security/otp-ip-unblock-requests/${requestId}/decision`, { method: 'POST', data: { approved, reason } });
+}
+
 export async function decideKyc(userId: string, decision: 'APPROVED' | 'REJECTED', reason?: string): Promise<void> {
   return request(`/users/${userId}/kyc-decision`, {
     method: 'POST',
