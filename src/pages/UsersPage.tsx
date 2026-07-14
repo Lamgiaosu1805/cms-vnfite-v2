@@ -4,6 +4,8 @@ import { Ban, Check, ChevronLeft, ChevronRight, Copy, ExternalLink, Eye, KeyRoun
 import {
   decideKyc,
   fetchCustomerDetailWithParams,
+  fetchCustomerLoanDocuments,
+  fetchCustomerLoanView,
   fetchFileBlob,
   fetchUsers,
   getStoredAdmin,
@@ -14,6 +16,8 @@ import {
   setCustomerBlacklist,
   updateUserStatus,
   type CustomerDetail,
+  type CustomerLoanView,
+  type LoanDocument,
   type CmsUser,
   type ResetCustomerPasswordResult,
 } from '../api/client';
@@ -276,6 +280,125 @@ function ResetPasswordResultModal({
   );
 }
 
+const LOAN_DOCUMENT_LABELS: Record<string, string> = {
+  SALARY_STATEMENT: 'Sao kê lương',
+  PAYSLIP: 'Bảng lương / phiếu lương',
+  BANK_STATEMENT: 'Sao kê ngân hàng',
+  LABOR_CONTRACT: 'Hợp đồng lao động',
+  EMPLOYMENT_CONTRACT: 'Hợp đồng lao động',
+  BUSINESS_LICENSE: 'Đăng ký kinh doanh',
+  SALES_LEDGER: 'Sổ bán hàng / ghi chép doanh thu',
+  INVOICE: 'Hóa đơn / chứng từ bán hàng',
+  POS_STATEMENT: 'Sao kê POS / ví điện tử',
+  PLATFORM_SALES_REPORT: 'Báo cáo doanh thu nền tảng',
+  TAX_DOCUMENT: 'Chứng từ thuế',
+  SHOP_PHOTO: 'Ảnh cửa hàng / hàng hóa',
+  OTHER_INCOME_PROOF: 'Chứng từ chứng minh thu nhập khác',
+  OTHER: 'Chứng từ khác',
+};
+
+function CustomerLoanViewModal({ userId, loanId, loan, loading, error, onClose }: {
+  userId: string;
+  loanId: string;
+  loan: CustomerLoanView | null;
+  loading: boolean;
+  error: string;
+  onClose: () => void;
+}) {
+  const [documents, setDocuments] = useState<LoanDocument[] | null>(null);
+  const [documentsError, setDocumentsError] = useState('');
+  const [openingFileId, setOpeningFileId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setDocuments(null);
+    setDocumentsError('');
+    void fetchCustomerLoanDocuments(userId, loanId)
+      .then(result => { if (active) setDocuments(result); })
+      .catch(() => { if (active) setDocumentsError('Không thể tải chứng từ khoản gọi vốn.'); });
+    return () => { active = false; };
+  }, [userId, loanId]);
+
+  async function openDocument(document: LoanDocument) {
+    setOpeningFileId(document.fileId);
+    try {
+      const url = await fetchFileBlob(document.fileId);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setDocumentsError('Không thể mở chứng từ. Vui lòng thử lại.');
+    } finally {
+      setOpeningFileId(null);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={onClose}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Chi tiết khoản gọi vốn"
+        className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl dark:bg-gray-800"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-red-600">Khoản gọi vốn</p>
+            <h3 className="mt-1 text-xl font-bold text-gray-900 dark:text-gray-50">{loan?.loanCode || 'Đang tải...'}</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Thông tin chỉ xem dành cho kinh doanh/chăm sóc khách hàng.</p>
+          </div>
+          <button onClick={onClose} aria-label="Đóng" className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
+            <X size={20} />
+          </button>
+        </div>
+        {loading && <p className="py-10 text-center text-sm text-gray-500 dark:text-gray-400"><RefreshCw size={16} className="mr-2 inline animate-spin" />Đang tải khoản gọi vốn...</p>}
+        {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{error}</p>}
+        {loan && !loading && (
+          <div className="grid grid-cols-1 gap-x-8 sm:grid-cols-2">
+            <InfoRow label="Sản phẩm" value={loan.productName || '—'} />
+            <InfoRow label="Tư cách gọi vốn" value={loan.businessName || (loan.productCategory === 'INDIVIDUAL' ? 'Cá nhân' : 'Doanh nghiệp / Hộ kinh doanh')} />
+            <InfoRow label="Mục đích" value={loan.purpose || '—'} />
+            <InfoRow label="Trạng thái" value={<Badge value={loan.status} />} />
+            <InfoRow label="Mục tiêu" value={formatMoney(loan.amount)} />
+            <InfoRow label="Đã được đầu tư" value={formatMoney(loan.fundedAmount)} />
+            <InfoRow label="Nhà đầu tư đã chốt" value={String(loan.confirmedInvestorCount)} />
+            <InfoRow label="Lợi suất kỳ vọng" value={loan.interestRate != null ? `${loan.interestRate}%/năm` : '—'} />
+            <InfoRow label="Kỳ hạn" value={loan.termMonths != null ? `${loan.termMonths} tháng` : '—'} />
+            <InfoRow label="Ngày nộp" value={formatVietnamDateTime(loan.createdAt, '—')} />
+            <InfoRow label="Ngày xử lý gần nhất" value={formatVietnamDateTime(loan.reviewedAt, '—')} />
+            {loan.rejectionReason && <InfoRow label="Lý do từ chối" value={loan.rejectionReason} />}
+          </div>
+        )}
+        <section className="mt-6 border-t border-gray-100 pt-5 dark:border-gray-700">
+          <h4 className="font-semibold text-gray-900 dark:text-gray-50">Chứng từ người gọi vốn</h4>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Chỉ xem chứng từ đã được khách nộp, không có quyền phân tích hoặc chỉnh sửa.</p>
+          {!documents && !documentsError && <p className="mt-3 text-sm text-gray-400 dark:text-gray-500"><RefreshCw size={14} className="mr-2 inline animate-spin" />Đang tải chứng từ...</p>}
+          {documentsError && <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{documentsError}</p>}
+          {documents?.length === 0 && <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Khách chưa nộp chứng từ cho khoản này.</p>}
+          {documents && documents.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {documents.map(document => (
+                <div key={document.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-900/50">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={document.fileName || document.fileId}>{document.fileName || document.fileId}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{LOAN_DOCUMENT_LABELS[document.docType] || document.docType} · {formatVietnamDateTime(document.createdAt, '—')}</p>
+                  </div>
+                  <button
+                    onClick={() => openDocument(document)}
+                    disabled={openingFileId === document.fileId}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                  >
+                    <Eye size={14} />{openingFileId === document.fileId ? 'Đang mở...' : 'Xem chứng từ'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
 interface CustomerDetailPageProps {
   userId: string;
   onBack: () => void;
@@ -295,6 +418,10 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan,
   const [actionLoading, setActionLoading] = useState<'password' | 'device' | null>(null);
   const [error, setError] = useState('');
   const [resetPasswordResult, setResetPasswordResult] = useState<ResetCustomerPasswordResult | null>(null);
+  const [customerLoanView, setCustomerLoanView] = useState<CustomerLoanView | null>(null);
+  const [customerLoanId, setCustomerLoanId] = useState<string | null>(null);
+  const [customerLoanLoading, setCustomerLoanLoading] = useState(false);
+  const [customerLoanError, setCustomerLoanError] = useState('');
   const profile = detail?.profile;
   const showAdminReset = canResetCustomers();
   const investmentPageData = detail?.investments?.investmentHistoryPage;
@@ -302,6 +429,12 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan,
   const isBusinessCategory = (category: string | null | undefined) => category === 'BUSINESS' || category === 'ENTERPRISE';
   const individualLoans = detail?.loans.content.filter(loan => !isBusinessCategory(loan.productCategory)) ?? [];
   const businessLoanCount = (detail?.loans.content.length ?? 0) - individualLoans.length;
+  const admin = getStoredAdmin();
+  const isCustomerSupportReadOnly = adminHasAnyRole(admin, 'CUSTOMER_SUPPORT')
+    && !adminHasAnyRole(admin, 'SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE')
+    && !adminHasPermission(admin, 'loan.approve')
+    && !adminHasPermission(admin, 'loan.disburse')
+    && !adminHasPermission(admin, 'loan.propose');
 
   useEffect(() => {
     let alive = true;
@@ -352,6 +485,25 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan,
       setError(err instanceof Error ? err.message : 'Không thể reset thiết bị khách hàng');
     } finally {
       setActionLoading(null);
+    }
+  }
+
+  async function handleViewLoan(loanId: string) {
+    if (!isCustomerSupportReadOnly) {
+      onViewLoan?.(loanId);
+      return;
+    }
+
+    setCustomerLoanView(null);
+    setCustomerLoanId(loanId);
+    setCustomerLoanError('');
+    setCustomerLoanLoading(true);
+    try {
+      setCustomerLoanView(await fetchCustomerLoanView(userId, loanId));
+    } catch (err: unknown) {
+      setCustomerLoanError(err instanceof Error ? err.message : 'Không thể tải thông tin khoản gọi vốn');
+    } finally {
+      setCustomerLoanLoading(false);
     }
   }
 
@@ -607,7 +759,7 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan,
                       {(investmentPageData?.content ?? detail.investments?.investmentHistory ?? []).map(item => (
                         <tr key={item.offerId}>
                           <td className="py-3">
-                            <LoanCodeLink loanId={item.loanId} loanCode={item.loanCode} onViewLoan={onViewLoan} />
+                              <LoanCodeLink loanId={item.loanId} loanCode={item.loanCode} onViewLoan={handleViewLoan} />
                           </td>
                           <td className="py-3">
                             <div className="max-w-[220px]" title={[item.borrowerName, item.borrowerPhone].filter(Boolean).join(' · ')}>
@@ -713,7 +865,7 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan,
                         <Fragment key={loan.loanId}>
                           <tr>
                             <td className="py-3">
-                              <LoanCodeLink loanId={loan.loanId} loanCode={loan.loanCode} onViewLoan={onViewLoan} />
+                              <LoanCodeLink loanId={loan.loanId} loanCode={loan.loanCode} onViewLoan={handleViewLoan} />
                             </td>
                             <td className="py-3 text-gray-700 dark:text-gray-200">{loan.productName || 'Chưa xác định'}</td>
                             <td className="py-3 text-right font-semibold text-gray-900 dark:text-gray-50">{formatMoney(loan.amount)}</td>
@@ -784,6 +936,21 @@ export function CustomerDetailPage({ userId, onBack, onViewCustomer, onViewLoan,
         <ResetPasswordResultModal
           result={resetPasswordResult}
           onClose={() => setResetPasswordResult(null)}
+        />
+      )}
+      {customerLoanId && (
+        <CustomerLoanViewModal
+          userId={userId}
+          loanId={customerLoanId}
+          loan={customerLoanView}
+          loading={customerLoanLoading}
+          error={customerLoanError}
+          onClose={() => {
+            setCustomerLoanView(null);
+            setCustomerLoanId(null);
+            setCustomerLoanError('');
+            setCustomerLoanLoading(false);
+          }}
         />
       )}
     </div>
