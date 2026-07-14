@@ -1050,6 +1050,34 @@ export async function fetchLoanById(loanId: string): Promise<CmsLoan | null> {
   return request(`/loans/${encodeURIComponent(loanId)}`);
 }
 
+/** Chi tiết khoản chỉ-đọc cho kinh doanh/chăm sóc khách hàng, không kèm dữ liệu thẩm định. */
+export interface CustomerLoanView {
+  loanId: string;
+  loanCode: string | null;
+  productName: string | null;
+  productCategory: string | null;
+  businessName: string | null;
+  amount: number | null;
+  fundedAmount: number | null;
+  confirmedInvestorCount: number;
+  interestRate: number | null;
+  termMonths: number | null;
+  purpose: string | null;
+  status: string;
+  rejectionReason: string | null;
+  createdAt: string | null;
+  reviewedAt: string | null;
+}
+
+export async function fetchCustomerLoanView(userId: string, loanId: string): Promise<CustomerLoanView> {
+  return request(`/users/${encodeURIComponent(userId)}/customer-loans/${encodeURIComponent(loanId)}`);
+}
+
+/** Chứng từ khoản gọi vốn chỉ-đọc trong hồ sơ khách hàng dành cho kinh doanh/chăm sóc khách hàng. */
+export async function fetchCustomerLoanDocuments(userId: string, loanId: string): Promise<LoanDocument[]> {
+  return request(`/users/${encodeURIComponent(userId)}/customer-loans/${encodeURIComponent(loanId)}/documents`);
+}
+
 /** Cấp 1 — thẩm định viên đề xuất số tiền + lãi suất + % phí trình ban lãnh đạo. */
 export async function proposeLoan(
   loanId: string,
