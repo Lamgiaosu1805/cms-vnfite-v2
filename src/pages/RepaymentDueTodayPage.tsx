@@ -54,6 +54,11 @@ interface LoanGroup {
   lateFee: number;
   paidAmount: number;
   lateFeePaid: number;
+  principalPaid: number;
+  interestPaid: number;
+  principalOutstanding: number;
+  interestOutstanding: number;
+  lateFeeOutstanding: number;
   remaining: number;
   totalDebt: number;         // giống nhau cho mọi kỳ — lấy từ kỳ đầu
   worstDpd: number;
@@ -78,6 +83,11 @@ function groupByLoan(items: DueTodayScheduleItem[]): LoanGroup[] {
         lateFee: r.lateFee,
         paidAmount: r.paidAmount,
         lateFeePaid: r.lateFeePaid,
+        principalPaid: r.principalPaid ?? 0,
+        interestPaid: r.interestPaid ?? 0,
+        principalOutstanding: r.principalOutstanding ?? Math.max(r.principalDue - (r.principalPaid ?? 0), 0),
+        interestOutstanding: r.interestOutstanding ?? Math.max(r.interestDue - (r.interestPaid ?? 0), 0),
+        lateFeeOutstanding: r.lateFeeOutstanding ?? Math.max(r.lateFee - r.lateFeePaid, 0),
         remaining: r.remaining,
         totalDebt: r.totalDebt ?? r.remaining,
         worstDpd: r.dpd,
@@ -92,6 +102,11 @@ function groupByLoan(items: DueTodayScheduleItem[]): LoanGroup[] {
       existing.lateFee     += r.lateFee;
       existing.paidAmount  += r.paidAmount;
       existing.lateFeePaid += r.lateFeePaid;
+      existing.principalPaid += r.principalPaid ?? 0;
+      existing.interestPaid += r.interestPaid ?? 0;
+      existing.principalOutstanding += r.principalOutstanding ?? Math.max(r.principalDue - (r.principalPaid ?? 0), 0);
+      existing.interestOutstanding += r.interestOutstanding ?? Math.max(r.interestDue - (r.interestPaid ?? 0), 0);
+      existing.lateFeeOutstanding += r.lateFeeOutstanding ?? Math.max(r.lateFee - r.lateFeePaid, 0);
       existing.remaining   += r.remaining;
       // totalDebt đã bao gồm tất cả kỳ — giữ giá trị lớn nhất (tất cả bằng nhau)
       existing.totalDebt = Math.max(existing.totalDebt, r.totalDebt ?? r.remaining);
@@ -237,9 +252,9 @@ export default function RepaymentDueTodayPage() {
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Người gọi vốn</th>
               <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Kỳ / Ngày ĐH</th>
               <th className="px-3 py-3 text-right text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase whitespace-nowrap">Kỳ này phải trả</th>
-              <th className="px-3 py-3 text-right text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">Gốc</th>
-              <th className="px-3 py-3 text-right text-xs font-semibold text-green-600 dark:text-green-400 uppercase">Lãi</th>
-              <th className="px-3 py-3 text-right text-xs font-semibold text-yellow-600 dark:text-yellow-400 uppercase">Phí phạt</th>
+              <th className="px-3 py-3 text-right text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase">Gốc<br /><span className="font-normal text-[10px]">còn / đã cấn</span></th>
+              <th className="px-3 py-3 text-right text-xs font-semibold text-green-600 dark:text-green-400 uppercase">Lợi suất<br /><span className="font-normal text-[10px]">còn / đã cấn</span></th>
+              <th className="px-3 py-3 text-right text-xs font-semibold text-yellow-600 dark:text-yellow-400 uppercase">Phí phạt<br /><span className="font-normal text-[10px]">còn / đã cấn</span></th>
               <th className="px-3 py-3 text-right text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase">Đã trả</th>
               <th className="px-3 py-3 text-right text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase whitespace-nowrap">Còn lại kỳ này</th>
               <th className="px-3 py-3 text-right text-xs font-semibold text-red-700 dark:text-red-400 uppercase whitespace-nowrap bg-red-50 dark:bg-red-900/20">Tổng nợ cần trả</th>
@@ -288,12 +303,19 @@ export default function RepaymentDueTodayPage() {
                 <td className="px-3 py-2.5 text-right font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                   {formatVND(g.totalDue)}
                 </td>
-                <td className="px-3 py-2.5 text-right text-blue-700 dark:text-blue-300 whitespace-nowrap">{formatVND(g.principalDue)}</td>
-                <td className="px-3 py-2.5 text-right text-green-700 dark:text-green-300 whitespace-nowrap">{formatVND(g.interestDue)}</td>
+                <td className="px-3 py-2.5 text-right text-blue-700 dark:text-blue-300 whitespace-nowrap">
+                  <p>{formatVND(g.principalOutstanding)}</p>
+                  {g.principalPaid > 0 && <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Đã cấn {formatVND(g.principalPaid)}</p>}
+                </td>
+                <td className="px-3 py-2.5 text-right text-green-700 dark:text-green-300 whitespace-nowrap">
+                  <p>{formatVND(g.interestOutstanding)}</p>
+                  {g.interestPaid > 0 && <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Đã cấn {formatVND(g.interestPaid)}</p>}
+                </td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                  <span className={g.lateFee > 0 ? 'font-semibold text-yellow-700 dark:text-yellow-300' : 'text-gray-400 dark:text-gray-500'}>
-                    {g.lateFee > 0 ? formatVND(g.lateFee) : '—'}
+                  <span className={g.lateFeeOutstanding > 0 ? 'font-semibold text-yellow-700 dark:text-yellow-300' : 'text-gray-400 dark:text-gray-500'}>
+                    {g.lateFeeOutstanding > 0 ? formatVND(g.lateFeeOutstanding) : '—'}
                   </span>
+                  {g.lateFeePaid > 0 && <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Đã cấn {formatVND(g.lateFeePaid)}</p>}
                 </td>
                 <td className="px-3 py-2.5 text-right text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
                   {(g.paidAmount + g.lateFeePaid) > 0 ? formatVND(g.paidAmount + g.lateFeePaid) : '—'}
@@ -324,13 +346,16 @@ export default function RepaymentDueTodayPage() {
                   {formatVND(items.reduce((s, r) => s + r.totalDue + r.lateFee, 0))}
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold text-blue-700 dark:text-blue-300 text-sm whitespace-nowrap">
-                  {formatVND(items.reduce((s, r) => s + r.principalDue, 0))}
+                  <p>{formatVND(items.reduce((s, r) => s + (r.principalOutstanding ?? Math.max(r.principalDue - (r.principalPaid ?? 0), 0)), 0))}</p>
+                  {items.some(r => (r.principalPaid ?? 0) > 0) && <p className="text-[10px] font-normal text-emerald-600 dark:text-emerald-400">Đã cấn {formatVND(items.reduce((s, r) => s + (r.principalPaid ?? 0), 0))}</p>}
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold text-green-700 dark:text-green-300 text-sm whitespace-nowrap">
-                  {formatVND(items.reduce((s, r) => s + r.interestDue, 0))}
+                  <p>{formatVND(items.reduce((s, r) => s + (r.interestOutstanding ?? Math.max(r.interestDue - (r.interestPaid ?? 0), 0)), 0))}</p>
+                  {items.some(r => (r.interestPaid ?? 0) > 0) && <p className="text-[10px] font-normal text-emerald-600 dark:text-emerald-400">Đã cấn {formatVND(items.reduce((s, r) => s + (r.interestPaid ?? 0), 0))}</p>}
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold text-yellow-700 dark:text-yellow-300 text-sm whitespace-nowrap">
-                  {formatVND(items.reduce((s, r) => s + r.lateFee, 0))}
+                  <p>{formatVND(items.reduce((s, r) => s + (r.lateFeeOutstanding ?? Math.max(r.lateFee - r.lateFeePaid, 0)), 0))}</p>
+                  {items.some(r => r.lateFeePaid > 0) && <p className="text-[10px] font-normal text-emerald-600 dark:text-emerald-400">Đã cấn {formatVND(items.reduce((s, r) => s + r.lateFeePaid, 0))}</p>}
                 </td>
                 <td className="px-3 py-2.5 text-right font-semibold text-emerald-700 dark:text-emerald-300 text-sm whitespace-nowrap">
                   {formatVND(items.reduce((s, r) => s + r.paidAmount + r.lateFeePaid, 0))}

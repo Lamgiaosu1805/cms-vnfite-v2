@@ -1583,6 +1583,11 @@ export interface DueTodayScheduleItem {
   lateFee: number;
   paidAmount: number;
   lateFeePaid: number;
+  principalPaid: number;
+  interestPaid: number;
+  principalOutstanding: number;
+  interestOutstanding: number;
+  lateFeeOutstanding: number;
   remaining: number;
   /** Tổng dư nợ của TẤT CẢ kỳ chưa trả thuộc khoản này (kỳ này + các kỳ trước còn nợ). */
   totalDebt: number;
