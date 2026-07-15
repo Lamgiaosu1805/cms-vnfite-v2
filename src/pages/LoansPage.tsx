@@ -1931,12 +1931,18 @@ function RepaymentScheduleSection({ loanId, loanStatus }: { loanId: string; loan
     }
   };
 
-  const totalInterest = schedule?.reduce((s, r) => s + r.interestDue, 0) ?? 0;
   const paidCount     = schedule?.filter(r => r.status === 'PAID').length ?? 0;
   const overdueCount  = schedule?.filter(r => r.status === 'OVERDUE').length ?? 0;
   const canRecord     = PAYABLE_LOAN_STATUSES.includes(loanStatus);
   const totalOutstanding = schedule?.reduce(
     (s, r) => s + (r.totalOutstanding ?? Math.max((r.totalDue || 0) - (r.paidAmount || 0), 0)), 0) ?? 0;
+  const totalPrincipalOutstanding = schedule?.reduce(
+    (s, r) => s + (r.principalOutstanding ?? Math.max((r.principalDue || 0) - (r.principalPaid || 0), 0)), 0) ?? 0;
+  const totalInterestOutstanding = schedule?.reduce(
+    (s, r) => s + (r.interestOutstanding ?? Math.max((r.interestDue || 0) - (r.interestPaid || 0), 0)), 0) ?? 0;
+  const totalPenaltyOutstanding = schedule?.reduce((s, r) => s + Number(r.lateFeeOutstanding || 0), 0) ?? 0;
+  const totalPaid = schedule?.reduce(
+    (s, r) => s + Number(r.paidAmount || 0) + Number(r.interestPenaltyPaid || 0) + Number(r.principalPenaltyPaid || 0), 0) ?? 0;
 
   const submitRecord = async () => {
     const amt = Number(recAmount);
@@ -2082,10 +2088,10 @@ function RepaymentScheduleSection({ loanId, loanStatus }: { loanId: string; loan
               <tr className="bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-left">
                 <th className="px-4 py-2 font-semibold w-10 text-center">Kỳ</th>
                 <th className="px-4 py-2 font-semibold">Ngày đáo hạn</th>
-                <th className="px-4 py-2 font-semibold text-right">Gốc</th>
-                <th className="px-4 py-2 font-semibold text-right">Lãi</th>
-                <th className="px-4 py-2 font-semibold text-right">Gốc + lãi</th>
-                <th className="px-4 py-2 font-semibold text-right">Phí phạt</th>
+                <th className="px-4 py-2 font-semibold text-right">Gốc<br /><span className="font-normal text-[10px]">còn / đã cấn</span></th>
+                <th className="px-4 py-2 font-semibold text-right">Lợi suất<br /><span className="font-normal text-[10px]">còn / đã cấn</span></th>
+                <th className="px-4 py-2 font-semibold text-right">Theo lịch</th>
+                <th className="px-4 py-2 font-semibold text-right">Phí phạt<br /><span className="font-normal text-[10px]">còn / đã cấn</span></th>
                 <th className="px-4 py-2 font-semibold text-right">Còn phải trả</th>
                 <th className="px-4 py-2 font-semibold text-right">Đã trả</th>
                 <th className="px-4 py-2 font-semibold text-center">Trạng thái</th>
@@ -2103,31 +2109,34 @@ function RepaymentScheduleSection({ loanId, loanStatus }: { loanId: string; loan
                     {formatVietnamDate(r.dueDate)}
                   </td>
                   <td className="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
-                    {formatMoney(r.principalDue)}
+                    <p>{formatMoney(r.principalOutstanding ?? Math.max((r.principalDue || 0) - (r.principalPaid || 0), 0))}</p>
+                    {Number(r.principalPaid || 0) > 0 && <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Đã cấn {formatMoney(r.principalPaid || 0)}</p>}
                   </td>
                   <td className="px-4 py-2.5 text-right text-gray-700 dark:text-gray-300">
-                    {formatMoney(r.interestDue)}
+                    <p>{formatMoney(r.interestOutstanding ?? Math.max((r.interestDue || 0) - (r.interestPaid || 0), 0))}</p>
+                    {Number(r.interestPaid || 0) > 0 && <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Đã cấn {formatMoney(r.interestPaid || 0)}</p>}
                   </td>
                   <td className="px-4 py-2.5 text-right font-semibold text-gray-800 dark:text-gray-200">
                     {formatMoney(r.totalDue)}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <div className="space-y-0.5">
-                      <p className={Number(r.lateFee || 0) > 0
+                      <p className={Number(r.lateFeeOutstanding || 0) > 0
                         ? 'font-semibold text-red-600 dark:text-red-300'
                         : 'text-gray-400 dark:text-gray-500'}>
-                        {formatMoney(r.lateFee || 0)}
+                        {formatMoney(r.lateFeeOutstanding || 0)}
                       </p>
-                      <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                        Còn {formatMoney(r.lateFeeOutstanding || 0)}
-                      </p>
+                      {(Number(r.interestPenaltyPaid || 0) + Number(r.principalPenaltyPaid || 0)) > 0 &&
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400">Đã cấn {formatMoney(Number(r.interestPenaltyPaid || 0) + Number(r.principalPenaltyPaid || 0))}</p>}
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right font-bold text-gray-900 dark:text-gray-100">
                     {formatMoney(r.totalOutstanding ?? Math.max((r.totalDue || 0) - (r.paidAmount || 0), 0))}
                   </td>
                   <td className="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400">
-                    {r.paidAmount > 0 ? formatMoney(r.paidAmount) : '—'}
+                    {(Number(r.paidAmount || 0) + Number(r.interestPenaltyPaid || 0) + Number(r.principalPenaltyPaid || 0)) > 0
+                      ? formatMoney(Number(r.paidAmount || 0) + Number(r.interestPenaltyPaid || 0) + Number(r.principalPenaltyPaid || 0))
+                      : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_BADGE_CLS[r.status]}`}>
@@ -2149,22 +2158,25 @@ function RepaymentScheduleSection({ loanId, loanStatus }: { loanId: string; loan
               <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                 <td colSpan={2} className="px-4 py-2 text-xs text-gray-400 dark:text-gray-500 font-semibold">Tổng cộng</td>
                 <td className="px-4 py-2 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  {formatMoney(schedule.reduce((s, r) => s + r.principalDue, 0))}
+                  {formatMoney(totalPrincipalOutstanding)}
                 </td>
                 <td className="px-4 py-2 text-right text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  {formatMoney(totalInterest)}
+                  {formatMoney(totalInterestOutstanding)}
                 </td>
                 <td className="px-4 py-2 text-right text-xs font-bold text-gray-800 dark:text-gray-200">
                   {formatMoney(schedule.reduce((s, r) => s + r.totalDue, 0))}
                 </td>
                 <td className="px-4 py-2 text-right text-xs font-bold text-red-600 dark:text-red-300">
-                  {formatMoney(schedule.reduce((s, r) => s + Number(r.lateFee || 0), 0))}
+                  {formatMoney(totalPenaltyOutstanding)}
                 </td>
                 <td className="px-4 py-2 text-right text-xs font-bold text-gray-900 dark:text-gray-100">
                   {formatMoney(schedule.reduce((s, r) =>
                     s + Number(r.totalOutstanding ?? Math.max((r.totalDue || 0) - (r.paidAmount || 0), 0)), 0))}
                 </td>
-                <td colSpan={2} className="px-4 py-2" />
+                <td className="px-4 py-2 text-right text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                  {formatMoney(totalPaid)}
+                </td>
+                <td className="px-4 py-2" />
                 {schedule.some(r => r.dpd > 0) && <td />}
               </tr>
             </tfoot>
