@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownUp, BarChart3, Briefcase, Building2, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Newspaper, Package, ShieldCheck, Users, Wallet, Scale, CalendarClock, Receipt, BadgeCheck, FileCheck2, ShieldAlert } from 'lucide-react';
+import { ArrowDownUp, BarChart3, Briefcase, Building2, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Megaphone, Newspaper, Package, ShieldCheck, Users, Wallet, Scale, CalendarClock, Receipt, BadgeCheck, FileCheck2, ShieldAlert } from 'lucide-react';
 import { adminRoles, adminHasPermission, CMS_ROLE_LABELS, type AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
-export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'manual-deposits' | 'otp-unblock-requests' | 'loans' | 'business-loans' | 'products' | 'news' | 'recruitment' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
+export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'manual-deposits' | 'otp-unblock-requests' | 'loans' | 'business-loans' | 'products' | 'news' | 'recruitment' | 'marketingNotifications' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -54,6 +54,7 @@ export function Sidebar({
     { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'APPROVER'], permissions: ['loan.product.edit'] },
     { key: 'news', label: 'Tin tức', icon: <Newspaper size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CONTENT'] },
     { key: 'recruitment', label: 'Tuyển dụng', icon: <Briefcase size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'HR'] },
+    { key: 'marketingNotifications', label: 'Thông báo marketing', icon: <Megaphone size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CONTENT'] },
     { key: 'withdrawals', label: 'Giám sát rút tiền', icon: <Wallet size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'] },
     { key: 'reconciliation', label: 'Tra soát giao dịch', icon: <Scale size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'], permissions: ['finance.reconcile'] },
     { key: 'due-today', label: 'Đến hạn hôm nay', icon: <CalendarCheck size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE', 'APPROVER'] },

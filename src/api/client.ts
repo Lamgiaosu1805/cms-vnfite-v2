@@ -1949,3 +1949,57 @@ export async function markReconciliationItemInvestigating(itemId: string): Promi
 export async function backfillMissingDeposit(itemId: string): Promise<void> {
   return request(`/reconciliation/items/${itemId}/backfill-deposit`, { method: 'POST' });
 }
+
+// ─── Thông báo marketing (đặt lịch / gửi ngay) ─────────────────────────────────
+
+export type MarketingCampaignType = 'SYSTEM' | 'PROMOTION';
+export type MarketingSendMode = 'NOW' | 'SCHEDULED';
+export type MarketingCampaignStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'FAILED';
+/** null/rỗng = tất cả segment */
+export type MarketingSegmentKycStatus = 'APPROVED' | 'PENDING' | 'NONE' | 'REJECTED' | '';
+
+export interface MarketingCampaignItem {
+  id: string;
+  title: string;
+  body: string;
+  campaignType: MarketingCampaignType;
+  segmentKycStatus: MarketingSegmentKycStatus | null;
+  sendMode: MarketingSendMode;
+  scheduledTime: string | null; // "HH:mm:ss"
+  startDate: string | null; // "yyyy-MM-dd"
+  endDate: string | null; // "yyyy-MM-dd"
+  status: MarketingCampaignStatus;
+  lastSentDate: string | null;
+  totalSentCount: number;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface MarketingCampaignPayload {
+  title: string;
+  body: string;
+  campaignType: MarketingCampaignType;
+  segmentKycStatus?: MarketingSegmentKycStatus | null;
+  sendMode: MarketingSendMode;
+  /** Bắt buộc khi sendMode = SCHEDULED — "HH:mm" */
+  scheduledTime?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+export async function fetchMarketingCampaigns(
+  page = 0,
+  size = 20,
+): Promise<PagedResponse<MarketingCampaignItem>> {
+  return request(`/notifications/campaigns?page=${page}&size=${size}`);
+}
+
+export async function createMarketingCampaign(
+  payload: MarketingCampaignPayload,
+): Promise<MarketingCampaignItem> {
+  return request('/notifications/campaigns', { method: 'POST', data: payload });
+}
+
+export async function cancelMarketingCampaign(id: string): Promise<MarketingCampaignItem> {
+  return request(`/notifications/campaigns/${id}/cancel`, { method: 'POST' });
+}
