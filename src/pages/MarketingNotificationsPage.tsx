@@ -58,6 +58,7 @@ export default function MarketingNotificationsPage() {
   const [listError, setListError] = useState<string | null>(null);
 
   const [form, setForm] = useState<MarketingCampaignPayload>(emptyForm());
+  const [scheduleKind, setScheduleKind] = useState<'once' | 'range'>('once');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -89,27 +90,38 @@ export default function MarketingNotificationsPage() {
       return;
     }
     if (form.sendMode === 'SCHEDULED') {
-      if (!form.scheduledTime || !form.startDate || !form.endDate) {
-        setFormError('Đặt lịch cần đủ giờ gửi, ngày bắt đầu và ngày kết thúc.');
-        return;
-      }
-      if (form.endDate < form.startDate) {
-        setFormError('Ngày kết thúc phải từ ngày bắt đầu trở đi.');
-        return;
+      if (scheduleKind === 'once') {
+        if (!form.scheduledTime || !form.startDate) {
+          setFormError('Đặt lịch một lần cần đủ giờ gửi và ngày gửi.');
+          return;
+        }
+      } else {
+        if (!form.scheduledTime || !form.startDate || !form.endDate) {
+          setFormError('Đặt lịch lặp lại cần đủ giờ gửi, ngày bắt đầu và ngày kết thúc.');
+          return;
+        }
+        if (form.endDate < form.startDate) {
+          setFormError('Ngày kết thúc phải từ ngày bắt đầu trở đi.');
+          return;
+        }
       }
     }
 
     setSubmitting(true);
     try {
+      const isScheduled = form.sendMode === 'SCHEDULED';
       const payload: MarketingCampaignPayload = {
         ...form,
         segmentKycStatus: form.segmentKycStatus || null,
-        scheduledTime: form.sendMode === 'SCHEDULED' ? form.scheduledTime : null,
-        startDate: form.sendMode === 'SCHEDULED' ? form.startDate : null,
-        endDate: form.sendMode === 'SCHEDULED' ? form.endDate : null,
+        scheduledTime: isScheduled ? form.scheduledTime : null,
+        startDate: isScheduled ? form.startDate : null,
+        // "Một lần": chỉ chọn 1 ngày — gửi lên backend với endDate = startDate,
+        // để scheduler tự dừng ngay sau lượt gửi đầu tiên (không lặp lại).
+        endDate: isScheduled ? (scheduleKind === 'once' ? form.startDate : form.endDate) : null,
       };
       await createMarketingCampaign(payload);
       setForm(emptyForm());
+      setScheduleKind('once');
       await loadCampaigns();
     } catch (err: unknown) {
       setFormError(err instanceof Error ? err.message : 'Không thể kết nối với máy chủ. Vui lòng thử lại.');
@@ -228,36 +240,63 @@ export default function MarketingNotificationsPage() {
         </div>
 
         {form.sendMode === 'SCHEDULED' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Giờ gửi</label>
-              <input
-                type="time"
-                value={form.scheduledTime ?? ''}
-                onChange={e => setForm(f => ({ ...f, scheduledTime: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-              />
+          <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-800/50 space-y-4">
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="radio"
+                  checked={scheduleKind === 'once'}
+                  onChange={() => setScheduleKind('once')}
+                />
+                Một lần (ngày giờ cụ thể)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="radio"
+                  checked={scheduleKind === 'range'}
+                  onChange={() => setScheduleKind('range')}
+                />
+                Lặp lại (khoảng ngày)
+              </label>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Từ ngày</label>
-              <input
-                type="date"
-                value={form.startDate ?? ''}
-                onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-              />
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Giờ gửi</label>
+                <input
+                  type="time"
+                  value={form.scheduledTime ?? ''}
+                  onChange={e => setForm(f => ({ ...f, scheduledTime: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {scheduleKind === 'once' ? 'Ngày gửi' : 'Từ ngày'}
+                </label>
+                <input
+                  type="date"
+                  value={form.startDate ?? ''}
+                  onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                />
+              </div>
+              {scheduleKind === 'range' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Đến ngày</label>
+                  <input
+                    type="date"
+                    value={form.endDate ?? ''}
+                    onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
+                  />
+                </div>
+              )}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Đến ngày</label>
-              <input
-                type="date"
-                value={form.endDate ?? ''}
-                onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm"
-              />
-            </div>
-            <p className="sm:col-span-3 text-xs text-gray-500 dark:text-gray-400">
-              Sẽ tự động gửi lặp lại mỗi ngày trong khoảng đã chọn, đúng vào giờ đã đặt.
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {scheduleKind === 'once'
+                ? 'Chỉ gửi đúng 1 lần vào ngày giờ đã chọn, không lặp lại.'
+                : 'Sẽ tự động gửi lặp lại mỗi ngày trong khoảng đã chọn, đúng vào giờ đã đặt.'}
             </p>
           </div>
         )}
