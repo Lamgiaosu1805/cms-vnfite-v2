@@ -25,6 +25,7 @@ import { BusinessProfilesPage } from './pages/BusinessProfilesPage';
 import { NewsManagementPage } from './pages/NewsManagementPage';
 import { RecruitmentManagementPage } from './pages/RecruitmentManagementPage';
 import MarketingNotificationsPage from './pages/MarketingNotificationsPage';
+import { CounterManagementPage } from './pages/CounterManagementPage';
 import { Sidebar, type TabKey } from './components/Sidebar';
 import { Moon, RefreshCw, Sun } from 'lucide-react';
 import { LOAN_STATUS_OPTIONS, loanStatusLabel, type LoanStatusFilter } from './loanConstants';
@@ -36,6 +37,7 @@ const PAGE_TITLES: Record<TabKey, string> = {
   transactions: 'Giao dịch nạp/rút',
   'manual-deposits': 'Duyệt bill nạp tiền',
   'otp-unblock-requests': 'Mở chặn OTP',
+  'counter-management': 'Điểm giao dịch',
   loans: 'Gọi vốn',
   'business-loans': 'Gọi vốn DN / Hộ KD',
   products: 'Sản phẩm gọi vốn',
@@ -496,6 +498,7 @@ export default function App() {
           {tab === 'transactions' && <TransactionsPage />}
           {tab === 'manual-deposits' && <ManualDepositsPage onActionDone={() => setManualDepositCountRefresh(value => value + 1)} />}
           {tab === 'otp-unblock-requests' && <OtpIpUnblockRequestsPage />}
+          {tab === 'counter-management' && <CounterManagementPage />}
           {tab === 'loans'     && (
             <LoansPage
               key={loanStatus || 'all'}

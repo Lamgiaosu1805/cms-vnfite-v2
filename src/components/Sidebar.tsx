@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowDownUp, BarChart3, Briefcase, Building2, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Megaphone, Newspaper, Package, ShieldCheck, Users, Wallet, Scale, CalendarClock, Receipt, BadgeCheck, FileCheck2, ShieldAlert } from 'lucide-react';
+import { ArrowDownUp, BarChart3, Briefcase, Building2, CalendarCheck, ChevronDown, CircleDollarSign, ClipboardList, LayoutDashboard, LogOut, Megaphone, Newspaper, Package, ShieldCheck, Store, Users, Wallet, Scale, CalendarClock, Receipt, BadgeCheck, FileCheck2, ShieldAlert } from 'lucide-react';
 import { adminRoles, adminHasPermission, CMS_ROLE_LABELS, type AdminInfo } from '../api/client';
 import { LOAN_STATUS_OPTIONS, type LoanStatusFilter } from '../loanConstants';
 
-export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'manual-deposits' | 'otp-unblock-requests' | 'loans' | 'business-loans' | 'products' | 'news' | 'recruitment' | 'marketingNotifications' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
+export type TabKey = 'dashboard' | 'users' | 'business-kyc' | 'transactions' | 'manual-deposits' | 'otp-unblock-requests' | 'counter-management' | 'loans' | 'business-loans' | 'products' | 'news' | 'recruitment' | 'marketingNotifications' | 'admins' | 'audit' | 'withdrawals' | 'reconciliation' | 'auto-debit-audit' | 'distribution-log' | 'fee-revenue' | 'due-today' | 'early-settlements';
 
 interface SidebarProps {
   admin: AdminInfo;
@@ -49,6 +49,7 @@ export function Sidebar({
     { key: 'transactions', label: 'Giao dịch nạp/rút', icon: <ArrowDownUp size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'FINANCE'] },
     { key: 'manual-deposits', label: 'Duyệt bill nạp tiền', icon: <FileCheck2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'], permissions: ['finance.reconcile'] },
     { key: 'otp-unblock-requests', label: 'Mở chặn OTP', icon: <ShieldAlert size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'CUSTOMER_SUPPORT'] },
+    { key: 'counter-management', label: 'Điểm giao dịch', icon: <Store size={18} />, roles: ['SUPER_ADMIN', 'ADMIN'] },
     { key: 'loans', label: 'Gọi vốn cá nhân', icon: <CircleDollarSign size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'], permissions: ['loan.approve', 'loan.disburse', 'loan.propose'] },
     { key: 'business-loans', label: 'Gọi vốn DN / Hộ KD', icon: <Building2 size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'OPS', 'APPRAISER', 'APPROVER', 'FINANCE'], permissions: ['loan.approve', 'loan.disburse', 'loan.propose'] },
     { key: 'products', label: 'Sản phẩm gọi vốn', icon: <Package size={18} />, roles: ['SUPER_ADMIN', 'ADMIN', 'APPROVER'], permissions: ['loan.product.edit'] },

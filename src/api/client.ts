@@ -2003,3 +2003,53 @@ export async function createMarketingCampaign(
 export async function cancelMarketingCampaign(id: string): Promise<MarketingCampaignItem> {
   return request(`/notifications/campaigns/${id}/cancel`, { method: 'POST' });
 }
+
+// ─── Điểm giao dịch Core ────────────────────────────────────────────────────
+
+export type CounterRole = 'TELLER' | 'SUPERVISOR';
+
+export interface CounterBranch {
+  id: string;
+  branchCode: string;
+  branchName: string;
+  address: string;
+  active: boolean;
+}
+
+export interface CounterStaff {
+  id: string;
+  username: string;
+  employeeCode: string;
+  fullName: string;
+  role: CounterRole;
+  branchId: string;
+  active: boolean;
+  mustChangePassword: boolean;
+}
+
+export async function fetchCounterBranches(): Promise<CounterBranch[]> {
+  return request('/counter-management/branches');
+}
+
+export async function createCounterBranch(payload: {
+  branchCode: string;
+  branchName: string;
+  address: string;
+}): Promise<CounterBranch> {
+  return request('/counter-management/branches', { method: 'POST', data: payload });
+}
+
+export async function fetchCounterStaff(): Promise<CounterStaff[]> {
+  return request('/counter-management/staff');
+}
+
+export async function createCounterStaff(payload: {
+  username: string;
+  temporaryPassword: string;
+  employeeCode: string;
+  fullName: string;
+  role: CounterRole;
+  branchId: string;
+}): Promise<CounterStaff> {
+  return request('/counter-management/staff', { method: 'POST', data: payload });
+}
