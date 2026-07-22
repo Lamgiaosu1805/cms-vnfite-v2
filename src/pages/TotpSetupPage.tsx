@@ -77,7 +77,7 @@ export function TotpSetupPage({ pendingToken, onLoggedIn, onBack }: Props) {
             <div className="w-9 h-9 rounded-xl bg-white shadow flex items-center justify-center">
               <img src="/logo.png" alt="VNFITE" className="w-6 h-6 object-contain" />
             </div>
-            <span className="font-bold text-gray-800">VNFITE CMS</span>
+            <span className="font-bold text-gray-800 dark:text-gray-200">VNFITE Core</span>
           </div>
         </div>
 
@@ -90,7 +90,7 @@ export function TotpSetupPage({ pendingToken, onLoggedIn, onBack }: Props) {
             </div>
             <h2 className="text-xl font-bold text-gray-800">Thiết lập xác thực 2 lớp</h2>
             <p className="text-sm text-gray-400 text-center mt-1">
-              Bắt buộc cho mọi tài khoản quản trị VNFITE CMS
+              Bắt buộc cho mọi tài khoản quản trị VNFITE Core
             </p>
           </div>
 
@@ -153,7 +153,7 @@ export function TotpSetupPage({ pendingToken, onLoggedIn, onBack }: Props) {
               <div className="flex gap-3 p-3 rounded-xl mb-2" style={{ background: 'rgba(200,32,32,0.06)' }}>
                 <CheckCircle size={18} style={{ color: '#C82020' }} className="shrink-0 mt-0.5" />
                 <p className="text-sm text-gray-600">
-                  Mở ứng dụng xác thực, nhập mã 6 chữ số hiển thị cho tài khoản <strong>VNFITE CMS</strong>.
+                  Mở ứng dụng xác thực, nhập mã 6 chữ số hiển thị cho tài khoản <strong>VNFITE Core</strong>.
                 </p>
               </div>
 

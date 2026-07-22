@@ -30,7 +30,7 @@ function durationSeconds(start: string, end: string): string {
 
 function triggerLabel(source: string): string {
   if (source === 'CRON' || source === 'SCHEDULER') return 'Cron tự động';
-  return 'Thủ công (CMS)';
+  return 'Thủ công (Core)';
 }
 
 function resultTone(record: AutoDebitSweepResult): string {

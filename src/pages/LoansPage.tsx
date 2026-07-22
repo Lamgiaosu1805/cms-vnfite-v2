@@ -2568,7 +2568,7 @@ function DisbursementPanel({ loan, onActionDone }: { loan: CmsLoan; onActionDone
       )}
 
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Chỉ bấm <span className="font-semibold">Giải ngân</span> sau khi CMS đã xác nhận đủ khế ước giấy.
+        Chỉ bấm <span className="font-semibold">Giải ngân</span> sau khi Core đã xác nhận đủ khế ước giấy.
         Khi đó hệ thống sẽ chuyển vốn
         và sinh lịch thanh toán tính từ ngày giải ngân. Thao tác này không thể hoàn tác.
       </p>

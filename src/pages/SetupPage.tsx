@@ -38,7 +38,7 @@ export function SetupPage({ onDone }: SetupPageProps) {
             style={{ background: 'linear-gradient(135deg, #C82020, #8B0A0A)' }}>
             <ShieldCheck size={30} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Thiết lập VNFITE CMS</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Thiết lập VNFITE Core</h1>
           <p className="text-gray-500 mt-2 text-sm">Tạo tài khoản Super Admin để bắt đầu sử dụng hệ thống</p>
         </div>
 

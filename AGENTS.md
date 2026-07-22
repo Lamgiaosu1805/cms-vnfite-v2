@@ -1,12 +1,12 @@
-# VNFITE CMS - AGENTS.md
+# VNFITE Core Operations - AGENTS.md
 
-This file is the Codex entrypoint for the VNFITE CMS web project.
+This file is the Codex entrypoint for the VNFITE Core operations web project. Technical repo/API names may retain `CMS` for compatibility, but user-facing branding is **VNFITE Core**.
 
 Read `CLAUDE.md` first for the source of truth. If this file and `CLAUDE.md` disagree, follow `CLAUDE.md` and update this file.
 
 ## Project Boundary
 
-This repository is the CMS web frontend only.
+This repository is the VNFITE Core operations frontend only. Direct counter operations live in the separate `VnFiteCounter` project and use separate Core staff accounts.
 
 Related projects:
 

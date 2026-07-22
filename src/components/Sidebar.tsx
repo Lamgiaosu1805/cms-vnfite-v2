@@ -82,7 +82,7 @@ export function Sidebar({
             <img src="/logo.png" alt="VNFITE" className="w-7 h-7 object-contain" />
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-sm leading-tight text-white">VNFITE CMS</p>
+            <p className="font-bold text-sm leading-tight text-white">VNFITE Core</p>
             <p className="text-xs text-red-200 truncate">{admin.fullName || admin.username}</p>
           </div>
         </div>
